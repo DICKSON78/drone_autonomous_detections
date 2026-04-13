@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  # Gazebo + PX4 SITL Simulation
+  gazebo-px4:
+    image: px4io/px4-sitl-gazebo:latest
+    container_name: gazebo-px4
+    ports:
+      - "14540:14540/udp"  # MAVLink
+      - "14556:14556/udp"  # MAVLink 2
+    environment:
+      - PX4_SIM_HOST=gazebo-px4
+      - PX4_SIM_PORT=14540
+    volumes:
+      - ./px4_config:/px4_config
+    networks:
+      - drone-network
+    restart: unless-stopped
+
+  # Object Detection Service
+  object-detection:
+    build: ./microservices/object-detection
+    container_name: object-detection
+    ports:
+      - "8002:8002"
+    depends_on:
+      - kafka-bridge
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=PC1:9092
+    networks:
+      - drone-network
+    restart: unless-stopped
+
+  # RL Navigation Service  
+  rl-navigation:
+    build: ./microservices/rl-navigation
+    container_name: rl-navigation
+    ports:
+      - "8003:8003"
+    depends_on:
+      - kafka-bridge
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=PC1:9092
+    networks:
+      - drone-network
+    restart: unless-stopped
+
+  # Kafka Bridge (connects to PC1 Kafka)
+  kafka-bridge:
+    image: confluentinc/cp-kafka:7.4.0
+    container_name: kafka-bridge
+    command: |
+      sh -c "
+      echo 'client.id=bridge-client
+      bootstrap.servers=PC1:9092' > /tmp/bridge.properties &&
+      kafka-topics --bootstrap-server PC1:9092 --list &&
+      tail -f /dev/null
+      "
+    networks:
+      - drone-network
+
+networks:
+  drone-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  # Feedback Service (TTS) - Main service for PC4
+  feedback-service:
+    build: ./microservices/feedback_service
+    container_name: feedback-service
+    ports:
+      - "8005:8005"
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=PC1:9092
+    # Add host device for audio output
+    devices:
+      - /dev/snd:/dev/snd
+    networks:
+      - drone-network
+    restart: unless-stopped
+
+networks:
+  drone-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.24.0.0/16

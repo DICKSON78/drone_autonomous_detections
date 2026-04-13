@@ -1,0 +1,68 @@
+version: '3.8'
+
+services:
+  # InfluxDB Database
+  influxdb:
+    image: influxdb:2.7
+    container_name: influxdb
+    ports:
+      - "8086:8086"
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=admin
+      - DOCKER_INFLUXDB_INIT_PASSWORD=admin123
+      - DOCKER_INFLUXDB_INIT_ORG=drone-project
+      - DOCKER_INFLUXDB_INIT_BUCKET=drone_telemetry
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=drone-telemetry-token
+    volumes:
+      - influxdb_data:/var/lib/influxdb2
+    networks:
+      - drone-network
+    restart: unless-stopped
+
+  # Grafana Dashboard
+  grafana:
+    image: grafana/grafana:10.2.0
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+      - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-simple-json-datasource
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    networks:
+      - drone-network
+    depends_on:
+      - influxdb
+    restart: unless-stopped
+
+  # Telemetry Collector Service
+  telemetry-collector:
+    build: ./microservices/telemetry-collector
+    container_name: telemetry-collector
+    ports:
+      - "8004:8004"
+    depends_on:
+      - influxdb
+    environment:
+      - INFLUXDB_URL=http://influxdb:8086
+      - INFLUXDB_TOKEN=drone-telemetry-token
+      - INFLUXDB_ORG=drone-project
+      - INFLUXDB_BUCKET=drone_telemetry
+      - KAFKA_BOOTSTRAP_SERVERS=PC1:9092
+    networks:
+      - drone-network
+    restart: unless-stopped
+
+volumes:
+  influxdb_data:
+  grafana_data:
+
+networks:
+  drone-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.21.0.0/16

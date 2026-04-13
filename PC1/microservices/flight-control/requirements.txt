@@ -1,0 +1,6 @@
+kafka-python==2.0.2
+mavsdk==1.4.0
+fastapi==0.104.1
+uvicorn==0.24.0
+pydantic==2.5.0
+asyncio-mqtt==0.13.0
