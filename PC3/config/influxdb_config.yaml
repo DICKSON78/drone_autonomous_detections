@@ -1,1 +1,240 @@
-# Database connection and retention settings
+# InfluxDB Configuration
+# Time-series database settings for drone telemetry
+
+influxdb:
+  # Connection Settings
+  url: "http://localhost:8086"
+  token: "influxdb-token-drone-system"
+  org: "drone-org"
+  bucket: "drone-telemetry"
+  
+  # Database Configuration
+  retention_policy:
+    name: "autogen"
+    duration: "30d"
+    shard_group_duration: "1h"
+    replica_count: 1
+    
+  # Performance Settings
+  max_series_per_database: 1000000
+  max_values_per_tag: 100000
+  max_series_per_measurement: 100000
+  
+  # Batch Settings
+  batch_size: 1000
+  flush_interval: 1000  # milliseconds
+  jitter_interval: 0  # milliseconds
+
+# Kafka Configuration
+kafka:
+  bootstrap_servers: "PC1:9092"
+  consumer_group: "telemetry-collector-group"
+  auto_offset_reset: "latest"
+  enable_auto_commit: true
+  session_timeout_ms: 30000
+  heartbeat_interval_ms: 3000
+
+# Data Processing
+processing:
+  # Data Validation
+  validation:
+    enable_schema_validation: true
+    strict_mode: false
+    missing_value_strategy: "skip"  # skip, default, error
+    
+  # Data Transformation
+  transformation:
+    enable_unit_conversion: true
+    coordinate_system: "WGS84"
+    altitude_reference: "MSL"  # Mean Sea Level
+    
+  # Quality Control
+  quality:
+    enable_outlier_detection: true
+    outlier_threshold: 3.0  # Standard deviations
+    enable_duplicate_detection: true
+    duplicate_window: "5s"
+
+# Schema Definitions
+schemas:
+  # Flight Telemetry
+  flight_telemetry:
+    measurement: "flight_telemetry"
+    tags:
+      - "drone_id"
+      - "source_pc"
+      - "flight_mode"
+    fields:
+      latitude: "float"
+      longitude: "float"
+      altitude: "float"
+      speed: "float"
+      heading: "float"
+      vertical_speed: "float"
+      ground_speed: "float"
+      status: "string"
+      
+  # Object Detections
+  object_detections:
+    measurement: "object_detections"
+    tags:
+      - "drone_id"
+      - "source_pc"
+      - "object_class"
+      - "detection_id"
+    fields:
+      confidence: "float"
+      bbox_x: "float"
+      bbox_y: "float"
+      bbox_width: "float"
+      bbox_height: "float"
+      area: "float"
+      
+  # Navigation Telemetry
+  navigation_telemetry:
+    measurement: "navigation_telemetry"
+    tags:
+      - "drone_id"
+      - "source_pc"
+      - "navigation_mode"
+    fields:
+      next_action: "string"
+      confidence: "float"
+      estimated_time: "float"
+      path_length: "integer"
+      obstacles_detected: "integer"
+      
+  # System Metrics
+  system_metrics:
+    measurement: "system_metrics"
+    tags:
+      - "drone_id"
+      - "source_pc"
+      - "component"
+    fields:
+      battery_percentage: "float"
+      battery_voltage: "float"
+      battery_current: "float"
+      battery_temperature: "float"
+      cpu_usage: "float"
+      memory_usage: "float"
+      disk_usage: "float"
+      temperature: "float"
+      
+  # Alerts
+  alerts:
+    measurement: "alerts"
+    tags:
+      - "drone_id"
+      - "source_pc"
+      - "alert_type"
+      - "severity"
+    fields:
+      message: "string"
+      threshold_value: "float"
+      actual_value: "float"
+      acknowledged: "boolean"
+
+# Performance Monitoring
+monitoring:
+  # Database Metrics
+  database:
+    monitor_point_count: true
+    monitor_series_count: true
+    monitor_query_performance: true
+    slow_query_threshold: 1000  # milliseconds
+    
+  # System Metrics
+  system:
+    monitor_memory_usage: true
+    monitor_cpu_usage: true
+    monitor_disk_usage: true
+    monitor_network_io: true
+    
+  # Alerting
+  alerts:
+    enable_performance_alerts: true
+    enable_storage_alerts: true
+    enable_connection_alerts: true
+    
+    # Thresholds
+    thresholds:
+      memory_usage: 85.0  # percentage
+      cpu_usage: 80.0      # percentage
+      disk_usage: 90.0      # percentage
+      point_rate: 1000      # points/second
+
+# Backup and Retention
+backup:
+  # Automated Backups
+  enabled: true
+  schedule: "0 2 * * *"  # Daily at 2 AM
+  backup_directory: "/app/data/backups"
+  retention_days: 90
+  
+  # Backup Format
+  format: "line-protocol"  # line-protocol, csv, json
+  compression: "gzip"
+  
+  # Retention Policies
+  policies:
+    - name: "high_frequency"
+      duration: "7d"
+      shard_group_duration: "1h"
+      replica_count: 1
+      default: false
+      
+    - name: "medium_frequency"
+      duration: "30d"
+      shard_group_duration: "6h"
+      replica_count: 1
+      default: true
+      
+    - name: "low_frequency"
+      duration: "90d"
+      shard_group_duration: "24h"
+      replica_count: 1
+      default: false
+
+# Query Optimization
+optimization:
+  # Indexing
+  indexes:
+    - tag: "drone_id"
+      cardinality: "low"
+    - tag: "source_pc"
+      cardinality: "low"
+    - tag: "timestamp"
+      cardinality: "high"
+      
+  # Query Cache
+  cache:
+    enabled: true
+    ttl: 300  # seconds
+    max_size: 1000
+    
+  # Connection Pool
+  pool:
+    max_connections: 10
+    max_idle_time: 300  # seconds
+    connection_timeout: 30  # seconds
+
+# Security
+security:
+  # Authentication
+  auth:
+    enabled: true
+    method: "token"
+    token_rotation_days: 90
+    
+  # Network Security
+  network:
+    enable_tls: false
+    tls_cert_path: "/app/certs/influxdb.crt"
+    tls_key_path: "/app/certs/influxdb.key"
+    
+  # Access Control
+  permissions:
+    read_buckets: ["drone-telemetry"]
+    write_buckets: ["drone-telemetry"]
+    admin_operations: false

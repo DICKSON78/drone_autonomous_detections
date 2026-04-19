@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+venv/
+.venv/
+fyp_env/
+__pycache__/
+*.pyc
+
+# Environment variables
+.env
+
+# Logs
+*.log
+logs/
+
+# Build artifacts
+coverage/
+dist/
+build/
+.pytest_cache/
+
+# IDE files
+.vscode/
+.idea/
+.DS_Store
+
+# Data
+data/influxdb/
+data/postgres/
+data/grafana/
+data/reports/

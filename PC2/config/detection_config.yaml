@@ -1,1 +1,176 @@
-# Object detection parameters and YOLO configuration
+# Object Detection Configuration
+# YOLOv8 model parameters and settings
+
+detection:
+  # Model Configuration
+  model:
+    name: "yolov8n.pt"  # Options: yolov8n.pt, yolov8s.pt, yolov8m.pt, yolov8l.pt, yolov8x.pt
+    confidence_threshold: 0.5
+    iou_threshold: 0.45
+    max_detections: 100
+    
+    # Model Performance
+    input_size: [640, 640]  # width, height
+    batch_size: 1
+    device: "auto"  # auto, cpu, cuda:0, cuda:1
+    
+  # Target Classes for Drone Missions
+  target_classes:
+    # People and Animals
+    - "person"
+    - "dog"
+    - "cat"
+    - "horse"
+    - "cow"
+    - "sheep"
+    - "bird"
+    
+    # Vehicles
+    - "car"
+    - "truck"
+    - "bicycle"
+    - "motorcycle"
+    - "bus"
+    
+    # Environment
+    - "tree"
+    - "bush"
+    - "building"
+    - "house"
+    - "road"
+    - "river"
+    
+  # Camera Settings
+  camera:
+    resolution: [1920, 1080]
+    fps: 30
+    fov: 90  # degrees
+    
+    # Image Processing
+    brightness: 0.0  # -1.0 to 1.0
+    contrast: 1.0    # 0.0 to 2.0
+    saturation: 1.0  # 0.0 to 2.0
+    sharpness: 1.0   # 0.0 to 2.0
+    
+  # Detection Zones
+  zones:
+    enabled: true
+    primary_zone:
+      x: 0.1    # 10% from left
+      y: 0.1    # 10% from top
+      width: 0.8  # 80% of image width
+      height: 0.8 # 80% of image height
+      
+    # Alert Zones (higher priority)
+    alert_zones:
+      - name: "front"
+        x: 0.3
+        y: 0.1
+        width: 0.4
+        height: 0.4
+        priority: "high"
+        
+      - name: "below"
+        x: 0.1
+        y: 0.7
+        width: 0.8
+        height: 0.3
+        priority: "critical"
+
+# Performance Optimization
+performance:
+  # Processing Settings
+  processing:
+    skip_frames: 0  # Process every frame
+    parallel_processing: true
+    gpu_memory_fraction: 0.7
+    
+    # Memory Management
+    max_image_size: 4096  # pixels
+    buffer_size: 10       # frames
+    
+  # Threading
+  threads:
+    detection_threads: 2
+    preprocessing_threads: 1
+    postprocessing_threads: 1
+
+# Alert System
+alerts:
+  # Detection Alerts
+  enabled: true
+  min_confidence_for_alert: 0.7
+  
+  # Alert Types
+  types:
+    obstacle_detected:
+      enabled: true
+      classes: ["person", "car", "truck", "building"]
+      min_distance: 50.0  # meters
+      
+    wildlife_detected:
+      enabled: true
+      classes: ["dog", "cat", "horse", "cow", "sheep", "bird"]
+      min_confidence: 0.6
+      
+    no_fly_zone:
+      enabled: true
+      classes: ["person", "car", "truck"]
+      
+  # Alert Frequency
+  cooldown_period: 5.0  # seconds between same type alerts
+  max_alerts_per_minute: 10
+
+# Data Collection
+data:
+  # Image Storage
+  save_detection_images: true
+  save_directory: "/app/data/detection_images"
+  max_storage_gb: 10.0
+  
+  # Metadata
+  save_metadata: true
+  metadata_fields:
+    - "timestamp"
+    - "detections"
+    - "camera_settings"
+    - "drone_position"
+    - "confidence_scores"
+    
+  # Training Data
+  collect_training_data: false
+  training_data_directory: "/app/data/training_images"
+
+# Integration Settings
+integration:
+  # Kafka Settings
+  kafka:
+    topic: "drone.telemetry.detections"
+    batch_size: 10
+    flush_interval: 1.0  # seconds
+    
+  # Camera Interface
+  camera_source:
+    type: "gazebo"  # gazebo, usb, rtsp, file
+    source: "/dev/video0"
+    backup_source: "test_video.mp4"
+    
+  # Gazebo Integration
+  gazebo:
+    enabled: true
+    camera_topic: "/gazebo/default/camera/link/camera/image"
+    camera_info_topic: "/gazebo/default/camera/link/camera/info"
+    
+# Testing and Development
+testing:
+  # Test Images
+  test_images_directory: "/app/tests/test_images"
+  
+  # Benchmarking
+  benchmark_enabled: false
+  benchmark_iterations: 100
+  
+  # Debug Mode
+  debug_mode: false
+  show_detections: true
+  save_debug_images: false

@@ -14,36 +14,56 @@ services:
     volumes:
       - ./px4_config:/px4_config
     networks:
-      - drone-network
+      - fyp-network
     restart: unless-stopped
 
-  # Object Detection Service
+  # Object Detection Service (Python - YOLOv8)
   object-detection:
-    build: ./microservices/object-detection
+    build: ./src/object-detection
     container_name: object-detection
     ports:
       - "8002:8002"
     depends_on:
       - kafka-bridge
     environment:
-      - KAFKA_BOOTSTRAP_SERVERS=PC1:9092
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+    volumes:
+      - ./models:/app/models
+      - ./data:/app/data
+      - ./config:/app/config
+      - ./logs:/app/logs
     networks:
-      - drone-network
+      - fyp-network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
-  # RL Navigation Service  
+  # RL Navigation Service (Python - Deep Q-Network)
   rl-navigation:
-    build: ./microservices/rl-navigation
+    build: ./src/rl-navigation
     container_name: rl-navigation
     ports:
       - "8003:8003"
     depends_on:
       - kafka-bridge
     environment:
-      - KAFKA_BOOTSTRAP_SERVERS=PC1:9092
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+    volumes:
+      - ./models:/app/models
+      - ./data:/app/data
+      - ./config:/app/config
+      - ./logs:/app/logs
     networks:
-      - drone-network
+      - fyp-network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   # Kafka Bridge (connects to PC1 Kafka)
   kafka-bridge:
@@ -52,16 +72,14 @@ services:
     command: |
       sh -c "
       echo 'client.id=bridge-client
-      bootstrap.servers=PC1:9092' > /tmp/bridge.properties &&
-      kafka-topics --bootstrap-server PC1:9092 --list &&
+      bootstrap.servers=kafka:9092' > /tmp/bridge.properties &&
+      kafka-topics --bootstrap-server kafka:9092 --list &&
       tail -f /dev/null
       "
     networks:
-      - drone-network
+      - fyp-network
 
 networks:
-  drone-network:
-    driver: bridge
-    ipam:
-      config:
-        - subnet: 172.20.0.0/16
+  fyp-network:
+    name: fyp-network
+    external: true

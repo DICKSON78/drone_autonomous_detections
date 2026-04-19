@@ -1,1 +1,364 @@
-# Dashboard settings and data source configuration
+# Grafana Configuration
+# Dashboard and monitoring setup for drone system
+
+grafana:
+  # Server Configuration
+  server:
+    protocol: "http"
+    http_addr: "0.0.0.0"
+    http_port: 3000
+    domain: "localhost"
+    
+    # Security
+    admin_user: "admin"
+    admin_password: "admin123"
+    secret_key: "grafana-secret-key"
+    
+    # Database
+    type: "sqlite3"
+    path: "/var/lib/grafana/grafana.db"
+    
+    # Logging
+    log_level: "info"
+    log_mode: "console,file"
+
+  # Data Sources
+  datasources:
+    influxdb:
+      name: "InfluxDB"
+      type: "influxdb"
+      access: "proxy"
+      url: "http://influxdb:8086"
+      database: "drone-telemetry"
+      user: "admin"
+      password: "admin123"
+      
+      # Connection Settings
+      secure: false
+      with_credentials: false
+      is_default: true
+      
+      # Query Settings
+      time_interval: "5s"
+      timeout: "30s"
+      
+  # Dashboard Configuration
+  dashboards:
+    # Flight Dashboard
+    flight_dashboard:
+      title: "Drone Flight Status"
+      uid: "flight-status"
+      tags: ["drone", "flight", "telemetry"]
+      
+      # Panels
+      panels:
+        - title: "GPS Position"
+          type: "geomap"
+          position: [0, 0]
+          size: [12, 8]
+          targets:
+            - measurement: "flight_telemetry"
+              fields: ["latitude", "longitude"]
+              tags: ["drone_id"]
+              
+        - title: "Altitude"
+          type: "stat"
+          position: [12, 0]
+          size: [6, 4]
+          targets:
+            - measurement: "flight_telemetry"
+              field: "altitude"
+              
+        - title: "Speed"
+          type: "gauge"
+          position: [18, 0]
+          size: [6, 4]
+          targets:
+            - measurement: "flight_telemetry"
+              field: "speed"
+              
+        - title: "Battery Status"
+          type: "stat"
+          position: [12, 4]
+          size: [6, 4]
+          targets:
+            - measurement: "system_metrics"
+              field: "battery_percentage"
+              
+        - title: "Flight Status"
+          type: "stat"
+          position: [18, 4]
+          size: [6, 4]
+          targets:
+            - measurement: "flight_telemetry"
+              field: "status"
+              
+    # Object Detection Dashboard
+    detection_dashboard:
+      title: "Object Detection"
+      uid: "object-detection"
+      tags: ["drone", "vision", "detection"]
+      
+      panels:
+        - title: "Detection Count"
+          type: "stat"
+          position: [0, 0]
+          size: [8, 4]
+          targets:
+            - measurement: "object_detections"
+              function: "count"
+              
+        - title: "Detection Confidence"
+          type: "heatmap"
+          position: [8, 0]
+          size: [8, 4]
+          targets:
+            - measurement: "object_detections"
+              field: "confidence"
+              
+        - title: "Object Classes"
+          type: "piechart"
+          position: [16, 0]
+          size: [8, 4]
+          targets:
+            - measurement: "object_detections"
+              tag: "object_class"
+              
+        - title: "Detection Timeline"
+          type: "timeline"
+          position: [0, 4]
+          size: [24, 6]
+          targets:
+            - measurement: "object_detections"
+              fields: ["confidence"]
+              tags: ["object_class"]
+              
+    # Navigation Dashboard
+    navigation_dashboard:
+      title: "Navigation Analytics"
+      uid: "navigation-analytics"
+      tags: ["drone", "navigation", "rl"]
+      
+      panels:
+        - title: "Navigation Actions"
+          type: "barchart"
+          position: [0, 0]
+          size: [12, 6]
+          targets:
+            - measurement: "navigation_telemetry"
+              field: "next_action"
+              
+        - title: "Path Efficiency"
+          type: "stat"
+          position: [12, 0]
+          size: [6, 3]
+          targets:
+            - measurement: "navigation_telemetry"
+              field: "path_length"
+              
+        - title: "Navigation Confidence"
+          type: "gauge"
+          position: [18, 0]
+          size: [6, 3]
+          targets:
+            - measurement: "navigation_telemetry"
+              field: "confidence"
+              
+        - title: "Obstacle Detection"
+          type: "stat"
+          position: [12, 3]
+          size: [6, 3]
+          targets:
+            - measurement: "navigation_telemetry"
+              field: "obstacles_detected"
+              
+    # System Performance Dashboard
+    system_dashboard:
+      title: "System Performance"
+      uid: "system-performance"
+      tags: ["drone", "system", "performance"]
+      
+      panels:
+        - title: "CPU Usage"
+          type: "graph"
+          position: [0, 0]
+          size: [8, 6]
+          targets:
+            - measurement: "system_metrics"
+              field: "cpu_usage"
+              
+        - title: "Memory Usage"
+          type: "graph"
+          position: [8, 0]
+          size: [8, 6]
+          targets:
+            - measurement: "system_metrics"
+              field: "memory_usage"
+              
+        - title: "Disk Usage"
+          type: "graph"
+          position: [16, 0]
+          size: [8, 6]
+          targets:
+            - measurement: "system_metrics"
+              field: "disk_usage"
+              
+        - title: "Temperature"
+          type: "graph"
+          position: [0, 6]
+          size: [12, 4]
+          targets:
+            - measurement: "system_metrics"
+              field: "temperature"
+              
+        - title: "Battery Voltage"
+          type: "graph"
+          position: [12, 6]
+          size: [12, 4]
+          targets:
+            - measurement: "system_metrics"
+              field: "battery_voltage"
+
+  # Alerting Configuration
+  alerting:
+    # Notification Channels
+    notification_channels:
+      - name: "email"
+        type: "email"
+        settings:
+          addresses: ["admin@drone-system.com"]
+          
+      - name: "slack"
+        type: "slack"
+        settings:
+          url: "https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK"
+          
+    # Alert Rules
+    rules:
+      - name: "Low Battery"
+        condition: "system_metrics.battery_percentage < 20"
+        for: "5m"
+        severity: "warning"
+        notifications: ["email"]
+        
+      - name: "High CPU Usage"
+        condition: "system_metrics.cpu_usage > 80"
+        for: "10m"
+        severity: "critical"
+        notifications: ["email", "slack"]
+        
+      - name: "No GPS Signal"
+        condition: "flight_telemetry.latitude == 0"
+        for: "30s"
+        severity: "critical"
+        notifications: ["email", "slack"]
+        
+      - name: "High Memory Usage"
+        condition: "system_metrics.memory_usage > 85"
+        for: "5m"
+        severity: "warning"
+        notifications: ["email"]
+
+  # User Management
+  users:
+    - name: "pilot"
+      email: "pilot@drone-system.com"
+      role: "Editor"
+      password: "pilot123"
+      
+    - name: "operator"
+      email: "operator@drone-system.com"
+      role: "Viewer"
+      password: "operator123"
+      
+    - name: "admin"
+      email: "admin@drone-system.com"
+      role: "Admin"
+      password: "admin123"
+
+  # Plugin Configuration
+  plugins:
+    # Essential Plugins
+    installed:
+      - name: "grafana-clock-panel"
+        version: "1.2.0"
+        
+      - name: "grafana-piechart-panel"
+        version: "1.6.1"
+        
+      - name: "grafana-worldmap-panel"
+        version: "0.3.2"
+        
+    # Custom Plugins
+    custom:
+      - name: "drone-status-panel"
+        path: "/var/lib/grafana/plugins/drone-status-panel"
+        
+      - name: "flight-path-panel"
+        path: "/var/lib/grafana/plugins/flight-path-panel"
+
+  # Performance Settings
+  performance:
+    # Query Optimization
+    query_timeout: "60s"
+    concurrent_query_limit: 10
+    
+    # Cache Settings
+    cache_enabled: true
+    cache_ttl: "300s"
+    cache_max_size: "100MB"
+    
+    # Rendering
+    rendering_timeout: "30s"
+    max_concurrent_requests: 100
+
+  # Security Settings
+  security:
+    # Authentication
+    auth_basic_enabled: true
+    auth_anonymous_enabled: false
+    
+    # Session Management
+    session_provider: "memory"
+    session_timeout: "30m"
+    
+    # CORS
+    cors_enabled: true
+    cors_origins: ["*"]
+    cors_methods: ["GET", "POST", "PUT", "DELETE"]
+    cors_headers: ["Authorization", "Content-Type"]
+
+# Provisioning Configuration
+provisioning:
+  # Data Sources
+  datasources:
+    enabled: true
+    path: "/etc/grafana/provisioning/datasources"
+    
+  # Dashboards
+  dashboards:
+    enabled: true
+    path: "/etc/grafana/provisioning/dashboards"
+    
+  # Users
+  users:
+    enabled: true
+    path: "/etc/grafana/provisioning/users"
+
+# Integration Settings
+integration:
+  # InfluxDB Integration
+  influxdb:
+    auto_create_datasource: true
+    health_check_interval: "30s"
+    
+  # Kafka Integration
+  kafka:
+    enable_alert_publishing: true
+    alert_topic: "grafana.alerts"
+    
+  # External APIs
+  apis:
+    enable_external_api: true
+    api_key_required: true
+    rate_limit: "1000/hour"

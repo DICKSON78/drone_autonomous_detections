@@ -1,0 +1,64 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# PC3 Alert Rules Configuration
+# ─────────────────────────────────────────────────────────────────────────────
+# Each rule defines a threshold check on a telemetry field.
+# When triggered, an alert is broadcast over WebSocket to all connected clients.
+#
+# Structure per rule:
+#   field:     the data field to check (from the Kafka message)
+#   operator:  one of  <  >  <=  >=  ==
+#   threshold: numeric threshold value
+#   severity:  "warning" | "critical"
+#   message:   human-readable alert description
+# ─────────────────────────────────────────────────────────────────────────────
+
+battery:
+  - field: percentage
+    operator: "<"
+    threshold: 25
+    severity: warning
+    message: "Battery low — below 25%, consider returning to launch"
+
+  - field: percentage
+    operator: "<"
+    threshold: 10
+    severity: critical
+    message: "Battery CRITICAL — below 10%, initiate RTL immediately"
+
+  - field: voltage
+    operator: "<"
+    threshold: 14.0
+    severity: warning
+    message: "Battery voltage low — below 14V"
+
+gps:
+  - field: altitude
+    operator: ">"
+    threshold: 120
+    severity: warning
+    message: "Altitude exceeds 120m — regulatory limit in most jurisdictions"
+
+  - field: altitude
+    operator: ">"
+    threshold: 150
+    severity: critical
+    message: "Altitude CRITICAL — above 150m, land immediately"
+
+  - field: speed
+    operator: ">"
+    threshold: 15
+    severity: warning
+    message: "Speed exceeds 15 m/s — high speed warning"
+
+attitude:
+  - field: roll_deg
+    operator: ">"
+    threshold: 45
+    severity: warning
+    message: "Excessive roll angle detected (> 45°)"
+
+  - field: pitch_deg
+    operator: ">"
+    threshold: 45
+    severity: warning
+    message: "Excessive pitch angle detected (> 45°)"

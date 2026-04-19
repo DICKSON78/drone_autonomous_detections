@@ -8,17 +8,15 @@ services:
     ports:
       - "8005:8005"
     environment:
-      - KAFKA_BOOTSTRAP_SERVERS=PC1:9092
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
     # Add host device for audio output
     devices:
       - /dev/snd:/dev/snd
     networks:
-      - drone-network
+      - fyp-network
     restart: unless-stopped
 
 networks:
-  drone-network:
-    driver: bridge
-    ipam:
-      config:
-        - subnet: 172.24.0.0/16
+  fyp-network:
+    name: fyp-network
+    external: true

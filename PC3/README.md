@@ -16,7 +16,59 @@ InfluxDB Database        (Port 8086)
 Grafana Dashboard        (Port 3000)
 ```
 
-##  Quick Setup (5 Minutes)
+##  Complete Integration Setup (10 Minutes)
+
+### **Prerequisites**
+- Docker and Docker Compose installed
+- System with at least 4GB RAM
+- Network access to PC1 and PC2
+
+### **Step 1: Quick Setup Script**
+```bash
+# Navigate to PC3 directory
+cd /home/dickson/FYP/drone_autonomous/PC3
+
+# Make scripts executable
+chmod +x scripts/setup.sh
+chmod +x scripts/health-check.sh
+chmod +x scripts/monitor.sh
+
+# Run complete setup
+./scripts/setup.sh
+```
+
+### **Step 2: Verify Integration**
+```bash
+# Check all services
+docker-compose ps
+
+# Run health check
+./scripts/health-check.sh
+
+# Test endpoints
+curl http://localhost:8004/health    # Telemetry Collector
+curl http://localhost:8086/health     # InfluxDB
+curl http://localhost:3000/api/health # Grafana
+```
+
+### **Step 3: Access Services**
+
+#### **Grafana Dashboard**
+- **URL**: http://localhost:3000
+- **Login**: admin / admin123
+- **Features**: Real-time dashboards, alerts, data visualization
+
+#### **InfluxDB Database**
+- **URL**: http://localhost:8086
+- **Organization**: drone-project
+- **Bucket**: drone_telemetry
+- **Token**: drone-telemetry-token
+
+#### **Telemetry Collector API**
+- **URL**: http://localhost:8004
+- **Health**: http://localhost:8004/health
+- **Status**: http://localhost:8004/status
+- **Metrics**: http://localhost:8004/metrics
 
 ### **Step 1: Install Docker (If not installed)**
 ```bash
