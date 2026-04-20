@@ -1,1 +1,224 @@
-# Reinforcement learning hyperparameters and settings
+# Reinforcement Learning Configuration
+# DQN navigation agent parameters and training settings
+
+rl:
+  # Algorithm Configuration
+  algorithm: "DQN"  # Deep Q-Network
+  
+  # Network Architecture
+  network:
+    state_dim: 14      # State space dimension
+    action_dim: 6       # Action space dimension (up, down, left, right, hover, emergency)
+    hidden_layers: [256, 128, 64]
+    activation: "relu"
+    output_activation: "linear"
+    
+    # Network Parameters
+    learning_rate: 0.001
+    optimizer: "adam"
+    weight_decay: 0.0001
+    
+  # Training Parameters
+  training:
+    episodes: 10000
+    max_steps_per_episode: 1000
+    batch_size: 32
+    memory_size: 10000
+    
+    # Exploration
+    epsilon_start: 1.0
+    epsilon_end: 0.01
+    epsilon_decay: 0.995
+    exploration_fraction: 0.5
+    
+    # Learning
+    learning_starts: 1000
+    train_freq: 4
+    target_update_freq: 100
+    
+    # Rewards
+    gamma: 0.99
+    reward_scale: 1.0
+    
+  # Environment Configuration
+  environment:
+    name: "DroneNavigationEnv"
+    grid_size: 100
+    max_obstacles: 20
+    obstacle_types: ["static", "moving"]
+    
+    # State Space
+    state_features:
+      - "drone_position"
+      - "target_position"
+      - "obstacle_distances"
+      - "altitude"
+      - "velocity"
+      
+    # Action Space
+    actions:
+      - "up"        # Increase Y coordinate
+      - "down"      # Decrease Y coordinate
+      - "left"      # Decrease X coordinate
+      - "right"     # Increase X coordinate
+      - "hover"     # Stay in place
+      - "emergency"  # Emergency stop
+      
+    # Reward Function
+    reward:
+      target_reached: 100.0
+      step_penalty: -0.1
+      obstacle_collision: -50.0
+      out_of_bounds: -25.0
+      distance_reward: -0.01  # Per unit distance
+      
+    # Episode Termination
+    termination:
+      max_distance: 2.0      # Distance to target for success
+      max_steps: 1000        # Maximum steps per episode
+      collision_penalty: true
+
+# Performance Optimization
+performance:
+  # Hardware Settings
+  device: "auto"  # auto, cpu, cuda:0, cuda:1
+  num_workers: 4
+  pin_memory: true
+  
+  # Memory Management
+  replay_buffer_size: 100000
+  prioritized_replay: false
+  
+  # Training Speed
+  gradient_clip: 1.0
+  normalize_observations: true
+  normalize_rewards: false
+
+# Model Management
+model:
+  # Checkpointing
+  save_freq: 1000        # Save model every N episodes
+  save_best_only: true
+  checkpoint_dir: "/app/models/checkpoints"
+  
+  # Model Files
+  model_name: "drone_navigation_dqn"
+  model_extension: ".pth"
+  metadata_file: "model_metadata.yaml"
+  
+  # Version Control
+  version_tracking: true
+  performance_tracking: true
+
+# Evaluation and Testing
+evaluation:
+  # Evaluation Settings
+  eval_freq: 500          # Evaluate every N episodes
+  eval_episodes: 100       # Number of episodes for evaluation
+  deterministic: true      # Use greedy policy for evaluation
+  
+  # Success Metrics
+  success_threshold: 0.8   # 80% success rate for deployment
+  min_avg_reward: 50.0
+  max_avg_steps: 200
+  
+  # Benchmarking
+  benchmark_envs:
+    - "simple_obstacles"
+    - "dense_obstacles"
+    - "moving_obstacles"
+    - "no_fly_zones"
+
+# Simulation Integration
+simulation:
+  # Gazebo Integration
+  gazebo:
+    enabled: true
+    world_name: "drone_navigation_world"
+    update_rate: 50  # Hz
+    
+    # Drone Model
+    drone_model: "iris"
+    camera_enabled: true
+    lidar_enabled: true
+    
+    # Physics
+    physics_engine: "ode"
+    real_time_factor: 1.0
+    step_size: 0.02  # seconds
+    
+  # State Estimation
+  state_estimation:
+    position_noise: 0.1    # meters
+    velocity_noise: 0.05   # m/s
+    angle_noise: 0.05      # radians
+    
+    # Sensor Fusion
+    use_gps: true
+    use_imu: true
+    use_vision: true
+
+# Safety and Constraints
+safety:
+  # Flight Constraints
+  max_altitude: 120.0     # meters
+  min_altitude: 5.0       # meters
+  max_velocity: 20.0       # m/s
+  max_acceleration: 5.0     # m/s²
+  
+  # Geofencing
+  geofence:
+    enabled: true
+    center: [0, 0]         # [x, y] in environment coordinates
+    radius: 50.0           # meters
+    
+  # Emergency Procedures
+  emergency:
+    auto_land_on_collision: true
+    return_to_home_on_low_battery: true
+    obstacle_avoidance_priority: "high"
+
+# Data Collection and Logging
+data:
+  # Training Data
+  save_training_data: true
+  data_directory: "/app/data/rl_training"
+  
+  # Logging
+  log_level: "INFO"
+  log_interval: 100        # Log every N episodes
+  
+  # Metrics
+  track_metrics:
+    - "episode_reward"
+    - "episode_length"
+    - "success_rate"
+    - "collision_rate"
+    - "exploration_rate"
+    
+  # Visualization
+  tensorboard:
+    enabled: true
+    log_dir: "/app/logs/tensorboard"
+    update_freq: 10
+
+# Integration Settings
+integration:
+  # Kafka Settings
+  kafka:
+    command_topic: "drone.commands.navigation"
+    result_topic: "drone.telemetry.navigation"
+    batch_size: 5
+    flush_interval: 0.5  # seconds
+    
+  # Flight Control Interface
+  flight_control:
+    api_endpoint: "http://PC1:8001"
+    timeout: 10.0  # seconds
+    retry_attempts: 3
+    
+  # Object Detection Interface
+  object_detection:
+    api_endpoint: "http://PC2:8002"
+    use_detections: true
+    detection_confidence: 0.7

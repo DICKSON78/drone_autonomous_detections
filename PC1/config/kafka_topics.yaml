@@ -1,1 +1,87 @@
-# Kafka topic definitions for message brokering
+# Kafka Topic Configuration
+# Defines all topics used in the drone system
+
+topics:
+  # Command Topics
+  drone.commands.flight:
+    description: "Flight commands from command parser to flight control"
+    partitions: 3
+    replication_factor: 1
+    retention_ms: 86400000  # 24 hours
+    
+  drone.commands.detection:
+    description: "Detection commands from flight control to object detection"
+    partitions: 2
+    replication_factor: 1
+    retention_ms: 86400000
+    
+  drone.commands.navigation:
+    description: "Navigation commands from flight control to RL navigation"
+    partitions: 2
+    replication_factor: 1
+    retention_ms: 86400000
+
+  # Telemetry Topics
+  drone.telemetry.flight:
+    description: "Flight telemetry and status updates"
+    partitions: 3
+    replication_factor: 1
+    retention_ms: 86400000
+    
+  drone.telemetry.detections:
+    description: "Object detection results and events"
+    partitions: 2
+    replication_factor: 1
+    retention_ms: 86400000
+    
+  drone.telemetry.navigation:
+    description: "Navigation path and decision data"
+    partitions: 2
+    replication_factor: 1
+    retention_ms: 86400000
+
+  # Alert Topics
+  drone.alerts.emergency:
+    description: "Emergency alerts and safety notifications"
+    partitions: 3
+    replication_factor: 1
+    retention_ms: 604800000  # 7 days
+    
+  drone.alerts.system:
+    description: "System health and maintenance alerts"
+    partitions: 1
+    replication_factor: 1
+    retention_ms: 86400000
+
+  # Data Collection Topics
+  drone.data.raw:
+    description: "Raw sensor and camera data"
+    partitions: 4
+    replication_factor: 1
+    retention_ms: 86400000
+    
+  drone.data.processed:
+    description: "Processed analytics and metrics"
+    partitions: 2
+    replication_factor: 1
+    retention_ms: 604800000  # 7 days
+
+# Consumer Groups
+consumer_groups:
+  command-parser-group:
+    topics: [drone.commands.flight]
+    
+  flight-control-group:
+    topics: [drone.commands.flight, drone.commands.detection, drone.commands.navigation]
+    
+  object-detection-group:
+    topics: [drone.commands.detection]
+    
+  rl-navigation-group:
+    topics: [drone.commands.navigation]
+    
+  telemetry-collector-group:
+    topics: [drone.telemetry.flight, drone.telemetry.detections, drone.telemetry.navigation]
+    
+  alert-monitor-group:
+    topics: [drone.alerts.emergency, drone.alerts.system]

@@ -1,0 +1,21 @@
+apiVersion: 1
+
+# InfluxDB Data Source Configuration
+# Auto-provisioned InfluxDB datasource for Grafana
+
+datasources:
+  - name: InfluxDB
+    type: influxdb
+    access: proxy
+    url: http://influxdb:8086
+    database: drone-telemetry
+    user: admin
+    password: admin123
+    isDefault: true
+    jsonData:
+      version: Flux
+      organization: drone-org
+      defaultBucket: drone-telemetry
+      httpMode: POST
+    secureJsonData: {}
+    editable: true

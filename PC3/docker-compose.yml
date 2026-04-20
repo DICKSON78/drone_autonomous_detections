@@ -19,50 +19,132 @@ services:
     networks:
       - drone-network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8086/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-  # Grafana Dashboard
+  # Grafana Service
   grafana:
     image: grafana/grafana:10.2.0
     container_name: grafana
     ports:
       - "3000:3000"
+    depends_on:
+      influxdb:
+        condition: service_healthy
     environment:
+      - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=admin123
-      - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-simple-json-datasource
+      - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-piechart-panel,grafana-worldmap-panel
+      - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
+      - GF_SECURITY_ALLOW_EMBEDDING=true
+      - GF_AUTH_ANONYMOUS_ENABLED=false
+      - GF_USERS_ALLOW_SIGN_UP=false
     volumes:
       - grafana_data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/grafana.ini:/etc/grafana/grafana.ini
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
+    
     networks:
-      - drone-network
-    depends_on:
-      - influxdb
+      - fyp-network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-  # Telemetry Collector Service
+  # Telemetry Collector (Python)
   telemetry-collector:
-    build: ./microservices/telemetry-collector
+    build:
+      context: ./src/telemetry-collector
     container_name: telemetry-collector
     ports:
       - "8004:8004"
     depends_on:
-      - influxdb
+      influxdb:
+        condition: service_healthy
     environment:
       - INFLUXDB_URL=http://influxdb:8086
       - INFLUXDB_TOKEN=drone-telemetry-token
       - INFLUXDB_ORG=drone-project
       - INFLUXDB_BUCKET=drone_telemetry
-      - KAFKA_BOOTSTRAP_SERVERS=PC1:9092
+      - KAFKA_BROKERS=kafka:9092
+    volumes:
+      - ./config:/app/config
+      - ./logs:/app/logs
+    networks:
+      - fyp-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # API Gateway (Node.js Express)
+  api-gateway:
+    build:
+      context: ./src/api-gateway
+    container_name: api-gateway
+    ports:
+      - "3001:3001"
+    depends_on:
+      influxdb:
+        condition: service_healthy
+      telemetry-collector:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - INFLUXDB_URL=http://influxdb:8086
+      - INFLUXDB_TOKEN=drone-telemetry-token
+      - INFLUXDB_ORG=drone-project
+      - INFLUXDB_BUCKET=drone_telemetry
+      - KAFKA_BROKERS=kafka:9092
+      - TELEMETRY_COLLECTOR_URL=http://telemetry-collector:8004
+      - DATABASE_URL=postgresql://fyp_user:fyp_pass@postgres:5432/fyp_db
+    volumes:
+      - ./logs:/app/logs
+      - ./config:/app/config
+    networks:
+      - fyp-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # PostgreSQL - Relational Database for Mission History
+  postgres:
+    image: postgres:15
+    container_name: postgres
+    environment:
+      - POSTGRES_DB=fyp_db
+      - POSTGRES_USER=fyp_user
+      - POSTGRES_PASSWORD=fyp_pass
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
     networks:
       - drone-network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fyp_user -d fyp_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
   influxdb_data:
   grafana_data:
+  postgres_data:
 
 networks:
   drone-network:
     driver: bridge
-    ipam:
-      config:
-        - subnet: 172.21.0.0/16

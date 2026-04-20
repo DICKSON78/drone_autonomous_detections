@@ -9,7 +9,7 @@ services:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
     networks:
-      - drone-network
+      - fyp-network
 
   kafka:
     image: confluentinc/cp-kafka:7.4.0
@@ -21,14 +21,17 @@ services:
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
     networks:
-      - drone-network
+      - fyp-network
 
-  # Command Parser Service
+  # Command Parser Service (Node.js)
   command-parser:
-    build: ./microservices/command-parser
+    build: ./src/command-parser
     container_name: command-parser
     ports:
       - "8000:8000"
@@ -36,24 +39,44 @@ services:
       - kafka
     environment:
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - PORT=8000
+    volumes:
+      - ./config:/app/config
+      - ./logs:/app/logs
     networks:
-      - drone-network
+      - fyp-network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
-  # Flight Control Service
+  # Flight Control Service (Node.js)
   flight-control:
-    build: ./microservices/flight-control
+    build: ./src/flight-control
     container_name: flight-control
     ports:
       - "8001:8001"
+      - "8081:8081"  # WebSocket port
     depends_on:
       - kafka
     environment:
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - PORT=8001
+    volumes:
+      - ./config:/app/config
+      - ./logs:/app/logs
     networks:
-      - drone-network
+      - fyp-network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
 networks:
-  drone-network:
-    driver: bridge
+  fyp-network:
+    name: fyp-network
+    external: true

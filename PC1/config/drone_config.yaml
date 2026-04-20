@@ -1,1 +1,147 @@
-# Drone parameters and flight configuration
+# Drone Configuration Parameters
+# Flight control and operational limits
+
+drone:
+  # Basic Parameters
+  name: "autonomous_drone_01"
+  model: "quadcopter_px4"
+  firmware: "PX4"
+  
+  # Flight Parameters
+  flight:
+    max_altitude: 120.0  # meters
+    min_altitude: 5.0    # meters
+    max_speed: 20.0      # m/s
+    max_acceleration: 5.0 # m/s²
+    default_altitude: 50.0 # meters
+    
+    # Safety Limits
+    max_distance_from_home: 1000.0  # meters
+    battery_low_threshold: 20.0       # percentage
+    battery_critical_threshold: 10.0   # percentage
+    
+    # Waypoint Parameters
+    waypoint_tolerance: 2.0          # meters
+    loiter_radius: 10.0             # meters
+    loiter_altitude: 30.0            # meters
+    
+  # Communication Parameters
+  communication:
+    heartbeat_interval: 1.0           # seconds
+    telemetry_interval: 0.5          # seconds
+    command_timeout: 30.0            # seconds
+    connection_timeout: 10.0          # seconds
+    
+    # MAVLink Parameters
+    mavlink_system_id: 1
+    mavlink_component_id: 1
+    mavlink_stream_rate: 4            # Hz
+    
+  # Sensors Configuration
+  sensors:
+    camera:
+      resolution: [1920, 1080]       # width, height
+      fps: 30
+      fov: 90                       # degrees
+      enabled: true
+      
+    gps:
+      accuracy_required: 1.0          # meters
+      fix_timeout: 30.0              # seconds
+      enabled: true
+      
+    imu:
+      sample_rate: 1000              # Hz
+      enabled: true
+      
+    battery:
+      voltage_min: 10.5              # volts
+      voltage_max: 12.6              # volts
+      enabled: true
+
+# Command Processing
+commands:
+  # Supported Actions
+  supported_actions:
+    - "takeoff"
+    - "land"
+    - "navigate"
+    - "hover"
+    - "return"
+    - "search"
+    - "inspect"
+    - "emergency_land"
+    
+  # Command Validation
+  validation:
+    max_command_length: 500          # characters
+    required_fields: ["text", "user_id"]
+    optional_fields: ["priority", "altitude", "speed"]
+    
+  # Command Queue
+  queue:
+    max_size: 100
+    priority_levels: ["low", "normal", "high", "emergency"]
+    default_priority: "normal"
+
+# Safety and Emergency
+safety:
+  # Emergency Procedures
+  emergency:
+    auto_land_on_battery_critical: true
+    return_to_home_on_signal_loss: true
+    obstacle_detection_enabled: true
+    
+    # Emergency Contacts
+    alerts:
+      email: ["pilot@drone-system.com"]
+      sms: ["+1234567890"]
+      
+  # Geofencing
+  geofence:
+    enabled: true
+    home_position: [-1.2920, 36.8200]  # [lat, lon]
+    max_radius: 1000.0                   # meters
+    
+    # No-fly zones (example)
+    no_fly_zones:
+      - name: "airport"
+        center: [-1.2850, 36.8300]
+        radius: 500.0
+
+# Performance and Monitoring
+performance:
+  # Metrics Collection
+  metrics:
+    cpu_usage_threshold: 80.0      # percentage
+    memory_usage_threshold: 85.0    # percentage
+    disk_usage_threshold: 90.0      # percentage
+    
+  # Logging
+  logging:
+    level: "INFO"
+    file_rotation: "daily"
+    max_file_size: "100MB"
+    max_files: 7
+    
+# Integration Settings
+integration:
+  # Kafka Settings
+  kafka:
+    bootstrap_servers: "kafka:9092"
+    acks: "all"
+    retries: 3
+    batch_size: 16384
+    linger_ms: 10
+    
+  # Database Settings
+  database:
+    telemetry_retention_days: 30
+    command_history_retention_days: 90
+    
+  # External APIs
+  weather_api:
+    enabled: false
+    provider: "openweathermap"
+    api_key: ""
+    update_interval: 300  # seconds
