@@ -1,9 +1,7 @@
 version: '3.8'
 
 services:
-
-  # ── Feedback Service (TTS) ─────────────────────────────────────────────────
-  # Main PC4 service: text-to-speech voice feedback via FastAPI (port 8005)
+  # Feedback Service (TTS) - Main service for PC4
   feedback-service:
     build: ./src/feedback-service
     container_name: feedback-service
@@ -11,80 +9,13 @@ services:
       - "8005:8005"
     environment:
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
-      - TTS_RATE=150
-      - TTS_VOLUME=1.0
-      - TTS_VOICE_INDEX=0
-      - PORT=8005
-    # Pass host sound card into container for pyttsx3 audio output
+    # Add host device for audio output
     devices:
       - /dev/snd:/dev/snd
     networks:
       - fyp-network
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8005/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
 
-  # ── WebSocket Server ───────────────────────────────────────────────────────
-  # Node.js relay: Kafka events → browser dashboard (port 8006)
-  websocket-server:
-    build: ./src/websocket-server
-    container_name: websocket-server
-    ports:
-      - "8006:8006"
-    environment:
-      - WS_PORT=8006
-      - KAFKA_BROKER=kafka:9092
-    networks:
-      - fyp-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8006/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  # ── Web Dashboard ──────────────────────────────────────────────────────────
-  # React frontend served via nginx (port 80)
-  web-dashboard:
-    build: ./src/web-dashboard
-    container_name: web-dashboard
-    ports:
-      - "80:80"
-    depends_on:
-      - feedback-service
-      - websocket-server
-    networks:
-      - fyp-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:80"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 15s
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-# ── Network ────────────────────────────────────────────────────────────────
-# Uses the shared fyp-network so PC4 services can reach kafka, PC1, PC2, PC3
 networks:
   fyp-network:
     name: fyp-network
