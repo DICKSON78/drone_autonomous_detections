@@ -5,7 +5,7 @@ services:
   # ── Feedback Service (TTS) ─────────────────────────────────────────────────
   # Main PC4 service: text-to-speech voice feedback via FastAPI (port 8005)
   feedback-service:
-    build: ./microservices/feedback_service
+    build: ./src/feedback-service
     container_name: feedback-service
     ports:
       - "8005:8005"

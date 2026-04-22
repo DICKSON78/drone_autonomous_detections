@@ -4,6 +4,7 @@ import json
 import logging
 import asyncio
 import time
+import os
 from kafka import KafkaProducer, KafkaConsumer
 from typing import Optional
 import uvicorn
@@ -19,8 +20,11 @@ logger = logging.getLogger(__name__)
 
 # ── Kafka ─────────────────────────────────────────────────────────────────────
 
+kafka_servers = os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'kafka:9092').split(',')
+logger.info(f"Kafka servers: {kafka_servers}")
+
 producer = KafkaProducer(
-    bootstrap_servers=['PC1:9092'],
+    bootstrap_servers=kafka_servers,
     value_serializer=lambda v: json.dumps(v).encode('utf-8')
 )
 
@@ -28,7 +32,7 @@ consumer = KafkaConsumer(
     'drone.commands.feedback',
     'drone.detections.objects',
     'drone.navigation.result',
-    bootstrap_servers=['PC1:9092'],
+    bootstrap_servers=kafka_servers,
     value_deserializer=lambda m: json.loads(m.decode('utf-8')),
     group_id='feedback-service-group',
     auto_offset_reset='latest'
