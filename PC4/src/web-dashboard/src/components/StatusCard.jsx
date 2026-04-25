@@ -1,29 +1,14 @@
-import React from 'react';
-import PropTypes from 'prop-types';
-import '../styles/components.css';
+import React from "react";
+import "./StatusCard.css";
 
-/**
- * StatusCard - Displays a single status metric
- */
-function StatusCard({ title, value, status = 'normal', icon = '📊' }) {
-  const statusClass = `status-card status-${status}`;
-
+export default function StatusCard({ icon, label, value, status }) {
   return (
-    <div className={statusClass}>
-      <div className="card-icon">{icon}</div>
-      <div className="card-content">
-        <h3 className="card-title">{title}</h3>
-        <p className="card-value">{value}</p>
+    <div className={`status-card ${status ? `status-card--${status}` : ""}`}>
+      <div className="status-card__icon">{icon}</div>
+      <div className="status-card__body">
+        <div className="status-card__label">{label}</div>
+        <div className="status-card__value">{value ?? "–"}</div>
       </div>
     </div>
   );
 }
-
-StatusCard.propTypes = {
-  title: PropTypes.string.isRequired,
-  value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
-  status: PropTypes.oneOf(['normal', 'active', 'inactive', 'alert', 'info']),
-  icon: PropTypes.string,
-};
-
-export default StatusCard;

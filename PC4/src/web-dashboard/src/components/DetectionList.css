@@ -1,0 +1,13 @@
+.detection-list { display: flex; flex-direction: column; gap: 10px; }
+.detection-list--empty { color: var(--muted); font-style: italic; padding: 24px; text-align: center; }
+.detection-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; }
+.detection-card__header { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 0.8rem; color: var(--muted); }
+.detection-count { font-weight: 600; color: var(--text); }
+.detection-row { display: flex; align-items: center; gap: 10px; margin: 4px 0; }
+.detection-class { width: 90px; font-weight: 500; font-size: 0.85rem; color: var(--text); }
+.detection-bar-wrap { flex: 1; height: 8px; background: var(--bg); border-radius: 4px; overflow: hidden; }
+.detection-bar { height: 100%; border-radius: 4px; transition: width 0.3s; }
+.detection-bar.conf-high   { background: var(--green); }
+.detection-bar.conf-medium { background: var(--yellow); }
+.detection-bar.conf-low    { background: var(--red); }
+.detection-pct { width: 36px; font-size: 0.8rem; color: var(--muted); text-align: right; }

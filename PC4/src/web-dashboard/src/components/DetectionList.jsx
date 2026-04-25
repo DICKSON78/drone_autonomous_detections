@@ -1,80 +1,43 @@
-import React from 'react';
-import PropTypes from 'prop-types';
-import '../styles/components.css';
+import React from "react";
+import { pct, confidenceClass, formatTime } from "../utils/formatters";
+import "./DetectionList.css";
 
-/**
- * DetectionList - Displays detailed list of object detections
- */
-function DetectionList({ detections }) {
+export default function DetectionList({ detections = [], filter = "" }) {
+  const items = filter
+    ? detections.filter((d) => {
+        const name = (d.class_name ?? d.detections?.[0]?.class_name ?? "").toLowerCase();
+        return name.includes(filter.toLowerCase());
+      })
+    : detections;
+
+  if (!items.length) {
+    return <div className="detection-list--empty">No detections{filter ? ` matching "${filter}"` : " yet"}…</div>;
+  }
+
   return (
-    <div className="detection-list-container">
-      {detections.map((detection, idx) => {
-        const detectionData = detection.data?.detections || [];
-
+    <div className="detection-list">
+      {items.map((event, i) => {
+        const dets = event.detections ?? [event];
         return (
-          <div key={idx} className="detection-group">
-            <div className="detection-group-header">
-              <span className="count">{detectionData.length} objects</span>
-              <span className="timestamp">
-                {new Date(detection.timestamp).toLocaleTimeString()}
-              </span>
+          <div key={i} className="detection-card">
+            <div className="detection-card__header">
+              <span className="detection-time">{formatTime(event._ts)}</span>
+              <span className="detection-count">{dets.length} object{dets.length !== 1 ? "s" : ""}</span>
             </div>
-
-            <div className="detections-grid">
-              {detectionData.map((obj, objIdx) => (
-                <div key={objIdx} className="detection-card">
-                  <div className="detection-header">
-                    <span className="class-name">{obj.class_name}</span>
-                    <span className="confidence">
-                      {(obj.confidence * 100).toFixed(1)}%
-                    </span>
-                  </div>
-
-                  <div className="detection-details">
-                    <div className="detail">
-                      <span className="label">Bounding Box:</span>
-                      <span className="value">
-                        [{obj.bbox?.[0]?.toFixed(0)}, {obj.bbox?.[1]?.toFixed(0)},
-                        {obj.bbox?.[2]?.toFixed(0)}, {obj.bbox?.[3]?.toFixed(0)}]
-                      </span>
-                    </div>
-
-                    <div className="confidence-bar">
-                      <div
-                        className="confidence-fill"
-                        style={{
-                          width: `${obj.confidence * 100}%`,
-                          backgroundColor: obj.confidence > 0.7
-                            ? '#4caf50'
-                            : obj.confidence > 0.5
-                              ? '#ff9800'
-                              : '#f44336',
-                        }}
-                      />
-                    </div>
-
-                    {obj.attributes && (
-                      <div className="attributes">
-                        {Object.entries(obj.attributes).map(([key, val]) => (
-                          <span key={key} className="attribute">
-                            {key}: {val}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+            {dets.map((d, j) => (
+              <div key={j} className="detection-row">
+                <span className="detection-class">{d.class_name ?? "unknown"}</span>
+                <div className="detection-bar-wrap">
+                  <div
+                    className={`detection-bar ${confidenceClass(d.confidence)}`}
+                    style={{ width: pct(d.confidence) }}
+                  />
                 </div>
-              ))}
-            </div>
+                <span className="detection-pct">{pct(d.confidence)}</span>
+              </div>
+            ))}
           </div>
         );
       })}
     </div>
   );
-}
-
-DetectionList.propTypes = {
-  detections: PropTypes.array.isRequired,
-};
-
-export default DetectionList;

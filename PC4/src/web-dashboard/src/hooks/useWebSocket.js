@@ -1,110 +1,103 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from "react";
 
-const WS_URL = process.env.REACT_APP_WS_URL || `ws://${window.location.hostname}:8006`;
-const RECONNECT_INTERVAL = 3000;
-const MAX_RECONNECT_ATTEMPTS = 5;
+const MAX_HISTORY  = 100;
+const RECONNECT_MS = 3000;
 
 /**
- * Custom hook for managing WebSocket connection to the relay server.
- * Automatically reconnects on disconnect and buffers messages.
+ * useWebSocket — manages a WebSocket connection with auto-reconnect.
+ * Maintains separate state slices for each drone data type.
  */
-function useWebSocket() {
-  const [isConnected, setIsConnected] = useState(false);
-  const [messages, setMessages] = useState([]);
-  const [error, setError] = useState(null);
-  const wsRef = useRef(null);
-  const reconnectAttemptsRef = useRef(0);
-  const reconnectTimeoutRef = useRef(null);
-  const messageBufferRef = useRef([]);
+export function useWebSocket(url) {
+  const [connected,       setConnected]       = useState(false);
+  const [messages,        setMessages]        = useState([]);
+  const [telemetry,       setTelemetry]       = useState(null);
+  const [detections,      setDetections]      = useState([]);
+  const [navigationEvents,setNavigationEvents]= useState([]);
+  const [feedbackHistory, setFeedbackHistory] = useState([]);
+  const [messageCount,    setMessageCount]    = useState(0);
 
-  const connect = useCallback(() => {
-    try {
-      setError(null);
-      const ws = new WebSocket(WS_URL);
+  const wsRef      = useRef(null);
+  const reconnectRef = useRef(null);
+  const mountedRef = useRef(true);
 
-      ws.onopen = () => {
-        console.log('[WS] Connected');
-        setIsConnected(true);
-        reconnectAttemptsRef.current = 0;
-        
-        // Send initial subscription to all message types
-        ws.send(JSON.stringify({
-          type: 'subscribe',
-          data: { types: ['telemetry', 'detection', 'navigation', 'feedback', 'command'] }
-        }));
-
-        // Flush buffered messages
-        if (messageBufferRef.current.length > 0) {
-          setMessages((prev) => [...messageBufferRef.current, ...prev]);
-          messageBufferRef.current = [];
-        }
-      };
-
-      ws.onmessage = (event) => {
-        try {
-          const message = JSON.parse(event.data);
-          
-          if (message.type === 'connected') {
-            console.log('[WS] Client ID:', message.clientId);
-          } else {
-            setMessages((prev) => [message, ...prev.slice(0, 499)]);
-          }
-        } catch (e) {
-          console.error('[WS] Parse error:', e);
-        }
-      };
-
-      ws.onerror = (event) => {
-        console.error('[WS] Error:', event);
-        setError('WebSocket error occurred');
-      };
-
-      ws.onclose = () => {
-        console.log('[WS] Disconnected');
-        setIsConnected(false);
-        wsRef.current = null;
-
-        // Attempt to reconnect
-        if (reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
-          reconnectAttemptsRef.current += 1;
-          console.log(`[WS] Reconnecting (attempt ${reconnectAttemptsRef.current}/${MAX_RECONNECT_ATTEMPTS})...`);
-          reconnectTimeoutRef.current = setTimeout(() => connect(), RECONNECT_INTERVAL);
-        } else {
-          setError('Failed to connect after maximum attempts');
-        }
-      };
-
-      wsRef.current = ws;
-    } catch (e) {
-      console.error('[WS] Connection failed:', e);
-      setError('Failed to establish WebSocket connection');
-    }
+  const pushCapped = useCallback((setter, item) => {
+    setter((prev) => [item, ...prev].slice(0, MAX_HISTORY));
   }, []);
 
-  // Connect on mount
-  useEffect(() => {
-    connect();
+  const handleMessage = useCallback((raw) => {
+    let msg;
+    try { msg = JSON.parse(raw); } catch { return; }
 
+    setMessageCount((c) => c + 1);
+    setMessages((prev) => [msg, ...prev].slice(0, MAX_HISTORY));
+
+    switch (msg.type) {
+      case "telemetry":
+        setTelemetry({ ...msg.data, _ts: msg.timestamp });
+        break;
+      case "detection":
+        pushCapped(setDetections, { ...msg.data, _ts: msg.timestamp });
+        break;
+      case "navigation":
+        pushCapped(setNavigationEvents, { ...msg.data, _ts: msg.timestamp });
+        break;
+      case "feedback":
+      case "command":
+        pushCapped(setFeedbackHistory, { ...msg.data, type: msg.type, _ts: msg.timestamp });
+        break;
+      default:
+        break;
+    }
+  }, [pushCapped]);
+
+  const connect = useCallback(() => {
+    if (!mountedRef.current) return;
+    try {
+      const ws = new WebSocket(url);
+      wsRef.current = ws;
+
+      ws.onopen = () => {
+        if (!mountedRef.current) return;
+        setConnected(true);
+        // Subscribe to all types
+        ws.send(JSON.stringify({ type: "subscribe", data: { types: [] } }));
+      };
+
+      ws.onmessage = (e) => handleMessage(e.data);
+
+      ws.onclose = () => {
+        if (!mountedRef.current) return;
+        setConnected(false);
+        reconnectRef.current = setTimeout(connect, RECONNECT_MS);
+      };
+
+      ws.onerror = (err) => {
+        console.error("[useWebSocket] error:", err);
+        ws.close();
+      };
+    } catch (err) {
+      console.error("[useWebSocket] connect error:", err);
+      reconnectRef.current = setTimeout(connect, RECONNECT_MS);
+    }
+  }, [url, handleMessage]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    connect();
     return () => {
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-      }
-      if (wsRef.current) {
-        wsRef.current.close();
-      }
+      mountedRef.current = false;
+      clearTimeout(reconnectRef.current);
+      wsRef.current?.close();
     };
   }, [connect]);
 
-  // Send a message through the WebSocket
-  const sendMessage = useCallback((message) => {
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify(message));
-      return true;
-    }
-    return false;
-  }, []);
-
-  return { isConnected, messages, error, sendMessage };
+  return {
+    connected,
+    messages,
+    telemetry,
+    detections,
+    navigationEvents,
+    feedbackHistory,
+    messageCount,
+  };
 }
-
-export default useWebSocket;

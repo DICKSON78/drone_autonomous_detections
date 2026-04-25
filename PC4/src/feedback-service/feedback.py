@@ -1,164 +1,247 @@
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+"""
+PC4 — Feedback Service  (entry point: feedback.py)
+Provides REST API + Kafka consumer → TTS voice output.
+"""
+
 import json
 import logging
-import asyncio
-import time
 import os
-from kafka import KafkaProducer, KafkaConsumer
-from typing import Optional
-import uvicorn
+import threading
+import time
+from contextlib import asynccontextmanager
 
-from tts_engine import TTSEngine
+import uvicorn
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+
 from audio_manager import AudioManager
 from message_queue import MessageQueue
+from tts_engine import TTSEngine
 
-app = FastAPI(title="Feedback Service")
+# ── Config (kept inline so this file is self-contained as the entry point) ───
+KAFKA_SERVERS  = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "kafka:9092")
+KAFKA_GROUP    = "feedback-service-group"
+KAFKA_IN       = ["drone.commands.feedback", "drone.detections.objects", "drone.navigation.result"]
+KAFKA_OUT      = "drone.feedback.spoken"
+TTS_RATE       = int(os.getenv("TTS_RATE",        "150"))
+TTS_VOLUME     = float(os.getenv("TTS_VOLUME",    "1.0"))
+TTS_VOICE_IDX  = int(os.getenv("TTS_VOICE_INDEX", "0"))
+PORT           = int(os.getenv("PORT",            "8005"))
+CONFIDENCE_THR = 0.65
+COOLDOWN_SEC   = 5.0
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-# ── Kafka ─────────────────────────────────────────────────────────────────────
-
-kafka_servers = os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'kafka:9092').split(',')
-logger.info(f"Kafka servers: {kafka_servers}")
-
-producer = KafkaProducer(
-    bootstrap_servers=kafka_servers,
-    value_serializer=lambda v: json.dumps(v).encode('utf-8')
+# ── Logging ───────────────────────────────────────────────────────────────────
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s – %(message)s",
 )
+log = logging.getLogger("feedback-service")
 
-consumer = KafkaConsumer(
-    'drone.commands.feedback',
-    'drone.detections.objects',
-    'drone.navigation.result',
-    bootstrap_servers=kafka_servers,
-    value_deserializer=lambda m: json.loads(m.decode('utf-8')),
-    group_id='feedback-service-group',
-    auto_offset_reset='latest'
-)
+# ── Globals (set during lifespan) ─────────────────────────────────────────────
+tts: TTSEngine
+mq:  MessageQueue
+audio: AudioManager
 
-# ── Service instances ─────────────────────────────────────────────────────────
 
-tts    = TTSEngine()
-audio  = AudioManager()
-mqueue = MessageQueue()
+# ── Kafka helpers ─────────────────────────────────────────────────────────────
 
-# ── Pydantic models ───────────────────────────────────────────────────────────
+def _publish_spoken(producer, text: str, priority: str, source: str) -> None:
+    if producer is None:
+        return
+    try:
+        producer.send(KAFKA_OUT, {
+            "message": text, "priority": priority,
+            "source_topic": source, "timestamp": time.time(),
+        })
+    except Exception as exc:
+        log.warning("Kafka publish error: %s", exc)
+
+
+def _handle_detections(data: dict, queue: MessageQueue, producer) -> None:
+    detections = [
+        d for d in data.get("detections", [])
+        if d.get("confidence", 0) >= CONFIDENCE_THR
+    ]
+    if not detections:
+        return
+    classes = list({d.get("class_name", "object") for d in detections})
+    label   = classes[0] if len(classes) == 1 else f"{len(detections)} objects"
+    text    = f"{len(detections)} {label} detected"
+    if queue.enqueue(text, "high"):
+        _publish_spoken(producer, "Warning. " + text, "high", "drone.detections.objects")
+
+
+def _handle_navigation(data: dict, queue: MessageQueue, producer) -> None:
+    action     = data.get("action", "")
+    confidence = data.get("confidence", 0)
+    if not action or confidence < CONFIDENCE_THR:
+        return
+    text = f"Navigation: {action}"
+    if queue.enqueue(text, "normal"):
+        _publish_spoken(producer, text, "normal", "drone.navigation.result")
+
+
+def _handle_command(data: dict, queue: MessageQueue, producer) -> None:
+    text     = data.get("message", "")
+    priority = data.get("priority", "normal")
+    if not text:
+        return
+    if queue.enqueue(text, priority):
+        prefix = {"high": "Warning. ", "emergency": "Emergency alert! "}.get(priority, "")
+        _publish_spoken(producer, prefix + text, priority, "drone.commands.feedback")
+
+
+def _kafka_thread(queue: MessageQueue) -> None:
+    """Runs forever in a daemon thread. Reconnects automatically."""
+    try:
+        from kafka import KafkaConsumer, KafkaProducer  # type: ignore
+    except ImportError:
+        log.warning("kafka-python not installed — Kafka consumer disabled")
+        return
+
+    _HANDLERS = {
+        "drone.detections.objects":  _handle_detections,
+        "drone.navigation.result":   _handle_navigation,
+        "drone.commands.feedback":   _handle_command,
+    }
+
+    while True:
+        producer = None
+        try:
+            producer = KafkaProducer(
+                bootstrap_servers=KAFKA_SERVERS,
+                value_serializer=lambda v: json.dumps(v).encode(),
+            )
+            consumer = KafkaConsumer(
+                *KAFKA_IN,
+                bootstrap_servers=KAFKA_SERVERS,
+                group_id=KAFKA_GROUP,
+                value_deserializer=lambda b: json.loads(b.decode()),
+                auto_offset_reset="latest",
+                consumer_timeout_ms=5000,
+            )
+            log.info("Kafka consumer connected to %s", KAFKA_SERVERS)
+            for msg in consumer:
+                handler = _HANDLERS.get(msg.topic)
+                if handler:
+                    try:
+                        handler(msg.value, queue, producer)
+                    except Exception as exc:
+                        log.error("Handler error on %s: %s", msg.topic, exc)
+        except Exception as exc:
+            log.warning("Kafka error (%s) — retry in 10 s", exc)
+            if producer:
+                try: producer.close()
+                except Exception: pass
+            time.sleep(10)
+
+
+# ── FastAPI lifespan ──────────────────────────────────────────────────────────
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global tts, mq, audio
+    tts   = TTSEngine(rate=TTS_RATE, volume=TTS_VOLUME, voice_index=TTS_VOICE_IDX)
+    audio = AudioManager()
+    mq    = MessageQueue(
+        speak_fn=tts.speak,
+        cooldown_seconds=COOLDOWN_SEC,
+    )
+    threading.Thread(target=_kafka_thread, args=(mq,), daemon=True, name="kafka").start()
+    log.info("Feedback service started on port %d", PORT)
+    yield
+    log.info("Feedback service shutdown")
+
+
+app = FastAPI(title="PC4 Feedback Service", version="1.0.0", lifespan=lifespan)
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+
+
+# ── Pydantic schemas ──────────────────────────────────────────────────────────
 
 class SpeakRequest(BaseModel):
     message: str
-    priority: Optional[str] = "normal"
-    async_mode: Optional[bool] = True
-
-class SpeakResponse(BaseModel):
-    status: str
-    message: str
-    priority: str
-    spoken: bool
-    timestamp: float
+    priority: str = "normal"
+    async_mode: bool = True
 
 class AnnounceRequest(BaseModel):
     event: str
-    details: Optional[str] = ""
+    details: str = ""
 
-# ── Kafka consumer loop ───────────────────────────────────────────────────────
 
-async def handle_kafka_messages():
-    while True:
-        try:
-            msg_pack = consumer.poll(timeout_ms=1000)
-            for tp, messages in msg_pack.items():
-                for message in messages:
-                    topic = tp.topic
-                    data  = message.value
-                    logger.info(f"[Kafka] {topic}: {str(data)[:100]}")
+# ── Endpoints ─────────────────────────────────────────────────────────────────
 
-                    if topic == 'drone.detections.objects':
-                        mqueue.handle_detection(data, tts, producer)
-                    elif topic == 'drone.navigation.result':
-                        mqueue.handle_navigation(data, tts, producer)
-                    elif topic == 'drone.commands.feedback':
-                        mqueue.handle_command(data, tts, producer)
-        except Exception as e:
-            logger.error(f"Kafka error: {e}")
-            await asyncio.sleep(1)
+VALID_PRIORITIES = {"low", "normal", "high", "emergency"}
 
-# ── API routes ────────────────────────────────────────────────────────────────
+EVENT_MESSAGES = {
+    "startup":      ("Drone system starting up",        "normal"),
+    "shutdown":     ("Drone system shutting down",       "normal"),
+    "low_battery":  ("Battery level is low",             "high"),
+    "obstacle":     ("Obstacle detected ahead",          "high"),
+    "landing":      ("Drone is landing",                 "normal"),
+    "takeoff":      ("Drone is taking off",               "normal"),
+    "mission_done": ("Mission complete",                  "normal"),
+    "emergency":    ("Emergency situation detected",      "emergency"),
+}
+
 
 @app.get("/health")
-async def health_check():
+def health():
     return {
-        "status": "healthy",
-        "service": "feedback-service",
-        "audio_devices": audio.list_devices(),
-        "timestamp": time.time()
+        "status":     "healthy",
+        "service":    "feedback-service",
+        "audio_ok":   tts.available,
+        "queue_size": mq.size,
+        "timestamp":  time.time(),
     }
 
-@app.post("/speak", response_model=SpeakResponse)
-async def speak(request: SpeakRequest):
-    if not request.message.strip():
-        raise HTTPException(status_code=400, detail="message field is required")
 
-    priority = (request.priority or "normal").lower()
-    if priority not in {"low", "normal", "high", "emergency"}:
-        raise HTTPException(status_code=400, detail="Invalid priority")
+@app.post("/speak")
+def speak(req: SpeakRequest):
+    if req.priority not in VALID_PRIORITIES:
+        raise HTTPException(422, f"priority must be one of {sorted(VALID_PRIORITIES)}")
+    queued = mq.enqueue(req.message, req.priority)
+    return {
+        "status":    "ok",
+        "message":   req.message,
+        "priority":  req.priority,
+        "queued":    queued,
+        "timestamp": time.time(),
+    }
 
-    msg = mqueue.build_message(request.message.strip(), priority)
-
-    if request.async_mode:
-        tts.speak_async(msg)
-        spoken = True
-    else:
-        spoken = tts.speak_blocking(msg)
-
-    producer.send('drone.feedback.spoken', {
-        "message": msg, "priority": priority,
-        "trigger": "api", "timestamp": time.time()
-    })
-
-    return SpeakResponse(status="ok", message=msg, priority=priority,
-                         spoken=spoken, timestamp=time.time())
 
 @app.post("/announce")
-async def announce(request: AnnounceRequest):
-    if not request.event.strip():
-        raise HTTPException(status_code=400, detail="event field is required")
-    text = request.event.replace("_", " ")
-    if request.details:
-        text = f"{text}. {request.details}"
-    msg = mqueue.build_message(text, "high")
-    tts.speak_async(msg)
-    producer.send('drone.feedback.spoken', {
-        "message": msg, "priority": "high",
-        "trigger": "announce", "event": request.event, "timestamp": time.time()
-    })
-    return {"status": "announced", "event": request.event, "message": msg}
+def announce(req: AnnounceRequest):
+    text, priority = EVENT_MESSAGES.get(req.event, (f"Event: {req.event}", "normal"))
+    if req.details:
+        text += f". {req.details}"
+    mq.enqueue(text, priority)
+    return {"status": "announced", "event": req.event, "message": text, "priority": priority}
+
 
 @app.get("/voices")
-async def list_voices():
-    return {"voices": tts.list_voices()}
+def voices():
+    return {"voices": tts.get_voices()}
+
 
 @app.get("/audio-devices")
-async def list_audio_devices():
-    return {"devices": audio.list_devices()}
+def audio_devices():
+    return {"devices": audio.device_strings(), "default_available": audio.default_device_available()}
+
 
 @app.get("/stats")
-async def get_stats():
+def stats():
     return {
-        "service": "feedback-service",
-        "queue_stats": mqueue.stats(),
-        "audio_ok": audio.is_available(),
-        "timestamp": time.time()
+        "service":       "feedback-service",
+        "queue_stats":   mq.stats,
+        "audio_ok":      tts.available,
+        "kafka_servers": KAFKA_SERVERS,
+        "timestamp":     time.time(),
     }
 
-# ── Startup ───────────────────────────────────────────────────────────────────
 
-@app.on_event("startup")
-async def startup_event():
-    logger.info("Starting Feedback Service on port 8005")
-    audio.check_devices()
-    asyncio.create_task(handle_kafka_messages())
+# ── Entry point ───────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8005)
+    uvicorn.run("feedback:app", host="0.0.0.0", port=PORT, log_level="info")

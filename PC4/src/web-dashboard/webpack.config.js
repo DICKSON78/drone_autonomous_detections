@@ -1,48 +1,30 @@
-import path from 'path';
-import { fileURLToPath } from 'url';
-import HtmlWebpackPlugin from 'html-webpack-plugin';
+const path = require("path");
+const HtmlWebpackPlugin = require("html-webpack-plugin");
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-export default {
-  mode: 'development',
-  entry: './src/index.jsx',
+module.exports = {
+  entry: "./src/index.jsx",
   output: {
-    path: path.resolve(__dirname, 'dist'),
-    filename: 'bundle.js',
-    clean: true,
+    path:       path.resolve(__dirname, "dist"),
+    filename:   "bundle.[contenthash].js",
+    publicPath: "/",
+    clean:      true,
   },
+  resolve: { extensions: [".js", ".jsx"] },
   module: {
     rules: [
-      {
-        test: /\.jsx?$/,
-        exclude: /node_modules/,
-        use: {
-          loader: 'babel-loader',
-          options: {
-            presets: ['@babel/preset-env', '@babel/preset-react'],
-          },
-        },
-      },
-      {
-        test: /\.css$/,
-        use: ['style-loader', 'css-loader'],
-      },
+      { test: /\.jsx?$/, use: "babel-loader", exclude: /node_modules/ },
+      { test: /\.css$/,  use: ["style-loader", "css-loader"] },
     ],
   },
   plugins: [
-    new HtmlWebpackPlugin({
-      template: './public/index.html',
-      filename: 'index.html',
-    }),
+    new HtmlWebpackPlugin({ template: "./public/index.html", title: "PC4 Drone Dashboard" }),
   ],
   devServer: {
-    port: 3000,
+    port:               3000,
     historyApiFallback: true,
-    hot: true,
-  },
-  resolve: {
-    extensions: ['.js', '.jsx'],
+    proxy: [
+      { context: ["/api/feedback"],   target: "http://localhost:8005", pathRewrite: { "^/api/feedback": "" } },
+      { context: ["/api/websocket"],  target: "http://localhost:8006",  ws: true,  pathRewrite: { "^/api/websocket": "" } },
+    ],
   },
 };
