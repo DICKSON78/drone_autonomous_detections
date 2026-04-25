@@ -1,0 +1,15 @@
+.status-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 18px;
+}
+.status-card--ok      { border-left: 4px solid var(--green); }
+.status-card--warn    { border-left: 4px solid var(--yellow); }
+.status-card--error   { border-left: 4px solid var(--red); }
+.status-card__icon    { font-size: 1.8rem; }
+.status-card__label   { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.status-card__value   { font-size: 1.1rem; font-weight: 600; color: var(--text); margin-top: 2px; }

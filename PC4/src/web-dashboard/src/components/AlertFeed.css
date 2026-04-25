@@ -1,0 +1,10 @@
+.alert-feed { display: flex; flex-direction: column; gap: 4px; max-height: 320px; overflow-y: auto; }
+.alert-feed--empty { color: var(--muted); font-style: italic; padding: 20px; text-align: center; }
+.alert-item { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 6px; background: var(--card-bg); border-left: 3px solid var(--border); font-size: 0.85rem; }
+.alert-item.priority-emergency { border-color: var(--red); background: rgba(239,68,68,0.08); }
+.alert-item.priority-high      { border-color: var(--yellow); background: rgba(234,179,8,0.08); }
+.alert-item.priority-normal    { border-color: var(--blue); }
+.alert-item.priority-low       { border-color: var(--border); }
+.alert-time  { color: var(--muted); font-size: 0.75rem; white-space: nowrap; }
+.alert-msg   { flex: 1; color: var(--text); }
+.alert-badge { font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; background: var(--bg); color: var(--muted); text-transform: uppercase; }
