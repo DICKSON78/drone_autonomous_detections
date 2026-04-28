@@ -1,5 +1,0 @@
-.detections-page { display: flex; flex-direction: column; gap: 16px; }
-.detections-header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-.filter-input { padding: 6px 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--card-bg); color: var(--text); font-size: 0.9rem; flex: 1; min-width: 160px; }
-.filter-input:focus { outline: none; border-color: var(--blue); }
-.detections-count { color: var(--muted); font-size: 0.85rem; white-space: nowrap; }

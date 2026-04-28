@@ -1,6 +1,0 @@
-.telemetry-panel { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
-.telemetry-panel--empty { color: var(--muted); font-style: italic; text-align: center; padding: 32px; }
-.telemetry-table { width: 100%; border-collapse: collapse; }
-.telemetry-table tr + tr td { border-top: 1px solid var(--border); }
-.telemetry-label { padding: 6px 4px; color: var(--muted); font-size: 0.85rem; white-space: nowrap; }
-.telemetry-value { padding: 6px 4px; font-weight: 500; color: var(--text); text-align: right; }
