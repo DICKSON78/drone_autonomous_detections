@@ -1,6 +1,0 @@
-.dashboard { display: flex; flex-direction: column; gap: 20px; }
-.dashboard-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
-.dashboard-grid  { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-.dashboard-panel { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
-.dashboard-panel--wide { grid-column: 1 / -1; }
-@media (max-width: 700px) { .dashboard-grid { grid-template-columns: 1fr; } }
