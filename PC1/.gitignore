@@ -1,0 +1,23 @@
+# Backup files
+*.bak
+*.backup
+*~
+
+# Lock files
+package-lock.json
+
+# Environment files
+.env
+.env.local
+
+# Logs
+logs/
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Docker volumes
+volumes/
+kafka-data/
