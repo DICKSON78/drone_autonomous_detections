@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# PC4: Web Interface & Feedback Setup Script
-# This script automatically sets up everything for PC4
+# PC4: Feedback Service Setup Script
+# This script automatically sets up the Feedback Service (TTS)
 
 set -e
 
@@ -26,7 +26,7 @@ print_error() {
 
 print_header() {
     echo -e "${BLUE}====================================${NC}"
-    echo -e "${BLUE}PC4: Web Interface & Feedback Setup${NC}"
+    echo -e "${BLUE}PC4: Feedback Service Setup${NC}"
     echo -e "${BLUE}====================================${NC}"
 }
 
@@ -136,30 +136,6 @@ build_services() {
 test_services() {
     print_status "Testing services..."
     
-    # Test Web Dashboard
-    for i in {1..10}; do
-        if curl -s http://localhost >/dev/null 2>&1; then
-            print_status "Web Dashboard is running"
-            break
-        fi
-        if [ $i -eq 10 ]; then
-            print_warning "Web Dashboard not ready yet"
-        fi
-        sleep 5
-    done
-    
-    # Test WebSocket Server
-    for i in {1..10}; do
-        if curl -s http://localhost:8080 >/dev/null 2>&1; then
-            print_status "WebSocket Server is running"
-            break
-        fi
-        if [ $i -eq 10 ]; then
-            print_warning "WebSocket Server not ready yet"
-        fi
-        sleep 5
-    done
-    
     # Test Feedback Service
     for i in {1..10}; do
         if curl -s http://localhost:8005/health >/dev/null 2>&1; then
@@ -192,17 +168,11 @@ show_results() {
     echo ""
     print_status "PC4 Setup Complete!"
     echo ""
-    echo "Your services are running:"
-    echo "Web Dashboard: http://$PC4_IP"
-    echo "WebSocket Server: http://$PC4_IP:8080"
+    echo "Your service is running:"
     echo "Feedback Service: http://$PC4_IP:8005"
     echo ""
-    print_status "Test your services:"
+    print_status "Test your service:"
     echo "curl http://localhost:8005/health"
-    echo ""
-    print_status "Open Web Dashboard:"
-    echo "URL: http://localhost"
-    echo "This is the main interface for the entire system"
     echo ""
     print_status "Test TTS:"
     echo "curl -X POST http://localhost:8005/speak \\"
@@ -212,22 +182,8 @@ show_results() {
     print_status "View logs:"
     echo "docker-compose logs -f"
     echo ""
-    print_status "Your system now has face and voice!"
-    print_status "Ready for user interaction and control!"
-}
-
-# Open dashboard
-open_dashboard() {
-    print_status "Opening web dashboard..."
-    
-    # Try to open browser automatically
-    if command -v xdg-open >/dev/null 2>&1; then
-        xdg-open http://localhost 2>/dev/null &
-    elif command -v open >/dev/null 2>&1; then
-        open http://localhost 2>/dev/null &
-    else
-        print_status "Please open http://localhost in your browser"
-    fi
+    print_status "Your system now has voice feedback!"
+    print_status "Ready for audio announcements!"
 }
 
 # Main setup
@@ -241,7 +197,6 @@ main() {
     test_services
     test_tts
     show_results
-    open_dashboard
     
     echo ""
     read -p "View service logs? (y/n): " show_logs
@@ -261,9 +216,6 @@ case "${1:-setup}" in
     "logs")
         docker-compose logs -f
         ;;
-    "dashboard")
-        open_dashboard
-        ;;
     "tts")
         test_tts
         ;;
@@ -279,11 +231,10 @@ case "${1:-setup}" in
         docker-compose ps
         ;;
     *)
-        echo "Usage: $0 {setup|test|logs|dashboard|tts|stop|restart|status}"
+        echo "Usage: $0 {setup|test|logs|tts|stop|restart|status}"
         echo "  setup     - Full setup (default)"
         echo "  test      - Test services"
         echo "  logs      - Show logs"
-        echo "  dashboard - Open web dashboard"
         echo "  tts       - Test text-to-speech"
         echo "  stop      - Stop services"
         echo "  restart   - Restart services"

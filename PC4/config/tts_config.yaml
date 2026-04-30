@@ -1,0 +1,137 @@
+# Text-to-Speech Configuration for PC4
+
+# Voice Settings
+tts:
+  # Engine Configuration
+  engine: "espeak"  # espeak, pyttsx3, or custom
+  
+  # Voice Parameters
+  rate: 150  # Speech rate (words per minute)
+  volume: 1.0  # Volume level (0.0 to 1.0)
+  voice_index: 0  # Voice index to use
+  pitch: 50  # Pitch adjustment (0-100)
+  
+  # Voice Selection
+  voice:
+    language: "en"
+    gender: "male"  # male, female, or neutral
+    accent: "en-us"  # en-us, en-gb, etc.
+  
+  # Detection Settings
+  detection:
+    confidence_threshold: 0.65  # Minimum confidence for detection alerts
+    cooldown_seconds: 5.0  # Minimum time between similar announcements
+    
+  # Message Processing
+  processing:
+    max_message_length: 500  # Maximum message length in characters
+    enable_text_normalization: true
+    enable_number_to_words: true
+    enable_abbreviation_expansion: true
+    
+  # Performance
+  performance:
+    queue_timeout: 10  # Queue processing timeout in seconds
+    max_concurrent_speaks: 1  # Maximum concurrent TTS operations
+    enable_caching: true
+    cache_size: 100  # Number of cached audio segments
+
+# Audio Configuration
+audio:
+  # Device Management
+  device:
+    primary: "default"
+    fallback: "pulse"
+    auto_detect: true
+    test_on_startup: true
+    
+  # Audio Quality
+  quality:
+    sample_rate: 44100  # Hz
+    channels: 1  # Mono
+    bit_depth: 16  # bits
+    
+  # Volume Control
+  volume:
+    enable_control: true
+    default_level: 0.8
+    max_level: 1.0
+    enable_boost: false
+    
+  # Buffer Settings
+  buffer:
+    size: 1024
+    enable_buffering: true
+    buffer_count: 4
+
+# Message Templates
+message_templates:
+  # Detection Messages
+  detection:
+    single: "{count} {class_name} detected"
+    multiple: "{count} objects detected"
+    high_confidence: "High confidence {class_name} detected"
+    
+  # Navigation Messages
+  navigation:
+    action: "Navigation: {action}"
+    obstacle: "Obstacle detected, changing course"
+    waypoint_reached: "Waypoint reached"
+    
+  # System Messages
+  system:
+    startup: "Drone system starting up"
+    shutdown: "Drone system shutting down"
+    low_battery: "Battery level is low"
+    emergency: "Emergency situation detected"
+    
+  # Status Messages
+  status:
+    connected: "System connected"
+    disconnected: "System disconnected"
+    ready: "System ready"
+    busy: "System busy"
+
+# Priority Handling
+priority:
+  emergency:
+    interrupt_current: true
+    max_queue_size: 10
+    timeout: 0  # Immediate
+    
+  high:
+    interrupt_current: false
+    max_queue_size: 20
+    timeout: 1  # 1 second
+    
+  normal:
+    interrupt_current: false
+    max_queue_size: 50
+    timeout: 5  # 5 seconds
+    
+  low:
+    interrupt_current: false
+    max_queue_size: 100
+    timeout: 10  # 10 seconds
+
+# Voice Settings by Priority
+voice_settings:
+  emergency:
+    rate: 120  # Slower for clarity
+    volume: 1.0  # Maximum volume
+    pitch: 60  # Higher pitch for attention
+    
+  high:
+    rate: 140
+    volume: 0.9
+    pitch: 55
+    
+  normal:
+    rate: 150
+    volume: 0.8
+    pitch: 50
+    
+  low:
+    rate: 160  # Faster
+    volume: 0.7
+    pitch: 45
