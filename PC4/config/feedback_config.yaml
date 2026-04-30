@@ -1,0 +1,168 @@
+# Feedback Service Configuration
+# Text-to-Speech and audio feedback settings for drone system
+
+feedback:
+  # Service Configuration
+  service:
+    name: "feedback-service"
+    version: "1.0.0"
+    host: "0.0.0.0"
+    port: 8005
+    
+    # Logging
+    log_level: "info"
+    log_format: "json"
+    
+    # Performance
+    max_queue_size: 100
+    request_timeout: 30  # seconds
+
+# Kafka Configuration
+kafka:
+  bootstrap_servers: "PC1:9092"
+  consumer_group: "feedback-service-group"
+  auto_offset_reset: "latest"
+  enable_auto_commit: true
+  session_timeout_ms: 30000
+  heartbeat_interval_ms: 3000
+  
+  # Input Topics - Topics that PC4 subscribes to
+  input_topics:
+    - name: "drone.commands.feedback"
+      description: "Commands that require voice feedback"
+      priority: "normal"
+      
+    - name: "drone.detections.objects"
+      description: "Object detection results for audio alerts"
+      priority: "high"
+      
+    - name: "drone.navigation.result"
+      description: "Navigation action results"
+      priority: "normal"
+  
+  # Output Topics - Topics that PC4 publishes to
+  output_topics:
+    - name: "drone.feedback.spoken"
+      description: "Messages that have been spoken by TTS"
+      priority: "normal"
+
+# Text-to-Speech Configuration
+tts:
+  # Voice Settings
+  rate: 150  # Speech rate (words per minute)
+  volume: 1.0  # Volume level (0.0 to 1.0)
+  voice_index: 0  # Voice index to use
+  
+  # Detection Settings
+  confidence_threshold: 0.65  # Minimum confidence for detection alerts
+  cooldown_seconds: 5.0  # Minimum time between similar announcements
+  
+  # Audio Device
+  device: "default"  # Audio device to use
+  fallback_device: "pulse"  # Fallback if default fails
+  
+  # Performance
+  max_message_length: 500  # Maximum message length in characters
+  queue_timeout: 10  # Queue processing timeout in seconds
+
+# Message Priorities
+priorities:
+  - name: "emergency"
+    level: 4
+    description: "Critical alerts"
+    prefix: "Emergency alert! "
+    
+  - name: "high"
+    level: 3
+    description: "Important warnings"
+    prefix: "Warning. "
+    
+  - name: "normal"
+    level: 2
+    description: "Standard messages"
+    prefix: ""
+    
+  - name: "low"
+    level: 1
+    description: "Informational messages"
+    prefix: ""
+
+# Event Messages
+event_messages:
+  startup:
+    message: "Drone system starting up"
+    priority: "normal"
+    
+  shutdown:
+    message: "Drone system shutting down"
+    priority: "normal"
+    
+  low_battery:
+    message: "Battery level is low"
+    priority: "high"
+    
+  obstacle:
+    message: "Obstacle detected ahead"
+    priority: "high"
+    
+  landing:
+    message: "Drone is landing"
+    priority: "normal"
+    
+  takeoff:
+    message: "Drone is taking off"
+    priority: "normal"
+    
+  mission_done:
+    message: "Mission complete"
+    priority: "normal"
+    
+  emergency:
+    message: "Emergency situation detected"
+    priority: "emergency"
+
+# Audio Configuration
+audio:
+  # Device Management
+  auto_detect: true
+  test_on_startup: true
+  
+  # Volume Control
+  enable_volume_control: true
+  default_volume: 0.8
+  
+  # Audio Quality
+  sample_rate: 44100  # Hz
+  channels: 1  # Mono
+  
+  # Buffer Settings
+  buffer_size: 1024
+  enable_buffering: true
+
+# Health Check
+healthcheck:
+  enabled: true
+  interval: 10  # seconds
+  timeout: 5  # seconds
+  retries: 3
+  
+  # Check Components
+  check_audio: true
+  check_tts: true
+  check_kafka: true
+
+# Security
+security:
+  # CORS
+  cors_enabled: true
+  cors_origins: ["*"]
+  cors_methods: ["GET", "POST", "PUT", "DELETE"]
+  cors_headers: ["Authorization", "Content-Type"]
+  
+  # Rate Limiting
+  enable_rate_limiting: true
+  requests_per_minute: 60
+  
+  # Authentication (if needed in future)
+  auth_enabled: false
+  api_key_required: false

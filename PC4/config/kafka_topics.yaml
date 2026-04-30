@@ -1,0 +1,48 @@
+# Kafka Topic Configuration for PC4 Feedback Service
+
+# Kafka Broker Configuration
+kafka:
+  bootstrap_servers: "PC1:9092"
+  group_id: "feedback-service-group"
+  auto_offset_reset: "latest"
+  consumer_timeout_ms: 5000
+  enable_auto_commit: true
+  session_timeout_ms: 30000
+  heartbeat_interval_ms: 3000
+
+# Input Topics - Topics that PC4 subscribes to
+input_topics:
+  - name: "drone.commands.feedback"
+    description: "Commands that require voice feedback"
+    priority: "normal"
+    handler: "handle_command"
+    
+  - name: "drone.detections.objects"
+    description: "Object detection results for audio alerts"
+    priority: "high"
+    handler: "handle_detections"
+    
+  - name: "drone.navigation.result"
+    description: "Navigation action results"
+    priority: "normal"
+    handler: "handle_navigation"
+
+# Output Topics - Topics that PC4 publishes to
+output_topics:
+  - name: "drone.feedback.spoken"
+    description: "Messages that have been spoken by TTS"
+    priority: "normal"
+    retention_ms: 604800000  # 7 days
+    
+  - name: "drone.feedback.status"
+    description: "Feedback service status updates"
+    priority: "normal"
+    retention_ms: 86400000  # 1 day
+
+# Topic Configuration
+topic_config:
+  replication_factor: 1
+  partitions: 3
+  cleanup_policy: "delete"
+  retention_ms: 604800000  # 7 days for default topics
+  segment_ms: 86400000  # 1 day
