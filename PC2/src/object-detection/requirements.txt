@@ -9,3 +9,16 @@ kafka-python==2.0.2
 python-multipart==0.0.6
 Pillow==10.0.1
 pydantic==2.5.0
+
+
+# fastapi==0.115.0
+# uvicorn[standard]==0.30.0
+# opencv-python==4.9.0.80
+# ultralytics==8.2.0
+# numpy==1.26.4
+# kafka-python==2.0.2
+# python-multipart==0.0.9
+# Pillow==10.4.0
+# pydantic==2.8.0
+# torch==2.3.0
+# torchvision==0.18.0
