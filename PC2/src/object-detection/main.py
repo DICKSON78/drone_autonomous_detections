@@ -1,6 +1,5 @@
 # object-detection from main entry
 
-
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from pydantic import BaseModel
 import cv2
@@ -14,9 +13,9 @@ from typing import List, Dict
 import time
 import uvicorn
 
-from .yolo_handler import YOLOHandler
-from .camera_sim import CameraSimulator
-from .image_processor import ImageProcessor
+from yolo_handler import YOLOHandler
+from camera_sim import CameraSimulator
+from image_processor import ImageProcessor
 
 app = FastAPI(title="PC2 - Object Detection Service")
 
@@ -30,18 +29,30 @@ camera = CameraSimulator(width=640, height=480, source="simulation")
 image_processor = ImageProcessor()
 
 # Kafka (use service name inside Docker network)
-producer = KafkaProducer(
-    bootstrap_servers=['pc1:9092'],
-    value_serializer=lambda v: json.dumps(v).encode('utf-8')
-)
+producer = None
+consumer = None
 
-consumer = KafkaConsumer(
-    'drone.commands.detection',
-    bootstrap_servers=['pc1:9092'],
-    value_deserializer=lambda m: json.loads(m.decode('utf-8')),
-    auto_offset_reset='latest',
-    enable_auto_commit=True
-)
+# Initialize Kafka connection when available
+def init_kafka():
+    global producer, consumer
+    try:
+        producer = KafkaProducer(
+            bootstrap_servers=['pc1:9092'],
+            value_serializer=lambda v: json.dumps(v).encode('utf-8')
+        )
+        
+        consumer = KafkaConsumer(
+            'drone.commands.detection',
+            bootstrap_servers=['pc1:9092'],
+            value_deserializer=lambda m: json.loads(m.decode('utf-8')),
+            auto_offset_reset='latest',
+            enable_auto_commit=True
+        )
+        logger.info("Kafka connected successfully")
+    except Exception as e:
+        logger.warning(f"Kafka not available: {e}")
+        producer = None
+        consumer = None
 
 class DetectionResult(BaseModel):
     class_name: str
@@ -79,7 +90,7 @@ async def detect_objects(file: UploadFile = File(...)):
         )
 
         # Send to Kafka
-        if detections:
+        if detections and producer:
             producer.send('drone.telemetry.detections', result.dict())
 
         return result
@@ -106,7 +117,7 @@ async def continuous_detection_loop():
             frame = camera.capture_frame()
             if frame is not None:
                 detections = detector.detect(frame)
-                if detections:
+                if detections and producer:
                     producer.send('drone.telemetry.detections', {
                         "detections": detections,
                         "timestamp": time.time(),
@@ -120,6 +131,7 @@ async def continuous_detection_loop():
 
 @app.on_event("startup")
 async def startup_event():
+    init_kafka()  # Try to connect to Kafka
     asyncio.create_task(continuous_detection_loop())
     logger.info("PC2 Object Detection Service Started")
 

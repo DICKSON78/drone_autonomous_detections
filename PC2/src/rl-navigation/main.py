@@ -6,21 +6,40 @@ import numpy as np
 import torch
 import logging
 import asyncio
+import json
 from kafka import KafkaProducer, KafkaConsumer
+from typing import List, Dict
 import time
 import uvicorn
 
-from .environment import NavigationEnvironment
-from .rl_agent import RLAgent
+from environment import NavigationEnvironment
+from rl_agent import RLAgent
 
 app = FastAPI(title="PC2 - RL Navigation Service")
 
 logger = logging.getLogger(__name__)
 
-# Kafka (use docker service name)
-producer = KafkaProducer(bootstrap_servers=['pc1:9092'], value_serializer=lambda v: json.dumps(v).encode('utf-8'))
-consumer = KafkaConsumer('drone.commands.navigation', bootstrap_servers=['pc1:9092'], 
-                        value_deserializer=lambda m: json.loads(m.decode('utf-8')))
+# Kafka (use docker service name) - Initialize with error handling
+producer = None
+consumer = None
+
+def init_kafka():
+    global producer, consumer
+    try:
+        producer = KafkaProducer(
+            bootstrap_servers=['pc1:9092'], 
+            value_serializer=lambda v: json.dumps(v).encode('utf-8')
+        )
+        consumer = KafkaConsumer(
+            'drone.commands.navigation', 
+            bootstrap_servers=['pc1:9092'], 
+            value_deserializer=lambda m: json.loads(m.decode('utf-8'))
+        )
+        logger.info("Kafka connected successfully")
+    except Exception as e:
+        logger.warning(f"Kafka not available: {e}")
+        producer = None
+        consumer = None
 
 env = NavigationEnvironment()
 agent = RLAgent(state_dim=14, action_dim=6)
@@ -66,6 +85,7 @@ async def health():
 
 @app.on_event("startup")
 async def startup():
+    init_kafka()  # Try to connect to Kafka
     logger.info("RL Navigation Service Started")
     # Load model if exists
     agent.load()
