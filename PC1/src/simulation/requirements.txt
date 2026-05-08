@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+pydantic
+kafka-python
+numpy
+asyncio-mqtt
+aiofiles

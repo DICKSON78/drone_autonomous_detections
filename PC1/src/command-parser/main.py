@@ -7,6 +7,7 @@ from kafka import KafkaProducer
 import logging
 import subprocess
 import sys
+from nlp_processor import command_processor
 
 # Download spaCy model if not present
 try:
@@ -29,32 +30,51 @@ class Command(BaseModel):
     user_id: str
 
 def parse_command_to_gps(command_text: str) -> dict:
-    """Parse natural language command to GPS coordinates"""
-    doc = nlp(command_text.lower())
-    
-    # Simple GPS mapping (in real system, use geocoding API)
-    location_mappings = {
-        "forest": {"lat": -1.2921, "lon": 36.8219},
-        "lake": {"lat": -1.2850, "lon": 36.8300},
-        "field": {"lat": -1.3000, "lon": 36.8100},
-        "home": {"lat": -1.2920, "lon": 36.8200}
-    }
-    
-    detected_location = None
-    for token in doc:
-        if token.text in location_mappings:
-            detected_location = location_mappings[token.text]
-            break
-    
-    if not detected_location:
-        detected_location = {"lat": -1.2920, "lon": 36.8200}  # Default
-    
-    return {
-        "command": command_text,
-        "target_gps": detected_location,
-        "altitude": 50.0,  # Default altitude
-        "action": "navigate"
-    }
+    """Enhanced command parsing using advanced NLP processor"""
+    try:
+        # Use advanced NLP processor for complex command parsing
+        parsed_command = command_processor.parse_complex_command(command_text)
+        
+        # Add timestamp and command ID
+        import time
+        parsed_command.update({
+            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+            "command_id": f"cmd_{int(time.time() * 1000)}"
+        })
+        
+        logging.info(f"Advanced parsing result: {parsed_command}")
+        return parsed_command
+        
+    except Exception as e:
+        logging.error(f"Advanced parsing failed, falling back to simple parsing: {e}")
+        
+        # Fallback to simple parsing
+        doc = nlp(command_text.lower())
+        
+        location_mappings = {
+            "forest": {"lat": -1.2921, "lon": 36.8219},
+            "lake": {"lat": -1.2850, "lon": 36.8300},
+            "field": {"lat": -1.3000, "lon": 36.8100},
+            "home": {"lat": -1.2920, "lon": 36.8200}
+        }
+        
+        detected_location = None
+        for token in doc:
+            if token.text in location_mappings:
+                detected_location = location_mappings[token.text]
+                break
+        
+        if not detected_location:
+            detected_location = {"lat": -1.2920, "lon": 36.8200}
+        
+        return {
+            "command": command_text,
+            "target_gps": detected_location,
+            "altitude": 50.0,
+            "action": "navigate",
+            "intent": "navigate",
+            "confidence": 0.6
+        }
 
 @app.post("/parse-command")
 async def parse_command(command: Command):
@@ -62,11 +82,9 @@ async def parse_command(command: Command):
     try:
         parsed_command = parse_command_to_gps(command.text)
         
-        # Add metadata
+        # Add user_id (timestamp and command_id already added in parse_command_to_gps)
         parsed_command.update({
-            "user_id": command.user_id,
-            "timestamp": "2024-01-01T00:00:00Z",
-            "command_id": f"cmd_{hash(command.text)}"
+            "user_id": command.user_id
         })
         
         # Publish to Kafka

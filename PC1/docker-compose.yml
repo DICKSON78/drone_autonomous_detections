@@ -35,7 +35,7 @@ services:
     networks:
       - fyp-network
 
-  # Command Parser Service (Node.js)
+  # Command Parser Service (Python with AI)
   command-parser:
     build: ./src/command-parser
     container_name: command-parser
@@ -53,6 +53,7 @@ services:
     volumes:
       - ./config:/app/config
       - ./logs:/app/logs
+      - ./models:/app/models
     networks:
       - fyp-network
     restart: unless-stopped
@@ -62,7 +63,7 @@ services:
       timeout: 10s
       retries: 3
 
-  # Flight Control Service (Node.js)
+  # Flight Control Service (Python with AI)
   flight-control:
     build: ./src/flight-control
     container_name: flight-control
@@ -81,6 +82,7 @@ services:
     volumes:
       - ./config:/app/config
       - ./logs:/app/logs
+      - ./models:/app/models
     networks:
       - fyp-network
     restart: unless-stopped
@@ -90,6 +92,7 @@ services:
       timeout: 10s
       retries: 3
 
+  
 networks:
   fyp-network:
     name: fyp-network

@@ -1,0 +1,125 @@
+{
+  "total_tests": 18,
+  "passed": 5,
+  "failed": 13,
+  "success_rate": 27.77777777777778,
+  "duration": 1.0329370498657227,
+  "suite_results": {
+    "Service Health": true,
+    "NLP Command Parsing": false,
+    "Flight Control Status": false,
+    "Kafka Message Flow": true,
+    "Complex Commands": false,
+    "Error Handling": false
+  },
+  "detailed_results": [
+    {
+      "test": "Command Parser Health",
+      "passed": true,
+      "details": "{'status': 'healthy', 'service': 'command-parser', 'timestamp': '2026-05-06T15:16:04.956Z'}",
+      "timestamp": 1778080565.0171642
+    },
+    {
+      "test": "Flight Control Health",
+      "passed": true,
+      "details": "{'status': 'healthy', 'service': 'flight-control', 'drone_state': {'position': {'lat': -1.292, 'lon': 36.82, 'altitude': 0}, 'status': 'emergency', 'battery': 100, 'speed': 0, 'heading': 0, 'last_update': '2026-05-06T06:08:56.820Z'}, 'timestamp': '2026-05-06T15:16:05.001Z'}",
+      "timestamp": 1778080565.018795
+    },
+    {
+      "test": "NLP: Go to forest area",
+      "passed": false,
+      "details": "Intent mismatch: expected navigate, got None",
+      "timestamp": 1778080565.158335
+    },
+    {
+      "test": "NLP: Search for missing person in the forest",
+      "passed": false,
+      "details": "Intent mismatch: expected search, got None Missing object: person",
+      "timestamp": 1778080565.2111793
+    },
+    {
+      "test": "NLP: Monitor the lake area for suspicious activity",
+      "passed": false,
+      "details": "Intent mismatch: expected surveillance, got None",
+      "timestamp": 1778080565.2729654
+    },
+    {
+      "test": "NLP: Emergency land now",
+      "passed": false,
+      "details": "Intent mismatch: expected emergency_land, got None",
+      "timestamp": 1778080565.3093026
+    },
+    {
+      "test": "NLP: Return to home base",
+      "passed": false,
+      "details": "Intent mismatch: expected return_home, got None",
+      "timestamp": 1778080565.3440132
+    },
+    {
+      "test": "NLP: Hover over the building",
+      "passed": false,
+      "details": "Intent mismatch: expected hover, got None",
+      "timestamp": 1778080565.3797872
+    },
+    {
+      "test": "NLP: Track the red car",
+      "passed": false,
+      "details": "Intent mismatch: expected track_object, got None Missing object: car",
+      "timestamp": 1778080565.420746
+    },
+    {
+      "test": "Flight Control Status",
+      "passed": false,
+      "details": "Missing fields: ['connected', 'latitude', 'longitude', 'altitude', 'battery']",
+      "timestamp": 1778080565.438419
+    },
+    {
+      "test": "Kafka Message Flow",
+      "passed": true,
+      "details": "Command ID: cmd_1778080565462_tjvar8pox",
+      "timestamp": 1778080565.4876473
+    },
+    {
+      "test": "Complex: Search the forest area for mis...",
+      "passed": false,
+      "details": "Intent mismatch: got None, expected one of ['search']",
+      "timestamp": 1778080565.5353985
+    },
+    {
+      "test": "Complex: Monitor the building perimeter...",
+      "passed": false,
+      "details": "Intent mismatch: got None, expected one of ['surveillance', 'hover']",
+      "timestamp": 1778080565.5901093
+    },
+    {
+      "test": "Complex: Track the vehicle from forest ...",
+      "passed": false,
+      "details": "Intent mismatch: got None, expected one of ['track_object']",
+      "timestamp": 1778080565.6293502
+    },
+    {
+      "test": "Error: Empty command",
+      "passed": false,
+      "details": "Handled gracefully, HTTP 400",
+      "timestamp": 1778080565.6513314
+    },
+    {
+      "test": "Error: Invalid JSON",
+      "passed": true,
+      "details": "Expected failure, got HTTP 400",
+      "timestamp": 1778080565.6757114
+    },
+    {
+      "test": "Error: Missing user_id",
+      "passed": false,
+      "details": "Handled gracefully, HTTP 400",
+      "timestamp": 1778080565.6901538
+    },
+    {
+      "test": "Error: Very long command",
+      "passed": true,
+      "details": "Handled gracefully, HTTP 200",
+      "timestamp": 1778080565.970772
+    }
+  ]
+}
