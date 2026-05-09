@@ -1,23 +1,30 @@
 version: '3.8'
 
 services:
+
   # Gazebo + PX4 SITL Simulation
   gazebo-px4:
     image: px4io/px4-sitl-gazebo:latest
     container_name: gazebo-px4
+
     ports:
-      - "14540:14540/udp"  # MAVLink
-      - "14556:14556/udp"  # MAVLink 2
+      - "14540:14540/udp"
+      - "14556:14556/udp"
+
     environment:
       - PX4_SIM_HOST=gazebo-px4
       - PX4_SIM_PORT=14540
+      - DISPLAY=${DISPLAY}
+      - QT_X11_NO_MITSHM=1
+
     volumes:
       - ./px4_config:/px4_config
-    networks:
-      - fyp-network
+      - /tmp/.X11-unix:/tmp/.X11-unix
+
+    network_mode: host
     restart: unless-stopped
 
-  # Object Detection Service (Python - YOLOv8)
+  # Object Detection Service (YOLOv8)
   object-detection:
     build: ./src/object-detection
     container_name: object-detection
@@ -41,7 +48,7 @@ services:
       timeout: 10s
       retries: 3
 
-  # RL Navigation Service (Python - Deep Q-Network)
+  # RL Navigation Service
   rl-navigation:
     build: ./src/rl-navigation
     container_name: rl-navigation
@@ -65,7 +72,7 @@ services:
       timeout: 10s
       retries: 3
 
-  # Kafka Bridge (connects to PC1 Kafka)
+  # Kafka Bridge
   kafka-bridge:
     image: confluentinc/cp-kafka:7.4.0
     container_name: kafka-bridge
