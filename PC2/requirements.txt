@@ -1,0 +1,64 @@
+# PC2 - Vision & Navigation Dependencies
+# Autonomous Drone Obstacle Detection System
+
+# Core Framework
+fastapi==0.104.1
+uvicorn==0.24.0
+pydantic==2.5.0
+python-multipart==0.0.6
+
+# Computer Vision & Image Processing
+opencv-python==4.8.1.78
+Pillow==10.0.1
+numpy==1.24.3
+
+# Deep Learning - PyTorch Ecosystem
+torch==2.1.0
+torchvision==0.16.0
+ultralytics==8.0.206
+
+# Reinforcement Learning
+stable-baselines3==2.2.1
+gymnasium==0.29.1
+tensorboard==2.15.1
+
+# Communication & Messaging
+kafka-python==2.0.2
+
+# Data Processing & Utilities
+pandas==2.1.4
+scikit-learn==1.3.2
+matplotlib==3.8.2
+seaborn==0.13.0
+
+# Natural Language Processing (for NLP module)
+transformers==4.36.0
+tokenizers==0.15.1
+
+# System Monitoring & Logging
+psutil==5.9.6
+tqdm==4.66.1
+
+# Development & Testing
+pytest==7.4.3
+pytest-asyncio==0.21.1
+black==23.11.0
+flake8==6.1.0
+
+# Additional Utilities
+pathlib2==2.3.7
+python-dotenv==1.0.0
+requests==2.31.0
+aiofiles==23.2.1
+
+# Optional: GPU Support (uncomment if using NVIDIA GPU)
+# torch-audio==2.1.0
+# torchaudio==2.1.0
+
+# Optional: Advanced Computer Vision (uncomment if needed)
+# albumentations==1.4.0
+# imgaug==0.4.0
+
+# Optional: Model Optimization (uncomment if needed)
+# onnx==1.15.0
+# onnxruntime==1.16.3

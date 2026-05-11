@@ -1,6 +1,6 @@
 FROM python:3.10-slim
 
-# Install system dependencies
+# Install system dependencies for complete drone system
 RUN apt-get update && apt-get install -y \
     gcc \
     g++ \
@@ -10,7 +10,22 @@ RUN apt-get update && apt-get install -y \
     libxext6 \
     libxrender-dev \
     libgomp1 \
+    libgthread-2.0-0 \
+    libgtk-3-0 \
+    libavcodec-dev \
+    libavformat-dev \
+    libswscale-dev \
+    libv4l-dev \
+    libxvidcore-dev \
+    libx264-dev \
+    libjpeg-dev \
+    libpng-dev \
+    libtiff-dev \
+    libblas-dev \
+    liblapack-dev \
+    python3-dev \
     wget \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory

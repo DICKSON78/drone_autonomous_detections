@@ -1,0 +1,23 @@
+services:
+  colab-jupyter:
+    build:
+      context: .
+      dockerfile: Dockerfile.colab
+    container_name: colab-drone-system
+    ports:
+      - "39361:8888"
+      - "39362:8889"
+    volumes:
+      - ./trained_model.ipynb:/workspace/trained_model.ipynb
+      - ./src:/workspace/src
+      - ./models:/workspace/models
+      - ./data:/workspace/data
+    environment:
+      - JUPYTER_ENABLE_LAB=yes
+    restart: unless-stopped
+    networks:
+      - colab-network
+
+networks:
+  colab-network:
+    driver: bridge

@@ -1,0 +1,166 @@
+<?xml version="1.0" ?>
+<sdf version="1.6">
+  <world name="dodoma_tanzania">
+    
+    <!-- Physics Engine Settings -->
+    <physics name="1ms" type="ode">
+      <max_step_size>0.001</max_step_size>
+      <real_time_factor>1.0</real_time_factor>
+      <real_time_update_rate>1000</real_time_update_rate>
+      <gravity>0 0 -9.8066</gravity>
+    </physics>
+
+    <!-- Ground Plane - Dodoma Terrain -->
+    <include>
+      <uri>model://ground_plane</uri>
+    </include>
+
+    <!-- Sun - Dodoma Climate (Hot and Dry) -->
+    <include>
+      <uri>model://sun</uri>
+      <pose>0 0 50 0 0 0</pose>
+    </include>
+    
+    <!-- Sky - Clear Dodoma Sky -->
+    <scene>
+      <sky>
+        <time>10.0</time>
+        <sunrise>6.0</sunrise>
+        <sunset>18.5</sunset>
+        <clouds>
+          <speed>12</speed>
+          <direction>1 0 0</direction>
+          <humidity>0.3</humidity>
+          <mean_size>0.5</mean_size>
+          <ambient>0.4 0.4 0.4 1</ambient>
+        </clouds>
+      </sky>
+    </scene>
+
+    <!-- Dodoma Characteristic Vegetation - Acacia Trees -->
+    <model name="acacia_tree_1">
+      <pose>10 5 0 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <cylinder>
+              <radius>0.5</radius>
+              <length>8</length>
+            </cylinder>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.5</radius>
+              <length>8</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.5 0.3 0.1 1</ambient>
+            <diffuse>0.6 0.4 0.2 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="acacia_tree_2">
+      <pose>-8 12 0 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <cylinder>
+              <radius>0.4</radius>
+              <length>6</length>
+            </cylinder>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.4</radius>
+              <length>6</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.5 0.3 0.1 1</ambient>
+            <diffuse>0.6 0.4 0.2 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Dodoma Buildings - Government Buildings Style -->
+    <model name="gov_building_1">
+      <pose>15 -10 0 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <box>
+              <size>20 15 12</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <box>
+              <size>20 15 12</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.7 0.7 0.6 1</ambient>
+            <diffuse>0.8 0.8 0.7 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Dodoma Characteristic - Small Hills/Rocky Outcrops -->
+    <model name="rocky_hill_1">
+      <pose>-15 -8 0 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <sphere>
+              <radius>3</radius>
+            </sphere>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <sphere>
+              <radius>3</radius>
+            </sphere>
+          </geometry>
+          <material>
+            <ambient>0.6 0.5 0.4 1</ambient>
+            <diffuse>0.7 0.6 0.5 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Drone Starting Position -->
+    <model name="drone_start">
+      <pose>0 0 2 0 0 0</pose>
+      <include>
+        <uri>model://iris</uri>
+      </include>
+    </model>
+
+    <!-- Wind Simulation - Dodoma Wind Patterns -->
+    <wind>
+      <linear_velocity>
+        <x>2.5</x>
+        <y>1.0</y>
+        <z>0.0</z>
+      </linear_velocity>
+      <gust>
+        <x>0.5</x>
+        <y>0.3</y>
+        <z>0.0</z>
+      </gust>
+    </wind>
+
+  </world>
+</sdf>

@@ -1,0 +1,51 @@
+FROM jupyter/scipy-notebook:latest
+
+# Switch to root user to install packages
+USER root
+
+# Install system dependencies for drone system
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    libgl1-mesa-glx \
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender-dev \
+    libgomp1 \
+    libgthread-2.0-0 \
+    libgtk-3-0 \
+    libavcodec-dev \
+    libavformat-dev \
+    libswscale-dev \
+    libv4l-dev \
+    libxvidcore-dev \
+    libx264-dev \
+    libjpeg-dev \
+    libpng-dev \
+    libtiff-dev \
+    libblas-dev \
+    liblapack-dev \
+    python3-dev \
+    wget \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Switch back to jovyan user
+USER jovyan
+
+# Copy requirements and install Python packages
+COPY requirements.txt /tmp/requirements.txt
+RUN pip install --no-cache-dir -r /tmp/requirements.txt
+
+# Create workspace directory
+WORKDIR /workspace
+
+# Copy notebook
+COPY trained_model.ipynb /workspace/trained_model.ipynb
+
+# Expose Jupyter ports
+EXPOSE 8888 8889
+
+# Start Jupyter Lab
+CMD ["jupyter", "lab", "--ip=0.0.0.0", "--port=8888", "--no-browser", "--allow-root", "--NotebookApp.token=''", "--NotebookApp.password=''"]
