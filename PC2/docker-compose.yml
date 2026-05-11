@@ -1,12 +1,15 @@
 
 services:
+
   # Gazebo + PX4 SITL Simulation
   gazebo-px4:
     image: px4io/px4-sitl-gazebo:latest
     container_name: gazebo-px4
+
     ports:
-      - "14540:14540/udp"  # MAVLink
-      - "14556:14556/udp"  # MAVLink 2
+      - "14540:14540/udp"
+      - "14556:14556/udp"
+
     environment:
       - PX4_SIM_HOST=gazebo-px4
       - PX4_SIM_PORT=14540
@@ -23,7 +26,7 @@ services:
       - fyp-network
     restart: unless-stopped
 
-  # Object Detection Service (Python - YOLOv8)
+  # Object Detection Service (YOLOv8)
   object-detection:
     build: ./src/object-detection
     container_name: object-detection
@@ -47,7 +50,7 @@ services:
       timeout: 10s
       retries: 3
 
-  # RL Navigation Service (Python - Deep Q-Network)
+  # RL Navigation Service
   rl-navigation:
     build: ./src/rl-navigation
     container_name: rl-navigation
@@ -71,6 +74,7 @@ services:
       timeout: 10s
       retries: 3
 
+<<<<<<< HEAD
   # Integrated Pipeline Service (YOLO + RL + NLP)
   integrated-pipeline:
     build: ./src/integrated-pipeline
@@ -129,6 +133,9 @@ services:
       "
 
   # Kafka Bridge (connects to PC1 Kafka)
+=======
+  # Kafka Bridge
+>>>>>>> fyp-pc2
   kafka-bridge:
     image: confluentinc/cp-kafka:7.4.0
     container_name: kafka-bridge
