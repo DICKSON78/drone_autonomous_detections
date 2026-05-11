@@ -1,0 +1,45 @@
+# Drone Dataset Configuration
+# Configuration file for YOLO training on drone obstacle detection
+
+# Dataset path configuration
+path: ./data
+train: images/train
+val: images/val
+
+# Number of classes
+nc: 6
+
+# Class names for drone obstacle detection
+names:
+  0: tree        # Mti
+  1: building    # Jengo
+  2: pole        # Nguzo
+  3: person      # Mtu
+  4: vehicle     # Gari
+  5: aircraft    # Ndege
+
+# Training configuration (optional - can be overridden in training script)
+train_config:
+  # Image settings
+  img_size: 640
+  batch_size: 16
+  
+  # Training parameters
+  epochs: 100
+  patience: 20
+  save_period: 10
+  
+  # Augmentation settings
+  augment:
+    hsv_h: 0.015
+    hsv_s: 0.7
+    hsv_v: 0.4
+    degrees: 10.0
+    translate: 0.1
+    scale: 0.5
+    shear: 0.0
+    perspective: 0.0
+    flipud: 0.0
+    fliplr: 0.5
+    mosaic: 1.0
+    mixup: 0.0

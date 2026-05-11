@@ -1,4 +1,3 @@
-version: '3.8'
 
 services:
   # Gazebo + PX4 SITL Simulation
@@ -11,8 +10,15 @@ services:
     environment:
       - PX4_SIM_HOST=gazebo-px4
       - PX4_SIM_PORT=14540
+      - DISPLAY=${DISPLAY}
+      - QT_X11_NO_MITSHM=1
+      - GAZEBO_MODEL_PATH=/gazebo_models
+      - PX4_SITL_WORLD=/gazebo_worlds/dodoma/dodoma_tanzania.world
     volumes:
       - ./px4_config:/px4_config
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - ./gazebo_worlds:/gazebo_worlds
+      - ./gazebo_models:/gazebo_models
     networks:
       - fyp-network
     restart: unless-stopped
@@ -64,6 +70,63 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+
+  # Integrated Pipeline Service (YOLO + RL + NLP)
+  integrated-pipeline:
+    build: ./src/integrated-pipeline
+    container_name: integrated-pipeline
+    ports:
+      - "8004:8004"
+    depends_on:
+      - object-detection
+      - rl-navigation
+      - kafka-bridge
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - OBJECT_DETECTION_URL=http://object-detection:8002
+      - RL_NAVIGATION_URL=http://rl-navigation:8003
+    volumes:
+      - ./models:/app/models
+      - ./data:/app/data
+      - ./config:/app/config
+      - ./logs:/app/logs
+      - ./src:/app/src
+    networks:
+      - fyp-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Jupyter Lab for Google Colab Connection
+  colab-jupyter:
+    build: ./src/integrated-pipeline
+    container_name: colab-jupyter
+    ports:
+      - "39361:8888"
+      - "39362:8889"
+    volumes:
+      - ./trained_model.ipynb:/workspace/trained_model.ipynb
+      - ./src:/workspace/src
+      - ./models:/workspace/models
+      - ./data:/workspace/data
+      - ./requirements.txt:/workspace/requirements.txt
+    environment:
+      - JUPYTER_ENABLE_LAB=yes
+    networks:
+      - fyp-network
+    restart: unless-stopped
+    command: >
+      bash -c "
+        pip install jupyterlab &&
+        jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root 
+        --ServerApp.allow_origin='https://colab.research.google.com' 
+        --ServerApp.allow_remote_access=True
+        --ServerApp.token='' --ServerApp.password='' 
+        --ServerApp.ip='0.0.0.0' --ServerApp.port_retries=0
+      "
 
   # Kafka Bridge (connects to PC1 Kafka)
   kafka-bridge:
