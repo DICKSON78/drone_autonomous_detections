@@ -1,24 +1,16 @@
-FROM node:18-alpine
+FROM python:3.10-slim
 
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
 
-# Install dependencies
-RUN npm ci --only=production
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application code
 COPY . .
 
-# Create non-root user
-RUN addgroup -g 1001 -S nodejs
-RUN adduser -S nodejs -u 1001
-
-# Change ownership of the app directory
-RUN chown -R nodejs:nodejs /app
-USER nodejs
-
-EXPOSE 8000
-
-CMD ["npm", "start"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -1,1 +1,28 @@
 # Simulation environment definitions for Gazebo
+
+worlds:
+  dodoma_tanzania:
+    name: "Dodoma, Tanzania"
+    description: "Custom environment simulating Dodoma, Tanzania with acacia trees, government buildings, and rocky hills"
+    sdf_version: "1.9"
+    simulator: "gz"  # Gazebo Harmonic
+    file: "/gazebo_worlds/dodoma/dodoma_tanzania.sdf"
+    environment_vars:
+      PX4_GZ_WORLD: "dodoma_tanzania"
+      PX4_SIMULATOR: "gz"
+      PX4_SIM_MODEL: "gz_x500"
+    spherical_coordinates:
+      latitude: -6.1630
+      longitude: 35.7516
+      elevation: 1120
+    features:
+      - "Red soil ground plane (2000x2000m)"
+      - "12 Acacia trees (flat-top canopy)"
+      - "Government building (20x15x12m)"
+      - "Bunge Tanzania landmark (cylindrical building)"
+      - "2 Rocky hills (monadnocks)"
+      - "Tropical sky with true shadows"
+    models:
+      - "acacia_tree"
+      - "gov_building"
+    drone_model: "gz_x500"

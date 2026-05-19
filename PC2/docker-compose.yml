@@ -5,26 +5,60 @@ services:
   gazebo-px4:
     image: px4io/px4-sitl-gazebo:latest
     container_name: gazebo-px4
-
+    # Use host network for easier X11 and MAVLink connectivity if needed, 
+    # but keeping fyp-network for consistency with the rest of the system.
     ports:
-      - "14540:14540/udp"
+      # Host port -> Container port (PX4 internal ports from mavlink channels)
+      # PX4 Normal/GCS channel: listens on 18570, expects remote on 14550
+      # PX4 Onboard channel: listens on 14580, expects remote on 14540
+      - "14550:18570/udp"   # GCS commands: host:14550 -> container:18570
+      - "14540:14580/udp"   # Onboard telemetry: host:14540 -> container:14580
       - "14556:14556/udp"
 
     environment:
-      - PX4_SIM_HOST=gazebo-px4
-      - PX4_SIM_PORT=14540
+      # Select Gazebo simulator: gz (Harmonic) vs gazebo-classic
+      - PX4_SIMULATOR=gz
+      # Gazebo Harmonic world selection (world file name without .sdf)
+      - PX4_GZ_WORLD=dodoma_tanzania
+      # Drone model (PX4 auto-spawns this into the world)
+      - PX4_SIM_MODEL=gz_x500
+      # Gazebo Harmonic model/resource paths
+      - GZ_SIM_RESOURCE_PATH=/gazebo_models/dodoma:/opt/px4-gazebo/share/gz/models:/opt/px4-gazebo/share/gz/worlds
+      # GPS origin - Dodoma, Tanzania (elevation ~1120m)
+      - PX4_HOME_LAT=-6.1630
+      - PX4_HOME_LON=35.7516
+      - PX4_HOME_ALT=1120
+      # X11 display forwarding
       - DISPLAY=${DISPLAY}
       - QT_X11_NO_MITSHM=1
-      - GAZEBO_MODEL_PATH=/gazebo_models
-      - PX4_SITL_WORLD=/gazebo_worlds/dodoma/dodoma_tanzania.world
+      - XAUTHORITY=/tmp/.docker.xauth
+      # Set HEADLESS=1 for no GUI, remove/comment for X11 GUI
+      - HEADLESS=1
+    # Uncomment to override image entrypoint with our wrapper (ensures world+models load):
+    # entrypoint: ["/scripts/gz_entrypoint.sh"]
+    # command: ["px4"]
     volumes:
       - ./px4_config:/px4_config
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - /tmp/.docker.xauth:/tmp/.docker.xauth:rw
       - ./gazebo_worlds:/gazebo_worlds
       - ./gazebo_models:/gazebo_models
+      # Mount custom world into PX4's standard world directory so PX4 finds it
+      - ./gazebo_worlds/dodoma/dodoma_tanzania.sdf:/opt/px4-gazebo/share/gz/worlds/dodoma_tanzania.sdf
+      # Custom entrypoint wrapper (available for troubleshooting)
+      - ./scripts/gz_entrypoint.sh:/scripts/gz_entrypoint.sh
     networks:
       - fyp-network
     restart: unless-stopped
+    # Add GPU support if available (requires nvidia-docker2)
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+
 
   # Object Detection Service (YOLOv8)
   object-detection:
@@ -74,68 +108,7 @@ services:
       timeout: 10s
       retries: 3
 
-<<<<<<< HEAD
-  # Integrated Pipeline Service (YOLO + RL + NLP)
-  integrated-pipeline:
-    build: ./src/integrated-pipeline
-    container_name: integrated-pipeline
-    ports:
-      - "8004:8004"
-    depends_on:
-      - object-detection
-      - rl-navigation
-      - kafka-bridge
-    environment:
-      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
-      - OBJECT_DETECTION_URL=http://object-detection:8002
-      - RL_NAVIGATION_URL=http://rl-navigation:8003
-    volumes:
-      - ./models:/app/models
-      - ./data:/app/data
-      - ./config:/app/config
-      - ./logs:/app/logs
-      - ./src:/app/src
-    networks:
-      - fyp-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
-  # Jupyter Lab for Google Colab Connection
-  colab-jupyter:
-    build: ./src/integrated-pipeline
-    container_name: colab-jupyter
-    ports:
-      - "39361:8888"
-      - "39362:8889"
-    volumes:
-      - ./trained_model.ipynb:/workspace/trained_model.ipynb
-      - ./src:/workspace/src
-      - ./models:/workspace/models
-      - ./data:/workspace/data
-      - ./requirements.txt:/workspace/requirements.txt
-    environment:
-      - JUPYTER_ENABLE_LAB=yes
-    networks:
-      - fyp-network
-    restart: unless-stopped
-    command: >
-      bash -c "
-        pip install jupyterlab &&
-        jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root 
-        --ServerApp.allow_origin='https://colab.research.google.com' 
-        --ServerApp.allow_remote_access=True
-        --ServerApp.token='' --ServerApp.password='' 
-        --ServerApp.ip='0.0.0.0' --ServerApp.port_retries=0
-      "
-
-  # Kafka Bridge (connects to PC1 Kafka)
-=======
-  # Kafka Bridge
->>>>>>> fyp-pc2
+# Kafka Bridge
   kafka-bridge:
     image: confluentinc/cp-kafka:7.4.0
     container_name: kafka-bridge

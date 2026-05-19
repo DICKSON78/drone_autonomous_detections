@@ -40,7 +40,7 @@ const TOPICS = {
   COMMANDS:    process.env.KAFKA_TOPIC_COMMANDS    || 'drone.commands.flight',
   STATUS:      process.env.KAFKA_TOPIC_STATUS      || 'drone.status.flight',
   ALERTS:      process.env.KAFKA_TOPIC_ALERTS      || 'drone.alerts.critical',
-  FEEDBACK:    process.env.KAFKA_TOPIC_FEEDBACK    || 'drone.feedback.messages',
+  FEEDBACK:    process.env.KAFKA_TOPIC_FEEDBACK    || 'drone.feedback.spoken',
   SYSTEM:      process.env.KAFKA_TOPIC_SYSTEM      || 'drone.status.system',
 };
 

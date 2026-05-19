@@ -17,7 +17,7 @@ services:
     volumes:
       - influxdb_data:/var/lib/influxdb2
     networks:
-      - drone-network
+      - fyp-network
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8086/health"]
@@ -132,7 +132,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
-      - drone-network
+      - fyp-network
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U fyp_user -d fyp_db"]
@@ -146,5 +146,6 @@ volumes:
   postgres_data:
 
 networks:
-  drone-network:
-    driver: bridge
+  fyp-network:
+    name: fyp-network
+    external: true

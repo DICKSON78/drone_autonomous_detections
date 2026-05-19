@@ -31,13 +31,13 @@ ensure_network() {
 # ─── Start PC1 ────────────────────────────────────────────────────────────────
 start_pc1() {
     log "Starting PC1 (Core & Kafka)..."
-    cd "$ROOT_DIR/PC1" && docker compose up -d
+    cd "$ROOT_DIR/PC1" && docker-compose up -d
 }
 
 # ─── Start PC2 ────────────────────────────────────────────────────────────────
 start_pc2() {
     log "Starting PC2 (Vision & AI)..."
-    cd "$ROOT_DIR/PC2" && docker compose up -d
+    cd "$ROOT_DIR/PC2" && docker-compose up -d
 }
 
 # ─── Start PC3 ────────────────────────────────────────────────────────────────
@@ -49,7 +49,7 @@ start_pc3() {
 # ─── Start PC4 ────────────────────────────────────────────────────────────────
 start_pc4() {
     log "Starting PC4 (Feedback)..."
-    cd "$ROOT_DIR/PC4" && docker compose up -d
+    cd "$ROOT_DIR/PC4" && docker-compose up -d
 }
 
 # ─── Main Menu ────────────────────────────────────────────────────────────────

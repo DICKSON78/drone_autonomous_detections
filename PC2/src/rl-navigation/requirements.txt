@@ -1,7 +1,6 @@
 # Install required packages
 ultralytics==8.0.206
-torch==2.1.0
-torchvision==0.16.0
+
 stable-baselines3==2.2.1
 gymnasium==0.29.1
 tensorboard==2.15.1

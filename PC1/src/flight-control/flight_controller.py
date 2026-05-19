@@ -3,20 +3,26 @@ from mavsdk import System
 import asyncio
 import json
 from kafka import KafkaConsumer, KafkaProducer
+import os
 import logging
+from datetime import datetime, timezone
 from pydantic import BaseModel
 
 app = FastAPI(title="Flight Control Service")
 
-# Kafka setup
+# Kafka configuration
+KAFKA_BOOTSTRAP_SERVERS = os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'kafka:9092').split(',')
+
 consumer = KafkaConsumer(
     'drone.commands.flight',
-    bootstrap_servers=['kafka:9092'],
-    value_deserializer=lambda m: json.loads(m.decode('utf-8'))
+    'drone.navigation.decisions',
+    bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS,
+    value_deserializer=lambda m: json.loads(m.decode('utf-8')),
+    auto_offset_reset='latest'
 )
 
 producer = KafkaProducer(
-    bootstrap_servers=['kafka:9092'],
+    bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS,
     value_serializer=lambda v: json.dumps(v).encode('utf-8')
 )
 
@@ -37,7 +43,8 @@ async def connect_drone():
     drone = System()
     
     try:
-        await drone.connect(system_address="udp://:14540")
+        # Connect to gazebo-px4 container
+        await drone.connect(system_address="udp://gazebo-px4:14540")
         logging.info("Connected to drone")
         
         # Wait for drone to be ready
@@ -102,6 +109,39 @@ async def execute_flight_command(command):
         logging.error(f"Flight execution error: {e}")
         return False
 
+async def execute_move_command(action):
+    """Execute simple movement from autonomous navigation"""
+    if not drone: return
+    try:
+        # Check if drone is in the air
+        async for in_air in drone.telemetry.in_air():
+            if not in_air:
+                logging.info("Drone not in air, ignoring move command")
+                return
+            break
+            
+        logging.info(f"Executing autonomous move: {action}")
+        
+        # Get current position
+        async for position in drone.telemetry.position():
+            curr_lat = position.latitude
+            curr_lon = position.longitude
+            curr_alt = position.relative_altitude
+            break
+            
+        # Small offset (approx 1 meter)
+        offset = 0.00001
+        
+        if action == "left":
+            await drone.action.goto_location(curr_lat, curr_lon - offset, curr_alt, 0)
+        elif action == "right":
+            await drone.action.goto_location(curr_lat, curr_lon + offset, curr_alt, 0)
+        elif action == "up":
+            await drone.action.goto_location(curr_lat, curr_lon, curr_alt + 2, 0)
+        
+    except Exception as e:
+        logging.error(f"Move execution error: {e}")
+
 async def command_consumer():
     """Consume commands from Kafka"""
     while True:
@@ -111,15 +151,19 @@ async def command_consumer():
                 logging.info(f"Received command: {command}")
                 
                 # Execute flight command
-                success = await execute_flight_command(command)
+                if message.topic == 'drone.commands.flight':
+                    success = await execute_flight_command(command)
+                elif message.topic == 'drone.navigation.decisions':
+                    await execute_move_command(command.get("action"))
+                    success = True
                 
                 # Send status update
                 status = {
                     "command_id": command.get("command_id"),
                     "status": "completed" if success else "failed",
-                    "timestamp": "2024-01-01T00:00:00Z"
+                    "timestamp": datetime.now(timezone.utc).isoformat()
                 }
-                producer.send('drone.status', status)
+                producer.send('drone.status.flight', status)
                 
         except Exception as e:
             logging.error(f"Consumer error: {e}")

@@ -13,8 +13,10 @@ from kafka import KafkaProducer, KafkaConsumer
 from typing import List, Dict
 import time
 import uvicorn
+import os
 
 from .yolo_handler import YOLOHandler
+from .unsupervised_handler import UnsupervisedHandler
 from .camera_sim import CameraSimulator
 from .image_processor import ImageProcessor
 
@@ -26,18 +28,21 @@ logger = logging.getLogger(__name__)
 
 # Initialize components
 detector = YOLOHandler(model_name="yolov8n.pt", device="auto")
+unsupervised = UnsupervisedHandler(model_dir="/app/models/unsupervised")
 camera = CameraSimulator(width=640, height=480, source="simulation")
 image_processor = ImageProcessor()
 
-# Kafka (use service name inside Docker network)
+# Kafka configuration
+KAFKA_BOOTSTRAP_SERVERS = os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'kafka:9092').split(',')
+
 producer = KafkaProducer(
-    bootstrap_servers=['pc1:9092'],
+    bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS,
     value_serializer=lambda v: json.dumps(v).encode('utf-8')
 )
 
 consumer = KafkaConsumer(
     'drone.commands.detection',
-    bootstrap_servers=['pc1:9092'],
+    bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS,
     value_deserializer=lambda m: json.loads(m.decode('utf-8')),
     auto_offset_reset='latest',
     enable_auto_commit=True
@@ -80,7 +85,14 @@ async def detect_objects(file: UploadFile = File(...)):
 
         # Send to Kafka
         if detections:
-            producer.send('drone.telemetry.detections', result.dict())
+            # Add unsupervised cluster if model is ready
+            unsupervised_data = {}
+            if unsupervised.is_ready:
+                unsupervised_data = unsupervised.classify(image)
+            
+            payload = result.dict()
+            payload['unsupervised'] = unsupervised_data
+            producer.send('drone.detections.objects', payload)
 
         return result
 
@@ -107,8 +119,14 @@ async def continuous_detection_loop():
             if frame is not None:
                 detections = detector.detect(frame)
                 if detections:
-                    producer.send('drone.telemetry.detections', {
+                    # Add unsupervised cluster if model is ready
+                    unsupervised_data = {}
+                    if unsupervised.is_ready:
+                        unsupervised_data = unsupervised.classify(frame)
+                        
+                    producer.send('drone.detections.objects', {
                         "detections": detections,
+                        "unsupervised": unsupervised_data,
                         "timestamp": time.time(),
                         "source": "continuous"
                     })

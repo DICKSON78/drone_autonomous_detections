@@ -22,7 +22,7 @@ from tts_engine import TTSEngine
 # ── Config (kept inline so this file is self-contained as the entry point) ───
 KAFKA_SERVERS  = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "kafka:9092")
 KAFKA_GROUP    = "feedback-service-group"
-KAFKA_IN       = ["drone.commands.feedback", "drone.detections.objects", "drone.navigation.result"]
+KAFKA_IN       = ["drone.commands.feedback", "drone.detections.objects", "drone.navigation.decisions"]
 KAFKA_OUT      = "drone.feedback.spoken"
 TTS_RATE       = int(os.getenv("TTS_RATE",        "150"))
 TTS_VOLUME     = float(os.getenv("TTS_VOLUME",    "1.0"))
@@ -79,7 +79,7 @@ def _handle_navigation(data: dict, queue: MessageQueue, producer) -> None:
         return
     text = f"Navigation: {action}"
     if queue.enqueue(text, "normal"):
-        _publish_spoken(producer, text, "normal", "drone.navigation.result")
+        _publish_spoken(producer, text, "normal", "drone.navigation.decisions")
 
 
 def _handle_command(data: dict, queue: MessageQueue, producer) -> None:
@@ -102,7 +102,7 @@ def _kafka_thread(queue: MessageQueue) -> None:
 
     _HANDLERS = {
         "drone.detections.objects":  _handle_detections,
-        "drone.navigation.result":   _handle_navigation,
+        "drone.navigation.decisions":  _handle_navigation,
         "drone.commands.feedback":   _handle_command,
     }
 

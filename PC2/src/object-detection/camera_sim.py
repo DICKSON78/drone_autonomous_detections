@@ -44,10 +44,16 @@ class CameraSimulator:
         try:
             if self.source == "webcam":
                 self.cap = cv2.VideoCapture(0)
+            elif self.source == "simulation":
+                # Gazebo GStreamer/UDP stream (standard PX4 port)
+                self.cap = cv2.VideoCapture("udp://gazebo-px4:5600", cv2.CAP_FFMPEG)
             else:
                 self.cap = cv2.VideoCapture(self.source)
             
-            if not self.cap.isOpened():
+            if not self.cap.isOpened() and self.source == "simulation":
+                logger.warning("Failed to connect to Gazebo stream. Falling back to generated frames.")
+                self.is_simulated = True
+            elif not self.cap.isOpened():
                 logger.warning(f"Failed to open camera source: {self.source}")
                 self.is_simulated = True
             else:

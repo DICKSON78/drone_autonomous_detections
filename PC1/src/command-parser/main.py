@@ -1,92 +1,44 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-import spacy
-import json
-import redis
 from kafka import KafkaProducer
+import json
+import os
 import logging
-import subprocess
-import sys
+from .nlp_handler import NLPHandler
 
-# Download spaCy model if not present
-try:
-    nlp = spacy.load("en_core_web_sm")
-except OSError:
-    logging.info("Downloading spaCy model...")
-    subprocess.check_call([sys.executable, "-m", "spacy", "download", "en_core_web_sm"])
-    nlp = spacy.load("en_core_web_sm")
+app = FastAPI(title="PC1 - Command Parser Service")
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Command Parser Service")
-
-# Kafka producer
+# Kafka configuration
+KAFKA_BOOTSTRAP_SERVERS = os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'kafka:9092').split(',')
 producer = KafkaProducer(
-    bootstrap_servers=['kafka:9092'],
+    bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS,
     value_serializer=lambda v: json.dumps(v).encode('utf-8')
 )
 
-class Command(BaseModel):
+nlp = NLPHandler()
+
+class CommandRequest(BaseModel):
     text: str
-    user_id: str
 
-def parse_command_to_gps(command_text: str) -> dict:
-    """Parse natural language command to GPS coordinates"""
-    doc = nlp(command_text.lower())
-    
-    # Simple GPS mapping (in real system, use geocoding API)
-    location_mappings = {
-        "forest": {"lat": -1.2921, "lon": 36.8219},
-        "lake": {"lat": -1.2850, "lon": 36.8300},
-        "field": {"lat": -1.3000, "lon": 36.8100},
-        "home": {"lat": -1.2920, "lon": 36.8200}
-    }
-    
-    detected_location = None
-    for token in doc:
-        if token.text in location_mappings:
-            detected_location = location_mappings[token.text]
-            break
-    
-    if not detected_location:
-        detected_location = {"lat": -1.2920, "lon": 36.8200}  # Default
-    
-    return {
-        "command": command_text,
-        "target_gps": detected_location,
-        "altitude": 50.0,  # Default altitude
-        "action": "navigate"
-    }
-
-@app.post("/parse-command")
-async def parse_command(command: Command):
-    """Parse natural language command and publish to Kafka"""
+@app.post("/parse")
+async def parse_command(request: CommandRequest):
     try:
-        parsed_command = parse_command_to_gps(command.text)
-        
-        # Add metadata
-        parsed_command.update({
-            "user_id": command.user_id,
-            "timestamp": "2024-01-01T00:00:00Z",
-            "command_id": f"cmd_{hash(command.text)}"
-        })
+        logger.info(f"Parsing command: {request.text}")
+        command = nlp.parse(request.text)
         
         # Publish to Kafka
-        producer.send('drone.commands.flight', parsed_command)
-        producer.flush()
+        producer.send('drone.commands.flight', command)
+        logger.info(f"Published command to Kafka: {command['type']}")
         
-        logging.info(f"Published command: {parsed_command}")
-        
-        return {
-            "status": "success",
-            "parsed_command": parsed_command,
-            "message": "Command sent to drone"
-        }
-    
+        return command
     except Exception as e:
-        logging.error(f"Error processing command: {e}")
-        return {"status": "error", "message": str(e)}
+        logger.error(f"Error parsing command: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/health")
-async def health_check():
+async def health():
     return {"status": "healthy", "service": "command-parser"}
 
 if __name__ == "__main__":

@@ -1,31 +1,30 @@
-FROM node:18-alpine
+FROM python:3.10-slim
 
 # Install system dependencies
-RUN apk add --no-cache \
+RUN apt-get update && apt-get install -y \
     gcc \
     g++ \
-    make \
-    python3
+    curl \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
+# Copy requirements
+COPY requirements.txt .
 
 # Install dependencies
-RUN npm install --omit=dev
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY . .
 
-# Create non-root user
-RUN addgroup -g 1001 -S nodejs
-RUN adduser -S nodejs -u 1001
-
-RUN chown -R nodejs:nodejs /app
-USER nodejs
-
+# Expose ports (MAVLink and API)
 EXPOSE 8001
-EXPOSE 8081
+EXPOSE 14540/udp
 
-CMD ["npm", "start"]
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
+ENV PORT=8001
+
+# Run the Python flight controller
+CMD ["python", "flight_controller.py"]

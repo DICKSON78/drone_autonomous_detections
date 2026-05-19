@@ -33,7 +33,8 @@ WORKDIR /app
 
 # Copy requirements and install Python packages
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --default-timeout=1000 --no-cache-dir torch==2.1.0+cpu torchvision==0.16.0+cpu --extra-index-url https://download.pytorch.org/whl/cpu
+RUN pip install --default-timeout=1000 --no-cache-dir -r requirements.txt
 
 # Create models directory
 RUN mkdir -p /app/models

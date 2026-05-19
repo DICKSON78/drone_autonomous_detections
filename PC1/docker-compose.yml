@@ -51,6 +51,7 @@ services:
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
       - PORT=8000
     volumes:
+      - ./models:/app/models
       - ./config:/app/config
       - ./logs:/app/logs
     networks:

@@ -33,7 +33,10 @@ const locationMappings = {
   'home': { lat: -1.2920, lon: 36.8200 },
   'base': { lat: -1.2920, lon: 36.8200 },
   'river': { lat: -1.2880, lon: 36.8350 },
-  'mountain': { lat: -1.2950, lon: 36.8150 }
+  'mountain': { lat: -1.2950, lon: 36.8150 },
+  'dodoma': { lat: -6.1630, lon: 35.7516 },
+  'bunge': { lat: -6.1630, lon: 35.7516 },
+  'forest_area': { lat: -6.1650, lon: 35.7550 }
 };
 
 // Action keywords
@@ -83,9 +86,9 @@ function parseCommandToGPS(commandText) {
     }
   }
   
-  // Default location if none detected
+  // Default location if none detected (Dodoma Base)
   if (!detectedLocation) {
-    detectedLocation = locationMappings['home'];
+    detectedLocation = locationMappings['dodoma'];
   }
   
   return {
