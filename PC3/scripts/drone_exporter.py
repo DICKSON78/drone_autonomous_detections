@@ -1,4 +1,4 @@
-import sys, time, socket, threading, json, math, random
+import sys, time, socket, threading, json, math, random, os
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
 sys.path.insert(0, '/home/dickson/FYP/drone_autonomous/PC2/scripts')
@@ -173,9 +173,10 @@ def detect_obstacles(drone_x, drone_y, drone_z, max_range=200):
 
 def mavlink_loop():
     global telemetry
+    mavlink_target = os.getenv('PC2_IP', '127.0.0.1')
     while True:
         try:
-            conn = DroneConnection(udp_target=('127.0.0.1', 14550))
+            conn = DroneConnection(udp_target=(mavlink_target, 14550))
             conn.connect()
             while True:
                 t = conn.get_telemetry()

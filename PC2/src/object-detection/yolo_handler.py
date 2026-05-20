@@ -11,6 +11,55 @@ from ultralytics import YOLO
 
 logger = logging.getLogger(__name__)
 
+# COCO class names (80 classes)
+COCO_CLASSES = [
+    "person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat",
+    "traffic light", "fire hydrant", "stop sign", "parking meter", "bench", "bird", "cat",
+    "dog", "horse", "sheep", "cow", "elephant", "bear", "zebra", "giraffe", "backpack",
+    "umbrella", "handbag", "tie", "suitcase", "frisbee", "skis", "snowboard", "sports ball",
+    "kite", "baseball bat", "baseball glove", "skateboard", "surfboard", "tennis racket",
+    "bottle", "wine glass", "cup", "fork", "knife", "spoon", "bowl", "banana", "apple",
+    "sandwich", "orange", "broccoli", "carrot", "hot dog", "pizza", "donut", "cake", "chair",
+    "couch", "potted plant", "bed", "dining table", "toilet", "tv", "laptop", "mouse", "remote",
+    "keyboard", "cell phone", "microwave", "oven", "toaster", "sink", "refrigerator", "book",
+    "clock", "vase", "scissors", "teddy bear", "hair drier", "toothbrush"
+]
+
+# Map COCO classes to LGADS semantic categories
+CLASS_MAPPING = {
+    # Animals (direct COCO matches)
+    "person": "person",
+    "bird": "bird",
+    "cat": "animal",
+    "dog": "animal",
+    "horse": "animal",
+    "sheep": "animal",
+    "cow": "animal",
+    "elephant": "animal",
+    "bear": "animal",
+    "zebra": "animal",
+    "giraffe": "animal",
+    # Vehicles
+    "car": "vehicle",
+    "bus": "vehicle",
+    "truck": "vehicle",
+    "motorcycle": "vehicle",
+    "bicycle": "vehicle",
+    "boat": "vehicle",
+    "airplane": "vehicle",
+    "train": "vehicle",
+    # Structures (closest COCO matches)
+    "bench": "structure",
+    "chair": "structure",
+    "couch": "structure",
+    "bed": "structure",
+    "dining table": "structure",
+    "potted plant": "vegetation",
+}
+
+# Target classes for LGADS
+TARGET_CLASSES = {"person", "bird", "animal", "vehicle", "structure", "vegetation", "tree", "building"}
+
 class YOLOHandler:
     """Wrapper class for YOLO model operations"""
     
@@ -67,10 +116,16 @@ class YOLOHandler:
                 boxes = results[0].boxes
                 if boxes is not None:
                     for box in boxes:
+                        class_id = int(box.cls[0].cpu().numpy())
+                        coco_name = COCO_CLASSES[class_id] if class_id < len(COCO_CLASSES) else "unknown"
+                        semantic_class = CLASS_MAPPING.get(coco_name, coco_name)
+                        
                         detection = {
                             'bbox': box.xyxy[0].cpu().numpy().tolist(),
                             'confidence': float(box.conf[0].cpu().numpy()),
-                            'class_id': int(box.cls[0].cpu().numpy())
+                            'class_id': class_id,
+                            'class_name': semantic_class,
+                            'coco_class': coco_name
                         }
                         detections.append(detection)
             

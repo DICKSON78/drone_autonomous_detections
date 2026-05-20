@@ -7,7 +7,7 @@
   "editable": true,
   "schemaVersion": 38,
   "version": 3,
-  "refresh": "2s",
+  "refresh": "1s",
   "time": {
     "from": "now-5m",
     "to": "now"
@@ -137,7 +137,11 @@
       "type": "stat",
       "gridPos": { "h": 3, "w": 3, "x": 15, "y": 0 },
       "datasource": { "type": "prometheus" },
-      "targets": [],
+       "targets": [{
+            "refId": "A",
+            "expr": "drone_speed_m_s",
+            "legendFormat": "Speed"
+          }],
       "fieldConfig": {
         "defaults": { "unit": "ms", "decimals": 1 },
         "overrides": [ { "matcher": { "id": "byName", "options": "Value" }, "properties": [ { "id": "displayName", "value": "0.0" } ] } ]

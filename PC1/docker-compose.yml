@@ -35,6 +35,53 @@ services:
     networks:
       - fyp-network
 
+  # Kafka UI - Web dashboard for monitoring topics, consumers, and brokers
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    ports:
+      - "8080:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: LGADS-Cluster
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+      DYNAMIC_CONFIG_ENABLED: "true"
+    depends_on:
+      - kafka
+    networks:
+      - fyp-network
+    restart: unless-stopped
+
+  # Zookeeper Web UI - Browse Zookeeper znodes directly (proves service registration)
+  zookeeper-webui:
+    image: elkozmon/zoonavigator-web:latest
+    container_name: zookeeper-webui
+    ports:
+      - "9000:9000"
+    environment:
+      API_HOST: "zookeeper-navigator-api"
+      API_PORT: "9001"
+      AUTOCONNECT_CONNECTIONS: '[{"name":"LGADS-Zookeeper","connectionString":"zookeeper:2181"}]'
+    depends_on:
+      - zookeeper
+      - zookeeper-navigator-api
+    networks:
+      - fyp-network
+    restart: unless-stopped
+
+  zookeeper-navigator-api:
+    image: elkozmon/zoonavigator-api:latest
+    container_name: zookeeper-navigator-api
+    ports:
+      - "9001:9001"
+    environment:
+      ZOOKEEPER_CONNECTION_STRING: "zookeeper:2181"
+    depends_on:
+      - zookeeper
+    networks:
+      - fyp-network
+    restart: unless-stopped
+
   # Command Parser Service (Node.js)
   command-parser:
     build: ./src/command-parser

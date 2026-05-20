@@ -9,7 +9,7 @@ services:
     ports:
       - "8005:8005"
     environment:
-      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - KAFKA_BOOTSTRAP_SERVERS=${PC1_IP:-kafka}:9092
       - TTS_RATE=150
       - TTS_VOLUME=1.0
       - TTS_VOICE_INDEX=0

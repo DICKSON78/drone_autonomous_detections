@@ -130,7 +130,7 @@ async def continuous_detection_loop():
                         "timestamp": time.time(),
                         "source": "continuous"
                     })
-            await asyncio.sleep(0.1)  # ~10 FPS
+            await asyncio.sleep(0.033)  # ~30 FPS
         except Exception as e:
             logger.error(f"Continuous detection error: {e}")
             await asyncio.sleep(1)

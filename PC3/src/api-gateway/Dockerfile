@@ -1,12 +1,13 @@
-FROM node:18-slim
+FROM node:18-alpine
 
 WORKDIR /app
 
 COPY package.json ./
 RUN npm install --production
 
-COPY app.js ./
+COPY src/ ./src/
+COPY public/ ./public/
 
 EXPOSE 8008
 
-CMD ["node", "app.js"]
+CMD ["node", "src/app.js"]

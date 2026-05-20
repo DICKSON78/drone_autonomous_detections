@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LGADS - System Status Dashboard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
+        .header { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); padding: 24px 32px; border-bottom: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; }
+        .header h1 { font-size: 24px; font-weight: 700; color: #f8fafc; }
+        .header h1 span { color: #38bdf8; }
+        .header .subtitle { font-size: 13px; color: #94a3b8; margin-top: 4px; }
+        .header .timestamp { font-size: 13px; color: #64748b; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 24px 32px; }
+        .summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 32px; }
+        .summary-card { background: #1e293b; border-radius: 12px; padding: 20px; border: 1px solid #334155; }
+        .summary-card .label { font-size: 12px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; }
+        .summary-card .value { font-size: 32px; font-weight: 700; margin-top: 8px; }
+        .summary-card .value.green { color: #4ade80; }
+        .summary-card .value.yellow { color: #facc15; }
+        .summary-card .value.red { color: #f87171; }
+        .pc-section { margin-bottom: 32px; }
+        .pc-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #334155; }
+        .pc-header h2 { font-size: 18px; font-weight: 600; color: #f8fafc; }
+        .pc-header .badge { font-size: 11px; padding: 4px 10px; border-radius: 20px; font-weight: 600; text-transform: uppercase; }
+        .badge.healthy { background: #052e16; color: #4ade80; border: 1px solid #166534; }
+        .badge.degraded { background: #422006; color: #facc15; border: 1px solid #854d0e; }
+        .badge.offline { background: #450a0a; color: #f87171; border: 1px solid #991b1b; }
+        .services-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
+        .service-card { background: #1e293b; border-radius: 12px; padding: 20px; border: 1px solid #334155; transition: all 0.2s; }
+        .service-card:hover { border-color: #475569; }
+        .service-card .service-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+        .service-card .service-name { font-size: 15px; font-weight: 600; color: #f8fafc; }
+        .service-card .status-dot { width: 10px; height: 10px; border-radius: 50%; margin-top: 4px; }
+        .status-dot.online { background: #4ade80; box-shadow: 0 0 8px #4ade80; }
+        .status-dot.offline { background: #f87171; box-shadow: 0 0 8px #f87171; }
+        .status-dot.checking { background: #facc15; animation: pulse 1s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+        .service-card .service-url { font-size: 12px; color: #64748b; font-family: 'SF Mono', 'Fira Code', monospace; background: #0f172a; padding: 4px 8px; border-radius: 4px; display: inline-block; margin-bottom: 12px; }
+        .service-card .service-details { font-size: 13px; color: #94a3b8; }
+        .service-card .service-details .detail-row { display: flex; justify-content: space-between; padding: 4px 0; }
+        .service-card .service-details .detail-label { color: #64748b; }
+        .service-card .service-details .detail-value { color: #e2e8f0; font-weight: 500; }
+        .topics-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 8px; margin-top: 16px; }
+        .topic-item { background: #0f172a; padding: 10px 14px; border-radius: 8px; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 12px; color: #38bdf8; border: 1px solid #1e293b; }
+        .refresh-bar { display: flex; justify-content: center; margin-bottom: 24px; }
+        .refresh-btn { background: #334155; color: #e2e8f0; border: 1px solid #475569; padding: 8px 20px; border-radius: 8px; cursor: pointer; font-size: 13px; transition: all 0.2s; }
+        .refresh-btn:hover { background: #475569; }
+        .refresh-btn.active { background: #0ea5e9; border-color: #0ea5e9; }
+        .loading { text-align: center; padding: 40px; color: #64748b; }
+        .error-msg { color: #f87171; font-size: 13px; margin-top: 8px; }
+    </style>
+</head>
+<body>
+        <div class="header">
+            <div>
+                <h1><span>LGADS</span> System Status Dashboard</h1>
+                <div class="subtitle">Language-Guided Autonomous Drone System — Service Health Monitor</div>
+                <div class="subtitle" style="margin-top: 2px;">Served via API Gateway — <span style="color: #38bdf8;">http://localhost:8008/status</span></div>
+            </div>
+            <div class="timestamp" id="lastUpdate">Last updated: --</div>
+        </div>
+
+    <div class="container">
+        <div class="summary" id="summary">
+            <div class="summary-card"><div class="label">Total Services</div><div class="value" id="totalServices">--</div></div>
+            <div class="summary-card"><div class="label">Online</div><div class="value green" id="onlineCount">--</div></div>
+            <div class="summary-card"><div class="label">Offline</div><div class="value red" id="offlineCount">--</div></div>
+            <div class="summary-card"><div class="label">Kafka Topics</div><div class="value green" id="topicCount">--</div></div>
+        </div>
+
+        <div class="refresh-bar">
+            <button class="refresh-btn" id="refreshBtn" onclick="checkAllServices()">Refresh Status</button>
+            <span style="margin-left: 12px; font-size: 12px; color: #64748b; align-self: center;">Auto-refresh every 5s</span>
+        </div>
+
+        <div id="statusContent">
+            <div class="loading">Checking services...</div>
+        </div>
+    </div>
+
+    <script>
+        const services = [
+            { pc: "PC1", name: "Core & Messaging", services: [
+                { name: "Zookeeper", url: "http://localhost:2181", type: "tcp", port: 2181 },
+                { name: "Kafka Broker", url: "http://localhost:9092", type: "tcp", port: 9092 },
+                { name: "Zookeeper Web UI", url: "http://localhost:9000", type: "http" },
+                { name: "Kafka UI", url: "http://localhost:8080", type: "http" },
+                { name: "Command Parser", url: "http://localhost:8000/health", type: "http" },
+                { name: "Flight Control", url: "http://localhost:8001/health", type: "http" },
+            ]},
+            { pc: "PC2", name: "Vision & AI", services: [
+                { name: "Gazebo + PX4 SITL", url: "http://localhost:14540", type: "tcp", port: 14540 },
+                { name: "Object Detection", url: "http://localhost:8002/health", type: "http" },
+                { name: "RL Navigation", url: "http://localhost:8003/health", type: "http" },
+            ]},
+            { pc: "PC3", name: "Telemetry & Dashboard", services: [
+                { name: "Grafana", url: "http://localhost:3000/api/health", type: "http" },
+                { name: "Prometheus", url: "http://localhost:9090/-/healthy", type: "http" },
+                { name: "InfluxDB", url: "http://localhost:8086/ping", type: "http" },
+                { name: "PostgreSQL", url: "http://localhost:5432", type: "tcp", port: 5432 },
+                { name: "Telemetry Collector", url: "http://localhost:8004/health", type: "http" },
+                { name: "API Gateway", url: "/api/health", type: "http" },
+            ]},
+            { pc: "PC4", name: "Feedback Service", services: [
+                { name: "Feedback Service", url: "http://localhost:8005/health", type: "http" },
+            ]}
+        ];
+
+        const kafkaTopics = [
+            "drone.telemetry.gps", "drone.telemetry.battery", "drone.telemetry.attitude",
+            "drone.telemetry.velocity", "drone.commands.flight", "drone.commands.parsed",
+            "drone.detections.objects", "drone.navigation.decisions", "drone.feedback.spoken",
+            "drone.status.flight"
+        ];
+
+        async function checkHttp(url) {
+            try {
+                const controller = new AbortController();
+                const timeout = setTimeout(() => controller.abort(), 3000);
+                const res = await fetch(url, { method: 'GET', signal: controller.signal, mode: 'no-cors' });
+                clearTimeout(timeout);
+                return { online: true };
+            } catch (e) {
+                return { online: false, error: e.message };
+            }
+        }
+
+        async function checkTcp(host, port) {
+            try {
+                const controller = new AbortController();
+                const timeout = setTimeout(() => controller.abort(), 2000);
+                await fetch(`http://${host}:${port}`, { method: 'HEAD', signal: controller.signal, mode: 'no-cors' });
+                clearTimeout(timeout);
+                return { online: true };
+            } catch (e) {
+                return { online: false, error: e.message };
+            }
+        }
+
+        async function checkService(svc) {
+            if (svc.type === 'tcp') {
+                return await checkTcp('localhost', svc.port);
+            }
+            return await checkHttp(svc.url);
+        }
+
+        async function checkAllServices() {
+            const btn = document.getElementById('refreshBtn');
+            btn.classList.add('active');
+            btn.textContent = 'Checking...';
+
+            let totalOnline = 0, totalOffline = 0;
+            let html = '';
+
+            for (const pc of services) {
+                let pcOnline = 0, pcTotal = pc.services.length;
+                let serviceCards = '';
+
+                for (const svc of pc.services) {
+                    const result = await checkService(svc);
+                    const isOnline = result.online;
+                    if (isOnline) totalOnline++; else totalOffline++;
+                    if (isOnline) pcOnline++;
+
+                    serviceCards += `
+                        <div class="service-card" style="border-left: 3px solid ${isOnline ? '#4ade80' : '#f87171'}">
+                            <div class="service-header">
+                                <div class="service-name">${svc.name}</div>
+                                <div class="status-dot ${isOnline ? 'online' : 'offline'}"></div>
+                            </div>
+                            <div class="service-url">${svc.url}</div>
+                            <div class="service-details">
+                                <div class="detail-row">
+                                    <span class="detail-label">Status</span>
+                                    <span class="detail-value" style="color: ${isOnline ? '#4ade80' : '#f87171'}">${isOnline ? 'RUNNING' : 'OFFLINE'}</span>
+                                </div>
+                                ${!isOnline && result.error ? `<div class="error-msg">${result.error}</div>` : ''}
+                            </div>
+                        </div>
+                    `;
+                }
+
+                const pcStatus = pcOnline === pcTotal ? 'healthy' : pcOnline > 0 ? 'degraded' : 'offline';
+                html += `
+                    <div class="pc-section">
+                        <div class="pc-header">
+                            <h2>${pc.name} — ${pc.name}</h2>
+                            <span class="badge ${pcStatus}">${pcStatus} (${pcOnline}/${pcTotal})</span>
+                        </div>
+                        <div class="services-grid">${serviceCards}</div>
+                    </div>
+                `;
+            }
+
+            // Kafka Topics section
+            html += `
+                <div class="pc-section">
+                    <div class="pc-header">
+                        <h2>Kafka Topic Registry</h2>
+                        <span class="badge healthy">${kafkaTopics.length} topics defined</span>
+                    </div>
+                    <div class="topics-grid">
+                        ${kafkaTopics.map(t => `<div class="topic-item">${t}</div>`).join('')}
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('statusContent').innerHTML = html;
+            document.getElementById('totalServices').textContent = totalOnline + totalOffline;
+            document.getElementById('onlineCount').textContent = totalOnline;
+            document.getElementById('offlineCount').textContent = totalOffline;
+            document.getElementById('topicCount').textContent = kafkaTopics.length;
+            document.getElementById('lastUpdate').textContent = 'Last updated: ' + new Date().toLocaleTimeString();
+
+            btn.classList.remove('active');
+            btn.textContent = 'Refresh Status';
+        }
+
+        // Initial check
+        checkAllServices();
+        // Auto-refresh every 5 seconds
+        setInterval(checkAllServices, 5000);
+    </script>
+</body>
+</html>

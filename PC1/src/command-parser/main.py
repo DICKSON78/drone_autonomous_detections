@@ -4,7 +4,7 @@ from kafka import KafkaProducer
 import json
 import os
 import logging
-from .nlp_handler import NLPHandler
+from nlp_handler import NLPHandler
 
 app = FastAPI(title="PC1 - Command Parser Service")
 logging.basicConfig(level=logging.INFO)

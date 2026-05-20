@@ -3,7 +3,6 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import numpy as np
-import torch
 import logging
 import asyncio
 from kafka import KafkaProducer, KafkaConsumer
@@ -81,8 +80,7 @@ async def health():
 @app.on_event("startup")
 async def startup():
     logger.info("RL Navigation Service Started")
-    # Load model if exists
-    agent.load_model()
+    # Model already loaded in RLHandler.__init__
     # Start autonomous loop
     asyncio.create_task(autonomous_navigation_loop())
 

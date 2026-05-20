@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # PC3 Monitoring Stack Launcher
-# Starts Grafana + Prometheus + Node Exporter + Drone MAVLink Exporter
+# Starts Grafana + Prometheus + Node Exporter + InfluxDB + Telemetry Collector + API Gateway + Drone MAVLink Exporter
 
 set -e
 
@@ -12,6 +12,11 @@ err()  { echo -e "${RED}[PC3]${NC} $1"; }
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
+
+# Load environment variables
+if [ -f "config/environment.env" ]; then
+    export $(grep -v '^#' config/environment.env | xargs)
+fi
 
 # ── 0. Network ──
 log "Ensuring fyp-network exists..."
@@ -25,14 +30,29 @@ else
     warn "MAVLink port 14550 not reachable — drone exporter will show disconnected until PC2 starts"
 fi
 
-# ── 2. Start Docker services (Grafana + Prometheus + Node Exporter) ──
-log "Starting Grafana, Prometheus, Node Exporter..."
+# ── 2. Start Docker services ──
+log "Starting monitoring stack (Grafana, Prometheus, Node Exporter, InfluxDB)..."
 
 # Work around docker-compose v1.29.2 bug by removing stale containers first
-docker rm -f grafana prometheus node-exporter 2>/dev/null || true
+docker rm -f grafana prometheus node-exporter influxdb 2>/dev/null || true
 
 docker-compose up -d 2>&1 || {
     err "docker-compose failed. Falling back to docker run..."
+
+    # InfluxDB
+    docker rm -f influxdb 2>/dev/null || true
+    docker run -d --name influxdb --restart unless-stopped --network fyp-network \
+        -p 8086:8086 \
+        -e DOCKER_INFLUXDB_INIT_MODE=setup \
+        -e DOCKER_INFLUXDB_INIT_USERNAME=admin \
+        -e DOCKER_INFLUXDB_INIT_PASSWORD=admin123 \
+        -e DOCKER_INFLUXDB_INIT_ORG=drone-project \
+        -e DOCKER_INFLUXDB_INIT_BUCKET=drone_telemetry \
+        -e DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=drone-telemetry-token \
+        -e DOCKER_INFLUXDB_INIT_RETENTION=30d \
+        -v influxdb_data:/var/lib/influxdb2 \
+        -v "$SCRIPT_DIR/influxdb:/docker-entrypoint-initdb.d" \
+        influxdb:2.7
 
     # Grafana
     docker rm -f grafana 2>/dev/null || true
@@ -68,7 +88,7 @@ docker-compose up -d 2>&1 || {
 sleep 3
 
 # ── 3. Verify Docker services ──
-for svc in grafana prometheus node-exporter; do
+for svc in grafana prometheus node-exporter influxdb; do
     if docker ps --format '{{.Names}}' | grep -q "^${svc}$"; then
         log "${svc} running ✓"
     else
@@ -83,6 +103,7 @@ log "Starting Drone MAVLink Exporter on port 8007..."
 pkill -f "drone_exporter.py" 2>/dev/null || true
 sleep 1
 
+mkdir -p "$SCRIPT_DIR/logs"
 nohup python3 "$SCRIPT_DIR/scripts/drone_exporter.py" > "$SCRIPT_DIR/logs/drone_exporter.log" 2>&1 &
 EXPORTER_PID=$!
 log "Drone exporter PID: $EXPORTER_PID"
@@ -119,10 +140,12 @@ echo -e "${CYAN}║${NC}  ──────────────────
 echo -e "${CYAN}║${NC}  Grafana              3000     http://localhost:3000   ${CYAN}║${NC}"
 echo -e "${CYAN}║${NC}  Prometheus           9090     http://localhost:9090   ${CYAN}║${NC}"
 echo -e "${CYAN}║${NC}  Node Exporter        9100     http://localhost:9100   ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}  InfluxDB             8086     http://localhost:8086   ${CYAN}║${NC}"
 echo -e "${CYAN}║${NC}  Drone Exporter       8007     http://localhost:8007   ${CYAN}║${NC}"
 echo -e "${CYAN}║${NC}  Drone Radar (UI)     8007     http://localhost:8007/radar ${CYAN}║${NC}"
 echo -e "${CYAN}║${NC}                                                      ${CYAN}║${NC}"
 echo -e "${CYAN}║${NC}  ${BOLD}Grafana Login:${NC} admin / admin123                       ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}  ${BOLD}InfluxDB Login:${NC} admin / admin123                      ${CYAN}║${NC}"
 echo -e "${CYAN}║${NC}                                                      ${CYAN}║${NC}"
 echo -e "${CYAN}║${NC}  ${BOLD}Endpoints:${NC}                                           ${CYAN}║${NC}"
 echo -e "${CYAN}║${NC}    /metrics        — Prometheus scrape target            ${CYAN}║${NC}"

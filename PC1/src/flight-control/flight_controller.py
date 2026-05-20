@@ -38,14 +38,15 @@ class DroneStatus(BaseModel):
     battery: float = 0.0
 
 async def connect_drone():
-    """Connect to drone (PX4 SITL)"""
+    """Connect to drone (PX4 SITL on PC2)"""
     global drone
     drone = System()
     
     try:
-        # Connect to gazebo-px4 container
-        await drone.connect(system_address="udp://gazebo-px4:14540")
-        logging.info("Connected to drone")
+        # Connect to PC2 where Gazebo/PX4 runs (Docker DNS or explicit IP)
+        pc2_ip = os.getenv('PC2_MAVLINK_HOST', 'gazebo-px4')
+        await drone.connect(system_address=f"udp://{pc2_ip}:14540")
+        logging.info(f"Connecting to drone at {pc2_ip}:14540")
         
         # Wait for drone to be ready
         async for state in drone.core.connection_state():
@@ -98,9 +99,38 @@ async def execute_flight_command(command):
                     "latitude": position.latitude,
                     "longitude": position.longitude,
                     "altitude": position.relative_altitude,
-                    "timestamp": "2024-01-01T00:00:00Z"
+                    "timestamp": datetime.now(timezone.utc).isoformat()
                 }
                 producer.send('drone.telemetry.gps', telemetry)
+
+                async for battery in drone.telemetry.battery():
+                    batt_data = {
+                        "voltage_v": battery.remaining_voltage_v,
+                        "percentage": battery.percentage,
+                        "timestamp": datetime.now(timezone.utc).isoformat()
+                    }
+                    producer.send('drone.telemetry.battery', batt_data)
+                    break
+
+                async for attitude in drone.telemetry.attitude():
+                    att_data = {
+                        "roll_deg": attitude.roll_deg,
+                        "pitch_deg": attitude.pitch_deg,
+                        "yaw_deg": attitude.yaw_deg,
+                        "timestamp": datetime.now(timezone.utc).isoformat()
+                    }
+                    producer.send('drone.telemetry.attitude', att_data)
+                    break
+
+                async for velocity in drone.telemetry.velocity_body():
+                    vel_data = {
+                        "north_m_s": velocity.north_m_s,
+                        "east_m_s": velocity.east_m_s,
+                        "down_m_s": velocity.down_m_s,
+                        "timestamp": datetime.now(timezone.utc).isoformat()
+                    }
+                    producer.send('drone.telemetry.velocity', vel_data)
+                    break
                 
                 await asyncio.sleep(1)
                 break
@@ -160,6 +190,7 @@ async def command_consumer():
                 # Send status update
                 status = {
                     "command_id": command.get("command_id"),
+                    "command_type": command.get("type", "unknown"),
                     "status": "completed" if success else "failed",
                     "timestamp": datetime.now(timezone.utc).isoformat()
                 }

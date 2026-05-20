@@ -242,9 +242,11 @@ class DroneConnection:
             "connected": False,
             "armed": False,
             "lat": 0.0, "lon": 0.0, "alt": 0.0,
-            "battery": -1, "heading": 0.0,
+            "battery": -1, "voltage": 0.0, "heading": 0.0,
             "satellites": 0, "fix_type": 0,
             "mode": "UNKNOWN",
+            "roll": 0.0, "pitch": 0.0,
+            "vel_x": 0.0, "vel_y": 0.0, "vel_z": 0.0,
         }
         self._lock = threading.Lock()
         self._listener = None
@@ -315,11 +317,19 @@ class DroneConnection:
                     self.telemetry["alt"] = msg.get("alt_relative", 0)
             elif msg.get("name") == "BATTERY_STATUS":
                 self.telemetry["battery"] = msg.get("remaining", -1)
+                self.telemetry["voltage"] = sum(v for v in msg.get("voltages", [0]*10) if v > 0) / max(1, sum(1 for v in msg.get("voltages", [0]*10) if v > 0))
             elif msg.get("name") == "SYS_STATUS":
                 if msg.get("battery") is not None:
                     self.telemetry["battery"] = msg.get("battery", -1)
+                self.telemetry["voltage"] = msg.get("voltage", 0)
             elif msg.get("name") == "ATTITUDE":
                 self.telemetry["heading"] = msg.get("yaw", 0)
+                self.telemetry["roll"] = msg.get("roll", 0)
+                self.telemetry["pitch"] = msg.get("pitch", 0)
+            elif msg.get("name") == "LOCAL_POSITION_NED":
+                self.telemetry["vel_x"] = msg.get("vx", 0)
+                self.telemetry["vel_y"] = msg.get("vy", 0)
+                self.telemetry["vel_z"] = msg.get("vz", 0)
 
     def get_telemetry(self):
         with self._lock:

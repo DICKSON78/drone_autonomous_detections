@@ -22,7 +22,7 @@ from tts_engine import TTSEngine
 # ── Config (kept inline so this file is self-contained as the entry point) ───
 KAFKA_SERVERS  = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "kafka:9092")
 KAFKA_GROUP    = "feedback-service-group"
-KAFKA_IN       = ["drone.commands.feedback", "drone.detections.objects", "drone.navigation.decisions"]
+KAFKA_IN       = ["drone.commands.flight", "drone.detections.objects", "drone.navigation.decisions", "drone.status.flight"]
 KAFKA_OUT      = "drone.feedback.spoken"
 TTS_RATE       = int(os.getenv("TTS_RATE",        "150"))
 TTS_VOLUME     = float(os.getenv("TTS_VOLUME",    "1.0"))
@@ -83,13 +83,26 @@ def _handle_navigation(data: dict, queue: MessageQueue, producer) -> None:
 
 
 def _handle_command(data: dict, queue: MessageQueue, producer) -> None:
-    text     = data.get("message", "")
+    text     = data.get("raw_text", data.get("message", ""))
     priority = data.get("priority", "normal")
-    if not text:
+    cmd_type = data.get("type", "")
+    if not text and not cmd_type:
         return
+    if not text:
+        text = f"Command: {cmd_type}"
     if queue.enqueue(text, priority):
         prefix = {"high": "Warning. ", "emergency": "Emergency alert! "}.get(priority, "")
-        _publish_spoken(producer, prefix + text, priority, "drone.commands.feedback")
+        _publish_spoken(producer, prefix + text, priority, "drone.commands.flight")
+
+
+def _handle_status(data: dict, queue: MessageQueue, producer) -> None:
+    status   = data.get("status", "")
+    cmd_type = data.get("command_type", "command")
+    if not status:
+        return
+    text = f"Flight {status}"
+    if queue.enqueue(text, "normal"):
+        _publish_spoken(producer, text, "normal", "drone.status.flight")
 
 
 def _kafka_thread(queue: MessageQueue) -> None:
@@ -103,7 +116,8 @@ def _kafka_thread(queue: MessageQueue) -> None:
     _HANDLERS = {
         "drone.detections.objects":  _handle_detections,
         "drone.navigation.decisions":  _handle_navigation,
-        "drone.commands.feedback":   _handle_command,
+        "drone.commands.flight":   _handle_command,
+        "drone.status.flight":     _handle_status,
     }
 
     while True:

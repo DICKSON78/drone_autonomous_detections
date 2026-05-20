@@ -21,7 +21,7 @@ INFLUXDB_URL = os.getenv('INFLUXDB_URL', 'http://influxdb:8086')
 INFLUXDB_TOKEN = os.getenv('INFLUXDB_TOKEN', 'drone-telemetry-token')
 INFLUXDB_ORG = os.getenv('INFLUXDB_ORG', 'drone-project')
 INFLUXDB_BUCKET = os.getenv('INFLUXDB_BUCKET', 'drone_telemetry')
-MAVLINK_HOST = os.getenv('MAVLINK_HOST', '127.0.0.1')
+MAVLINK_HOST = os.getenv('MAVLINK_HOST', os.getenv('PC2_IP', 'gazebo-px4'))
 MAVLINK_PORT = int(os.getenv('MAVLINK_PORT', '14550'))
 PORT = int(os.getenv('PORT', '8004'))
 
@@ -87,9 +87,16 @@ def mavlink_loop():
                 telemetry_cache["lon"] = t.get("lon", 0.0)
                 telemetry_cache["alt"] = t.get("alt", 0.0)
                 telemetry_cache["battery"] = t.get("battery", 0.0)
+                telemetry_cache["voltage"] = t.get("voltage", 0.0)
                 telemetry_cache["heading"] = t.get("heading", 0.0)
                 telemetry_cache["satellites"] = t.get("satellites", 0)
                 telemetry_cache["fix_type"] = t.get("fix_type", 0)
+                telemetry_cache["roll"] = t.get("roll", 0.0)
+                telemetry_cache["pitch"] = t.get("pitch", 0.0)
+                telemetry_cache["yaw"] = t.get("heading", 0.0)
+                telemetry_cache["vel_x"] = t.get("vel_x", 0.0)
+                telemetry_cache["vel_y"] = t.get("vel_y", 0.0)
+                telemetry_cache["vel_z"] = t.get("vel_z", 0.0)
                 telemetry_cache["timestamp"] = datetime.now(timezone.utc).isoformat()
 
                 # Write to InfluxDB
@@ -100,9 +107,14 @@ def mavlink_loop():
                     write_to_influx("gps_telemetry", gps_fields, {"drone_id": "x500_0"})
                     metrics_count["gps_points"] += 1
 
-                    batt_fields = {"battery_pct": t.get("battery", 0)}
+                    batt_fields = {"battery_pct": t.get("battery", 0), "voltage_v": t.get("voltage", 0)}
                     write_to_influx("battery_telemetry", batt_fields, {"drone_id": "x500_0"})
                     metrics_count["battery_points"] += 1
+
+                    att_fields = {"roll_rad": t.get("roll", 0), "pitch_rad": t.get("pitch", 0),
+                                  "yaw_rad": t.get("heading", 0)}
+                    write_to_influx("attitude_telemetry", att_fields, {"drone_id": "x500_0"})
+                    metrics_count["attitude_points"] += 1
 
                 time.sleep(1)
         except Exception as e:

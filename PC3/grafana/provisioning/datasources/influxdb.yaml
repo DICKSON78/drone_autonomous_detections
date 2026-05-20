@@ -17,5 +17,6 @@ datasources:
       organization: drone-project
       defaultBucket: drone_telemetry
       httpMode: POST
-    secureJsonData: {}
+    secureJsonData:
+      token: drone-telemetry-token
     editable: true

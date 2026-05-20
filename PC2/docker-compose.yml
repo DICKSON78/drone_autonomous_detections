@@ -40,6 +40,21 @@ services:
       - PX4_PARAM_FS_GCS_ENABLE=0
       # Disable arming checks for easier debugging
       - PX4_PARAM_ARMING_CHECK=0
+      # PX4 controller tuning for stable flight
+      - PX4_PARAM_MC_PITCH_P=6.5
+      - PX4_PARAM_MC_ROLL_P=6.5
+      - PX4_PARAM_MC_YAW_P=2.8
+      - PX4_PARAM_MC_PITCH_VEL_P=0.2
+      - PX4_PARAM_MC_ROLL_VEL_P=0.2
+      - PX4_PARAM_MC_YAW_VEL_P=0.3
+      - PX4_PARAM_MC_PITCH_VEL_I=0.1
+      - PX4_PARAM_MC_ROLL_VEL_I=0.1
+      - PX4_PARAM_MC_PITCH_VEL_D=0.003
+      - PX4_PARAM_MC_ROLL_VEL_D=0.003
+      - PX4_PARAM_MPC_XY_VEL_P=0.2
+      - PX4_PARAM_MPC_Z_VEL_P=0.2
+      - PX4_PARAM_MPC_XY_VEL_I=0.1
+      - PX4_PARAM_MPC_Z_VEL_I=0.1
     volumes:
       - ./px4_config:/px4_config
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
@@ -72,7 +87,7 @@ services:
     depends_on:
       - kafka-bridge
     environment:
-      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - KAFKA_BOOTSTRAP_SERVERS=${PC1_IP:-kafka}:9092
     volumes:
       - ./models:/app/models
       - ./data:/app/data
@@ -96,7 +111,7 @@ services:
     depends_on:
       - kafka-bridge
     environment:
-      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - KAFKA_BOOTSTRAP_SERVERS=${PC1_IP:-kafka}:9092
     volumes:
       - ./models:/app/models
       - ./data:/app/data
@@ -115,11 +130,13 @@ services:
   kafka-bridge:
     image: confluentinc/cp-kafka:7.4.0
     container_name: kafka-bridge
+    environment:
+      - KAFKA_HOST=${PC1_IP:-kafka}
     command: |
       sh -c "
       echo 'client.id=bridge-client
-      bootstrap.servers=kafka:9092' > /tmp/bridge.properties &&
-      kafka-topics --bootstrap-server kafka:9092 --list &&
+      bootstrap.servers=${PC1_IP:-kafka}:9092' > /tmp/bridge.properties &&
+      kafka-topics --bootstrap-server ${PC1_IP:-kafka}:9092 --list &&
       tail -f /dev/null
       "
     networks:

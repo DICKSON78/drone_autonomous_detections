@@ -7,7 +7,7 @@
   "editable": true,
   "schemaVersion": 38,
   "version": 2,
-  "refresh": "2s",
+  "refresh": "1s",
   "time": {
     "from": "now-5m",
     "to": "now"

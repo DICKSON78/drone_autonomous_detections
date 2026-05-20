@@ -12,6 +12,8 @@ const morgan = require('morgan');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 
+const path = require('path');
+
 const logger = require('./utils/logger');
 const errorHandler = require('./middleware/errorHandler');
 const requestLogger = require('./middleware/requestLogger');
@@ -85,6 +87,9 @@ app.use('/api/missions', missionRoutes);
 // ─── Initialize DB (async, non-blocking startup) ──────────────────────────────
 initDb().catch(err => console.error('Postgres Init Fail:', err));
 
+// ─── Static Files ─────────────────────────────────────────────────────────────
+app.use(express.static(path.join(__dirname, '../public')));
+
 // ─── Root info endpoint ───────────────────────────────────────────────────────
 app.get('/', (req, res) => {
   res.json({
@@ -99,9 +104,15 @@ app.get('/', (req, res) => {
       analytics: '/api/analytics',
       alerts: '/api/alerts',
       websocket: 'ws://localhost:3001',
+      systemStatus: '/status',
     },
     timestamp: new Date().toISOString(),
   });
+});
+
+// ─── System Status Dashboard ──────────────────────────────────────────────────
+app.get('/status', (req, res) => {
+  res.sendFile(path.join(__dirname, '../public/status.html'));
 });
 
 // ─── 404 Handler ─────────────────────────────────────────────────────────────
