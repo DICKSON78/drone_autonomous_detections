@@ -1,0 +1,79 @@
+<?xml version="1.0"?>
+<sdf version="1.9">
+  <model name="hospital">
+    <static>true</static>
+    <link name="main">
+      <collision name="col">
+        <pose>0 0 6 0 0 0</pose>
+        <geometry><box><size>20 15 12</size></box></geometry>
+      </collision>
+      <!-- Main building -->
+      <visual name="walls">
+        <pose>0 0 6 0 0 0</pose>
+        <geometry><box><size>20 15 12</size></box></geometry>
+        <material>
+          <ambient>0.85 0.85 0.85 1</ambient>
+          <diffuse>0.9 0.9 0.9 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
+        </material>
+      </visual>
+      <!-- Windows front row 1 -->
+      <visual name="w_front_1">
+        <pose>0 7.6 8 0 0 0</pose>
+        <geometry><box><size>16 0.2 4</size></box></geometry>
+        <material>
+          <ambient>0.4 0.5 0.7 0.6</ambient>
+          <diffuse>0.45 0.55 0.75 0.6</diffuse>
+          <specular>0.3 0.3 0.3 1</specular>
+        </material>
+      </visual>
+      <!-- Windows front row 2 -->
+      <visual name="w_front_2">
+        <pose>0 7.6 3 0 0 0</pose>
+        <geometry><box><size>16 0.2 4</size></box></geometry>
+        <material>
+          <ambient>0.4 0.5 0.7 0.6</ambient>
+          <diffuse>0.45 0.55 0.75 0.6</diffuse>
+          <specular>0.3 0.3 0.3 1</specular>
+        </material>
+      </visual>
+      <!-- Roof -->
+      <visual name="roof">
+        <pose>0 0 12.3 0 0 0</pose>
+        <geometry><box><size>20.8 15.8 0.5</size></box></geometry>
+        <material>
+          <ambient>0.5 0.45 0.4 1</ambient>
+          <diffuse>0.55 0.5 0.45 1</diffuse>
+        </material>
+      </visual>
+      <!-- Red cross on roof -->
+      <visual name="cross_h">
+        <pose>0 4 12.8 0 0 0</pose>
+        <geometry><box><size>3 0.8 0.1</size></box></geometry>
+        <material>
+          <ambient>0.9 0.1 0.1 1</ambient>
+          <diffuse>1 0.15 0.15 1</diffuse>
+          <emissive>0.3 0.05 0.05 1</emissive>
+        </material>
+      </visual>
+      <visual name="cross_v">
+        <pose>0 4 12.8 0 0 0</pose>
+        <geometry><box><size>0.8 3 0.1</size></box></geometry>
+        <material>
+          <ambient>0.9 0.1 0.1 1</ambient>
+          <diffuse>1 0.15 0.15 1</diffuse>
+          <emissive>0.3 0.05 0.05 1</emissive>
+        </material>
+      </visual>
+      <!-- Entrance -->
+      <visual name="entrance">
+        <pose>0 7.6 1.5 0 0 0</pose>
+        <geometry><box><size>3 0.3 2.5</size></box></geometry>
+        <material>
+          <ambient>0.3 0.6 0.3 1</ambient>
+          <diffuse>0.35 0.65 0.35 1</diffuse>
+        </material>
+      </visual>
+    </link>
+  </model>
+</sdf>

@@ -1,0 +1,55 @@
+{
+    "name": "PX4 Gazebo Simulation",
+    "image": "px4io/px4-sitl-gazebo:latest",
+    "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=cached",
+    "workspaceFolder": "/workspace",
+    "runArgs": [
+        "--name", "px4-codespace",
+        "--privileged",
+        "--shm-size=512m"
+    ],
+    "containerEnv": {
+        "PX4_SIMULATOR": "gz",
+        "PX4_GZ_WORLD": "dodoma_tanzania",
+        "PX4_SIM_MODEL": "gz_x500",
+        "HEADLESS": "1",
+        "DISPLAY": ":1",
+        "PX4_PARAM_COM_ARM_WO_GPS": "1",
+        "PX4_HOME_LAT": "-6.1630",
+        "PX4_HOME_LON": "35.7516",
+        "PX4_HOME_ALT": "1120"
+    },
+    "forwardPorts": [
+        14550,
+        14540,
+        14556,
+        6080
+    ],
+    "portsAttributes": {
+        "14550": {
+            "label": "MAVLink GCS",
+            "protocol": "udp"
+        },
+        "14540": {
+            "label": "MAVLink Onboard",
+            "protocol": "udp"
+        },
+        "6080": {
+            "label": "Gazebo GUI (noVNC)",
+            "onAutoForward": "notify"
+        }
+    },
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-python.python",
+                "ms-vscode.cpptools"
+            ],
+            "settings": {
+                "terminal.integrated.defaultProfile.linux": "bash"
+            }
+        }
+    },
+    "postCreateCommand": "bash /workspace/.devcontainer/setup.sh",
+    "remoteUser": "root"
+}

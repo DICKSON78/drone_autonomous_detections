@@ -1,0 +1,227 @@
+{
+  "id": null,
+  "title": "PPI Radar & Obstacle View",
+  "tags": ["drone", "radar", "ppi", "obstacle", "dodoma"],
+  "style": "dark",
+  "timezone": "browser",
+  "editable": true,
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "2s",
+  "time": {
+    "from": "now-5m",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": ["2s", "5s", "10s", "30s", "1m"]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "PPI Radar Display",
+      "type": "text",
+      "gridPos": { "h": 20, "w": 16, "x": 0, "y": 0 },
+      "options": {
+        "mode": "html",
+        "content": "<iframe src=\"http://172.18.0.1:8005/radar\" style=\"width:100%;height:100%;border:none;min-height:650px;background:#0b0e14;\"></iframe>"
+      },
+      "fieldConfig": {
+        "defaults": {}
+      }
+    },
+    {
+      "id": 2,
+      "title": "Obstacle Summary",
+      "type": "stat",
+      "gridPos": { "h": 5, "w": 4, "x": 16, "y": 0 },
+      "datasource": { "type": "prometheus" },
+      "targets": [{
+        "refId": "A",
+        "expr": "drone_obstacle_count",
+        "legendFormat": "Total"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "steps": [ { "color": "green", "value": null }, { "color": "yellow", "value": 10 }, { "color": "red", "value": 25 } ] }
+        }
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"] }
+      }
+    },
+    {
+      "id": 3,
+      "title": "Nearest Obstacle",
+      "type": "stat",
+      "gridPos": { "h": 5, "w": 4, "x": 20, "y": 0 },
+      "datasource": { "type": "prometheus" },
+      "targets": [{
+        "refId": "A",
+        "expr": "drone_obstacle_nearest_range_m",
+        "legendFormat": "Range"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "lengthm",
+          "decimals": 1,
+          "color": { "mode": "thresholds" },
+          "thresholds": { "steps": [ { "color": "red", "value": null }, { "color": "yellow", "value": 20 }, { "color": "green", "value": 50 } ] }
+        }
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"] }
+      }
+    },
+    {
+      "id": 4,
+      "title": "Nearest Bearing",
+      "type": "stat",
+      "gridPos": { "h": 5, "w": 4, "x": 16, "y": 5 },
+      "datasource": { "type": "prometheus" },
+      "targets": [{
+        "refId": "A",
+        "expr": "drone_obstacle_nearest_bearing_deg",
+        "legendFormat": "Bearing"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "degree",
+          "decimals": 0,
+          "color": { "mode": "palette-classic" }
+        }
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"] }
+      }
+    },
+    {
+      "id": 5,
+      "title": "Sector Obstacle Density",
+      "type": "bargauge",
+      "gridPos": { "h": 10, "w": 8, "x": 16, "y": 10 },
+      "datasource": { "type": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "drone_obstacles_by_sector{sector=\"0\"}", "legendFormat": "0-30°" },
+        { "refId": "B", "expr": "drone_obstacles_by_sector{sector=\"1\"}", "legendFormat": "30-60°" },
+        { "refId": "C", "expr": "drone_obstacles_by_sector{sector=\"2\"}", "legendFormat": "60-90°" },
+        { "refId": "D", "expr": "drone_obstacles_by_sector{sector=\"3\"}", "legendFormat": "90-120°" },
+        { "refId": "E", "expr": "drone_obstacles_by_sector{sector=\"4\"}", "legendFormat": "120-150°" },
+        { "refId": "F", "expr": "drone_obstacles_by_sector{sector=\"5\"}", "legendFormat": "150-180°" },
+        { "refId": "G", "expr": "drone_obstacles_by_sector{sector=\"6\"}", "legendFormat": "180-210°" },
+        { "refId": "H", "expr": "drone_obstacles_by_sector{sector=\"7\"}", "legendFormat": "210-240°" },
+        { "refId": "I", "expr": "drone_obstacles_by_sector{sector=\"8\"}", "legendFormat": "240-270°" },
+        { "refId": "J", "expr": "drone_obstacles_by_sector{sector=\"9\"}", "legendFormat": "270-300°" },
+        { "refId": "K", "expr": "drone_obstacles_by_sector{sector=\"10\"}", "legendFormat": "300-330°" },
+        { "refId": "L", "expr": "drone_obstacles_by_sector{sector=\"11\"}", "legendFormat": "330-360°" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "color": { "mode": "palette-classic" },
+          "thresholds": { "steps": [ { "color": "green", "value": null }, { "color": "yellow", "value": 5 }, { "color": "red", "value": 10 } ] }
+        }
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "showUnfilled": true
+      }
+    },
+    {
+      "id": 6,
+      "title": "Drone Position & Status",
+      "type": "stat",
+      "gridPos": { "h": 5, "w": 8, "x": 16, "y": 20 },
+      "datasource": { "type": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "drone_latitude", "legendFormat": "Lat: {{ .Value | printf \"%.6f\" }}" },
+        { "refId": "B", "expr": "drone_longitude", "legendFormat": "Lon: {{ .Value | printf \"%.6f\" }}" },
+        { "refId": "C", "expr": "drone_altitude_m", "legendFormat": "Alt: {{ .Value | printf \"%.1f\" }}m" },
+        { "refId": "D", "expr": "drone_heading_deg", "legendFormat": "Hdg: {{ .Value | printf \"%.0f\" }}°" },
+        { "refId": "E", "expr": "drone_battery_pct_clamped", "legendFormat": "Bat: {{ .Value | printf \"%.0f\" }}%" },
+        { "refId": "F", "expr": "drone_obstacle_count", "legendFormat": "Obs: {{ .Value | printf \"%.0f\" }}" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "none" },
+          "custom": { "fontSize": "13px" }
+        }
+      },
+      "options": {
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "auto",
+        "reduceOptions": { "values": true, "calcs": [] },
+        "orientation": "horizontal"
+      }
+    },
+    {
+      "id": 7,
+      "title": "Obstacle Count Over Time",
+      "type": "timeseries",
+      "gridPos": { "h": 7, "w": 16, "x": 0, "y": 20 },
+      "datasource": { "type": "prometheus" },
+      "targets": [{
+        "refId": "A",
+        "expr": "drone_obstacle_count",
+        "legendFormat": "Total Obstacles"
+      },{
+        "refId": "B",
+        "expr": "drone_obstacle_nearest_range_m",
+        "legendFormat": "Nearest Range (m)"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "lineInterpolation": "smooth", "showPoints": "never", "lineWidth": 2, "fillOpacity": 15 }
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "Nearest Range (m)" }, "properties": [ { "id": "unit", "value": "lengthm" }, { "id": "displayName", "value": "Nearest (m)" } ] }
+        ]
+      },
+      "options": { "legend": { "calcs": ["min", "max", "mean", "last"], "displayMode": "table", "placement": "bottom" } }
+    },
+    {
+      "id": 8,
+      "title": "Dodoma Geomap",
+      "type": "geomap",
+      "gridPos": { "h": 14, "w": 16, "x": 0, "y": 27 },
+      "datasource": { "type": "prometheus" },
+      "targets": [
+        { "refId": "lat", "expr": "drone_gps{coord=\"lat\"}", "legendFormat": "Latitude" },
+        { "refId": "lon", "expr": "drone_gps{coord=\"lon\"}", "legendFormat": "Longitude" },
+        { "refId": "alt", "expr": "drone_altitude_m", "legendFormat": "Altitude (m)" },
+        { "refId": "hdg", "expr": "drone_heading_deg", "legendFormat": "Heading (°)" }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "basemap": { "config": {}, "name": "OpenStreetMap", "type": "default" },
+        "controls": { "mouseWheelZoom": true, "showAttribution": true, "showZoom": true },
+        "view": { "lat": -6.163, "lon": 35.7516, "zoom": 16 },
+        "layers": [
+          {
+            "type": "markers",
+            "name": "Drone Position",
+            "location": { "mode": "coords", "latitudeField": "latitude", "longitudeField": "longitude" },
+            "marker": { "color": "#FF0000", "size": 20, "icon": "arrow" },
+            "tooltip": true,
+            "label": { "mode": "fixed", "content": "Drone" }
+          }
+        ]
+      }
+    }
+  ]
+}

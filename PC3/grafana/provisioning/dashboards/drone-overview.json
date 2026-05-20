@@ -1,434 +1,403 @@
 {
   "id": null,
-  "title": "Drone System Overview",
-  "tags": [
-    "drone",
-    "overview",
-    "telemetry"
-  ],
+  "title": "Drone Mission Control",
+  "tags": ["drone", "mission", "telemetry", "dodoma"],
   "style": "dark",
   "timezone": "browser",
   "editable": true,
-  "gnetId": null,
-  "graphTooltip": 0,
   "schemaVersion": 38,
-  "version": 1,
-  "refresh": "5s",
+  "version": 3,
+  "refresh": "2s",
   "time": {
-    "from": "now-1h",
+    "from": "now-5m",
     "to": "now"
   },
-  "timepicker": {},
-  "templating": {
-    "list": []
-  },
-  "annotations": {
-    "list": []
+  "timepicker": {
+    "refresh_intervals": ["2s", "5s", "10s", "30s", "1m"]
   },
   "panels": [
     {
       "id": 1,
-      "title": "GPS Position",
-      "type": "geomap",
-      "gridPos": {
-        "h": 0,
-        "w": 12,
-        "x": 0,
-        "y": 0
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "from(bucket: \"drone-telemetry\")\n  |> range($range)\n  |> filter(fn: (r) => r._measurement == \"flight_telemetry\")\n  |> last()\n  |> yield(key: r._field, value: r._value)",
-          "hide": false,
-          "textEditor": false,
-          "editorMode": "code",
-          "type": "timeSeries"
-        }
-      ],
-      "datasource": {
-        "type": "influxdb",
-        "uid": "InfluxDB"
-      },
+      "title": "",
+      "type": "stat",
+      "gridPos": { "h": 3, "w": 3, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus" },
+      "targets": [{
+        "refId": "A",
+        "expr": "drone_connected",
+        "legendFormat": "Connected"
+      }],
       "fieldConfig": {
         "defaults": {
-          "custom": {
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "vis": false
-            },
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "drawPoints": false,
-            "pointSize": 5,
-            "showValue": "always"
-          },
-          "mappings": [],
-          "thresholds": {
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "short"
-        },
-        "overrides": []
+          "color": { "mode": "thresholds" },
+          "mappings": [
+            { "type": "value", "options": { "1": { "color": "green", "text": "CONNECTED" }, "0": { "color": "red", "text": "DISCONNECTED" } } }
+          ],
+          "thresholds": { "steps": [ { "color": "green", "value": null } ] }
+        }
       },
-      "options": {
-        "basemap": {
-          "config": {},
-          "type": "default"
-        },
-        "controls": {
-          "mouseWheelZoom": true,
-          "showAttribution": true,
-          "showZoom": true,
-          "showScale": false,
-          "showMeasure": false,
-          "showDebug": false,
-          "showSidebar": false
-        },
-        "layers": []
-      }
+      "options": { "colorMode": "background", "graphMode": "none", "textMode": "auto", "reduceOptions": { "calcs": ["lastNotNull"] } }
     },
     {
       "id": 2,
-      "title": "Altitude",
+      "title": "",
       "type": "stat",
-      "gridPos": {
-        "h": 8,
-        "w": 6,
-        "x": 12,
-        "y": 0
-      },
-      "targets": [
-        {
-          "refId": "B",
-          "expr": "from(bucket: \"drone-telemetry\")\n  |> range($range)\n  |> filter(fn: (r) => r._measurement == \"flight_telemetry\")\n  |> last()\n  |> yield(key: r._field, value: r._value)",
-          "hide": false,
-          "textEditor": false,
-          "editorMode": "code",
-          "type": "timeSeries"
-        }
-      ],
-      "datasource": {
-        "type": "influxdb",
-        "uid": "InfluxDB"
-      },
+      "gridPos": { "h": 3, "w": 3, "x": 3, "y": 0 },
+      "datasource": { "type": "prometheus" },
+      "targets": [{
+        "refId": "A",
+        "expr": "drone_flight_mode",
+        "legendFormat": "Mode"
+      }],
       "fieldConfig": {
         "defaults": {
-          "custom": {},
-          "mappings": [],
-          "thresholds": {
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "yellow",
-                "value": 50
-              },
-              {
-                "color": "red",
-                "value": 100
-              }
-            ]
-          }
-        },
-        "overrides": []
+          "color": { "mode": "thresholds" },
+          "mappings": [
+            { "type": "value", "options": { "0": { "text": "UNKNOWN" }, "1": { "text": "MANUAL" }, "2": { "text": "ALTCTL" }, "3": { "text": "POSCTL" }, "4": { "color": "green", "text": "AUTO" }, "5": { "text": "ACRO" }, "6": { "text": "OFFBOARD" }, "7": { "text": "STABILIZED" }, "8": { "text": "LOITER" }, "9": { "color": "orange", "text": "RTL" }, "10": { "color": "red", "text": "LAND" }, "11": { "color": "purple", "text": "TAKEOFF" }, "12": { "text": "FOLLOW" } } }
+          ],
+          "thresholds": { "steps": [ { "color": "green", "value": null } ] }
+        }
       },
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": [
-          {
-            "values": false,
-            "calcs": [
-              "lastNotNull"
-            ],
-            "fields": ""
-          }
-        ],
-        "textMode": "auto"
-      }
+      "options": { "colorMode": "background", "graphMode": "none", "textMode": "auto", "reduceOptions": { "calcs": ["lastNotNull"] } }
     },
     {
       "id": 3,
-      "title": "Battery Status",
-      "type": "stat",
-      "gridPos": {
-        "h": 8,
-        "w": 6,
-        "x": 18,
-        "y": 0
-      },
-      "targets": [
-        {
-          "refId": "C",
-          "expr": "from(bucket: \"drone-telemetry\")\n  |> range($range)\n  |> filter(fn: (r) => r._measurement == \"system_metrics\")\n  |> last()\n  |> yield(key: r._field, value: r._value)",
-          "hide": false,
-          "textEditor": false,
-          "editorMode": "code",
-          "type": "timeSeries"
-        }
-      ],
-      "datasource": {
-        "type": "influxdb",
-        "uid": "InfluxDB"
-      },
+      "title": "Battery",
+      "type": "gauge",
+      "gridPos": { "h": 3, "w": 3, "x": 6, "y": 0 },
+      "datasource": { "type": "prometheus" },
+      "targets": [{
+        "refId": "A",
+        "expr": "drone_battery_pct_clamped",
+        "legendFormat": "Battery"
+      }],
       "fieldConfig": {
         "defaults": {
-          "custom": {},
-          "mappings": [],
-          "thresholds": {
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "yellow",
-                "value": 20
-              },
-              {
-                "color": "red",
-                "value": 10
-              }
-            ]
-          },
-          "unit": "percent"
-        },
-        "overrides": []
+          "unit": "percent",
+          "min": 0, "max": 100,
+          "thresholds": { "steps": [ { "color": "green", "value": null }, { "color": "yellow", "value": 30 }, { "color": "red", "value": 15 } ] }
+        }
       },
       "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": [
-          {
-            "values": false,
-            "calcs": [
-              "lastNotNull"
-            ],
-            "fields": ""
-          }
-        ],
-        "textMode": "auto"
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "showThresholdLabels": true,
+        "showThresholdMarkers": true,
+        "orientation": "horizontal"
       }
     },
     {
       "id": 4,
-      "title": "Flight Status",
+      "title": "GPS Fix",
       "type": "stat",
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 12,
-        "y": 8
-      },
-      "targets": [
-        {
-          "refId": "D",
-          "expr": "from(bucket: \"drone-telemetry\")\n  |> range($range)\n  |> filter(fn: (r) => r._measurement == \"flight_telemetry\")\n  |> last()\n  |> yield(key: r._field, value: r._value)",
-          "hide": false,
-          "textEditor": false,
-          "editorMode": "code",
-          "type": "timeSeries"
-        }
-      ],
-      "datasource": {
-        "type": "influxdb",
-        "uid": "InfluxDB"
-      },
+      "gridPos": { "h": 3, "w": 3, "x": 9, "y": 0 },
+      "datasource": { "type": "prometheus" },
+      "targets": [{
+        "refId": "A",
+        "expr": "drone_gps_fix_type",
+        "legendFormat": "Fix Type"
+      },{
+        "refId": "B",
+        "expr": "drone_gps_satellites",
+        "legendFormat": "Sats: {{.Value}}"
+      }],
       "fieldConfig": {
         "defaults": {
-          "custom": {},
+          "color": { "mode": "thresholds" },
           "mappings": [
-            {
-              "options": {
-                "flying": {
-                  "color": "green",
-                  "index": 0,
-                  "text": "Flying"
-                },
-                "landed": {
-                  "color": "blue",
-                  "index": 1,
-                  "text": "Landed"
-                },
-                "emergency": {
-                  "color": "red",
-                  "index": 2,
-                  "text": "Emergency"
-                }
-              },
-              "type": "value"
-            }
+            { "type": "value", "options": { "0": { "color": "red", "text": "NO FIX" }, "1": { "color": "orange", "text": "NO GPS" }, "2": { "color": "yellow", "text": "2D FIX" }, "3": { "color": "green", "text": "3D FIX" } } }
           ],
-          "thresholds": {
-            "steps": []
-          }
-        },
-        "overrides": []
+          "thresholds": { "steps": [ { "color": "red", "value": null }, { "color": "yellow", "value": 2 }, { "color": "green", "value": 3 } ] }
+        }
       },
-      "options": {
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": [
-          {
-            "values": false,
-            "calcs": [
-              "lastNotNull"
-            ],
-            "fields": ""
-          }
-        ],
-        "textMode": "auto"
-      }
+      "options": { "colorMode": "background", "graphMode": "none", "textMode": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "" }, "showThresholdLabels": false }
     },
     {
       "id": 5,
-      "title": "Object Detections",
+      "title": "Altitude",
       "type": "stat",
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 18,
-        "y": 8
-      },
-      "targets": [
-        {
-          "refId": "E",
-          "expr": "from(bucket: \"drone-telemetry\")\n  |> range($range)\n  |> filter(fn: (r) => r._measurement == \"object_detections\")\n  |> count()\n  |> yield(key: \"detection_count\", value: r._value)",
-          "hide": false,
-          "textEditor": false,
-          "editorMode": "code",
-          "type": "timeSeries"
-        }
-      ],
-      "datasource": {
-        "type": "influxdb",
-        "uid": "InfluxDB"
-      },
+      "gridPos": { "h": 3, "w": 3, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus" },
+      "targets": [{
+        "refId": "A",
+        "expr": "drone_altitude_m",
+        "legendFormat": "Altitude"
+      }],
       "fieldConfig": {
         "defaults": {
-          "custom": {},
-          "mappings": [],
-          "thresholds": {
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "yellow",
-                "value": 5
-              },
-              {
-                "color": "red",
-                "value": 10
-              }
-            ]
-          },
-          "unit": "short"
-        },
-        "overrides": []
+          "unit": "lengthm",
+          "decimals": 1,
+          "thresholds": { "steps": [ { "color": "green", "value": null }, { "color": "yellow", "value": 50 }, { "color": "red", "value": 100 } ] }
+        }
       },
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": [
-          {
-            "values": false,
-            "calcs": [
-              "lastNotNull"
-            ],
-            "fields": ""
-          }
-        ],
-        "textMode": "auto"
-      }
+      "options": { "colorMode": "value", "graphMode": "area", "textMode": "auto", "reduceOptions": { "calcs": ["lastNotNull"] } }
     },
     {
       "id": 6,
-      "title": "System Performance",
+      "title": "Speed (m/s)",
       "type": "stat",
-      "gridPos": {
-        "h": 4,
-        "w": 12,
-        "x": 0,
-        "y": 12
+      "gridPos": { "h": 3, "w": 3, "x": 15, "y": 0 },
+      "datasource": { "type": "prometheus" },
+      "targets": [],
+      "fieldConfig": {
+        "defaults": { "unit": "ms", "decimals": 1 },
+        "overrides": [ { "matcher": { "id": "byName", "options": "Value" }, "properties": [ { "id": "displayName", "value": "0.0" } ] } ]
       },
-      "targets": [
-        {
-          "refId": "F",
-          "expr": "from(bucket: \"drone-telemetry\")\n  |> range($range)\n  |> filter(fn: (r) => r._measurement == \"system_metrics\")\n  |> last()\n  |> yield(key: r._field, value: r._value)",
-          "hide": false,
-          "textEditor": false,
-          "editorMode": "code",
-          "type": "timeSeries"
-        }
-      ],
-      "datasource": {
-        "type": "influxdb",
-        "uid": "InfluxDB"
-      },
+      "options": { "colorMode": "value", "graphMode": "none", "textMode": "auto", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 7,
+      "title": "Heading",
+      "type": "stat",
+      "gridPos": { "h": 3, "w": 3, "x": 18, "y": 0 },
+      "datasource": { "type": "prometheus" },
+      "targets": [{
+        "refId": "A",
+        "expr": "drone_heading_deg",
+        "legendFormat": "Heading"
+      }],
       "fieldConfig": {
         "defaults": {
-          "custom": {},
-          "mappings": [],
-          "thresholds": {
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "yellow",
-                "value": 70
-              },
-              {
-                "color": "red",
-                "value": 85
-              }
-            ]
-          },
-          "unit": "percent"
+          "unit": "degree",
+          "decimals": 0,
+          "thresholds": { "steps": [ { "color": "green", "value": null } ] }
+        }
+      },
+      "options": { "colorMode": "value", "graphMode": "none", "textMode": "auto", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 8,
+      "title": "",
+      "type": "stat",
+      "gridPos": { "h": 3, "w": 3, "x": 21, "y": 0 },
+      "datasource": { "type": "prometheus" },
+      "targets": [{
+        "refId": "A",
+        "expr": "drone_armed",
+        "legendFormat": "Armed"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [
+            { "type": "value", "options": { "1": { "color": "red", "text": "ARMED" }, "0": { "color": "green", "text": "DISARMED" } } }
+          ],
+          "thresholds": { "steps": [ { "color": "green", "value": null } ] }
+        }
+      },
+      "options": { "colorMode": "background", "graphMode": "none", "textMode": "auto", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+
+    {
+      "id": 10,
+      "title": "Dodoma Simulator - Drone Environment",
+      "type": "table",
+      "gridPos": { "h": 12, "w": 16, "x": 0, "y": 3 },
+      "datasource": { "type": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "drone_gps{coord=\"lat\"}", "legendFormat": "Latitude" },
+        { "refId": "B", "expr": "drone_gps{coord=\"lon\"}", "legendFormat": "Longitude" },
+        { "refId": "C", "expr": "drone_altitude_m", "legendFormat": "Altitude (m)" },
+        { "refId": "D", "expr": "drone_heading_deg", "legendFormat": "Heading (°)" },
+        { "refId": "E", "expr": "drone_battery_pct_clamped", "legendFormat": "Battery %" },
+        { "refId": "F", "expr": "drone_gps_satellites", "legendFormat": "Satellites" },
+        { "refId": "G", "expr": "drone_gps_fix_type", "legendFormat": "GPS Fix" },
+        { "refId": "H", "expr": "drone_flight_mode", "legendFormat": "Mode" },
+        { "refId": "I", "expr": "drone_armed", "legendFormat": "Armed" },
+        { "refId": "J", "expr": "drone_connected", "legendFormat": "Connected" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "align": "center", "displayMode": "auto", "minWidth": 100 }
         },
-        "overrides": []
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "Latitude" }, "properties": [ { "id": "displayName", "value": "Latitude" }, { "id": "decimals", "value": 6 } ] },
+          { "matcher": { "id": "byName", "options": "Longitude" }, "properties": [ { "id": "displayName", "value": "Longitude" }, { "id": "decimals", "value": 6 } ] },
+          { "matcher": { "id": "byName", "options": "Altitude (m)" }, "properties": [ { "id": "unit", "value": "lengthm" }, { "id": "decimals", "value": 1 } ] },
+          { "matcher": { "id": "byName", "options": "Heading (°)" }, "properties": [ { "id": "unit", "value": "degree" }, { "id": "decimals", "value": 0 } ] },
+          { "matcher": { "id": "byName", "options": "Battery %" }, "properties": [ { "id": "unit", "value": "percent" }, { "id": "decimals", "value": 0 } ] },
+          { "matcher": { "id": "byName", "options": "Mode" }, "properties": [ { "id": "mappings", "value": [ { "type": "value", "options": { "0": "UNKNOWN", "1": "MANUAL", "2": "ALTCTL", "3": "POSCTL", "4": "AUTO", "5": "ACRO", "6": "OFFBOARD", "7": "STAB", "8": "LOITER", "9": "RTL", "10": "LAND", "11": "TAKEOFF" } } ] } ] },
+          { "matcher": { "id": "byName", "options": "Armed" }, "properties": [ { "id": "mappings", "value": [ { "type": "value", "options": { "0": "DISARMED", "1": "ARMED" } } ] } ] },
+          { "matcher": { "id": "byName", "options": "Connected" }, "properties": [ { "id": "mappings", "value": [ { "type": "value", "options": { "0": "OFFLINE", "1": "ONLINE" } } ] } ] },
+          { "matcher": { "id": "byName", "options": "GPS Fix" }, "properties": [ { "id": "mappings", "value": [ { "type": "value", "options": { "0": "NO FIX", "1": "NO GPS", "2": "2D", "3": "3D" } } ] } ] }
+        ]
+      },
+      "options": { "cellHeight": "md", "footer": { "show": false }, "sortBy": [] }
+    },
+
+    {
+      "id": 11,
+      "title": "Live Drone Data",
+      "type": "stat",
+      "gridPos": { "h": 12, "w": 8, "x": 16, "y": 3 },
+      "datasource": { "type": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "drone_gps{coord=\"lat\"}", "legendFormat": "Latitude: {{ .Value | printf \"%.6f\" }}" },
+        { "refId": "B", "expr": "drone_gps{coord=\"lon\"}", "legendFormat": "Longitude: {{ .Value | printf \"%.6f\" }}" },
+        { "refId": "C", "expr": "drone_altitude_m", "legendFormat": "Altitude: {{ .Value | printf \"%.1f\" }} m" },
+        { "refId": "D", "expr": "drone_battery_pct_clamped", "legendFormat": "Battery: {{ .Value | printf \"%.0f\" }}%" },
+        { "refId": "E", "expr": "drone_heading_deg", "legendFormat": "Heading: {{ .Value | printf \"%.0f\" }}°" },
+        { "refId": "F", "expr": "drone_gps_satellites", "legendFormat": "Satellites: {{ .Value | printf \"%.0f\" }}" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "none" },
+          "custom": { "fontSize": "14px" }
+        }
       },
       "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": [
-          {
-            "values": false,
-            "calcs": [
-              "lastNotNull"
-            ],
-            "fields": ""
-          }
-        ],
-        "textMode": "auto"
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "auto",
+        "reduceOptions": { "values": true, "calcs": [] },
+        "orientation": "vertical"
       }
+    },
+
+    {
+      "id": 12,
+      "title": "Altitude over Time",
+      "type": "timeseries",
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 15 },
+      "datasource": { "type": "prometheus" },
+      "targets": [{
+        "refId": "A",
+        "expr": "drone_altitude_m",
+        "legendFormat": "Altitude"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "lengthm",
+          "custom": { "lineInterpolation": "smooth", "showPoints": "never", "lineWidth": 2, "fillOpacity": 15 },
+          "thresholds": { "steps": [ { "color": "green", "value": null }, { "color": "yellow", "value": 50 }, { "color": "red", "value": 100 } ] }
+        }
+      },
+      "options": { "legend": { "calcs": ["min", "max", "mean", "last"], "displayMode": "table", "placement": "bottom" }, "tooltip": { "mode": "multi" } }
+    },
+    {
+      "id": 13,
+      "title": "Heading over Time",
+      "type": "timeseries",
+      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 15 },
+      "datasource": { "type": "prometheus" },
+      "targets": [{
+        "refId": "A",
+        "expr": "drone_heading_deg",
+        "legendFormat": "Heading"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "degree",
+          "custom": { "lineInterpolation": "smooth", "showPoints": "never", "lineWidth": 2, "fillOpacity": 15 }
+        }
+      },
+      "options": { "legend": { "calcs": ["min", "max", "mean", "last"], "displayMode": "table", "placement": "bottom" }, "tooltip": { "mode": "multi" } }
+    },
+    {
+      "id": 14,
+      "title": "Battery over Time",
+      "type": "timeseries",
+      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 15 },
+      "datasource": { "type": "prometheus" },
+      "targets": [{
+        "refId": "A",
+        "expr": "drone_battery_pct_clamped",
+        "legendFormat": "Battery"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0, "max": 100,
+          "custom": { "lineInterpolation": "smooth", "showPoints": "never", "lineWidth": 2, "fillOpacity": 15 },
+          "thresholds": { "steps": [ { "color": "green", "value": null }, { "color": "yellow", "value": 30 }, { "color": "red", "value": 15 } ] }
+        }
+      },
+      "options": { "legend": { "calcs": ["min", "max", "mean", "last"], "displayMode": "table", "placement": "bottom" }, "tooltip": { "mode": "multi" } }
+    },
+
+    {
+      "id": 15,
+      "title": "System CPU",
+      "type": "gauge",
+      "gridPos": { "h": 5, "w": 4, "x": 0, "y": 21 },
+      "datasource": { "type": "prometheus" },
+      "targets": [{
+        "refId": "A",
+        "expr": "100 - (avg by(instance) (rate(node_cpu_seconds_total{mode=\"idle\"}[1m])) * 100)"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent", "min": 0, "max": 100,
+          "thresholds": { "steps": [ { "color": "green", "value": null }, { "color": "yellow", "value": 60 }, { "color": "red", "value": 85 } ] }
+        }
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "showThresholdLabels": true, "showThresholdMarkers": true }
+    },
+    {
+      "id": 16,
+      "title": "System Memory",
+      "type": "gauge",
+      "gridPos": { "h": 5, "w": 4, "x": 4, "y": 21 },
+      "datasource": { "type": "prometheus" },
+      "targets": [{
+        "refId": "A",
+        "expr": "100 * (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes))"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent", "min": 0, "max": 100,
+          "thresholds": { "steps": [ { "color": "green", "value": null }, { "color": "yellow", "value": 60 }, { "color": "red", "value": 85 } ] }
+        }
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "showThresholdLabels": true, "showThresholdMarkers": true }
+    },
+    {
+      "id": 17,
+      "title": "Connection Status",
+      "type": "stat",
+      "gridPos": { "h": 5, "w": 4, "x": 8, "y": 21 },
+      "datasource": { "type": "prometheus" },
+      "targets": [{
+        "refId": "A",
+        "expr": "drone_connected",
+        "legendFormat": "Status"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [
+            { "type": "value", "options": { "1": { "color": "green", "text": "ONLINE" }, "0": { "color": "red", "text": "OFFLINE" } } }
+          ],
+          "thresholds": { "steps": [ { "color": "green", "value": null } ] }
+        }
+      },
+      "options": { "colorMode": "background", "graphMode": "none", "textMode": "auto", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 18,
+      "title": "GPS Coordinates",
+      "type": "table",
+      "gridPos": { "h": 5, "w": 12, "x": 12, "y": 21 },
+      "datasource": { "type": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "drone_latitude", "legendFormat": "Latitude" },
+        { "refId": "B", "expr": "drone_longitude", "legendFormat": "Longitude" },
+        { "refId": "C", "expr": "drone_altitude_m", "legendFormat": "Altitude (m)" },
+        { "refId": "D", "expr": "drone_heading_deg", "legendFormat": "Heading (°)" },
+        { "refId": "E", "expr": "drone_gps_fix_type", "legendFormat": "Fix Type" },
+        { "refId": "F", "expr": "drone_gps_satellites", "legendFormat": "Satellites" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "align": "center", "displayMode": "auto" }
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "Latitude" }, "properties": [ { "id": "decimals", "value": 6 } ] },
+          { "matcher": { "id": "byName", "options": "Longitude" }, "properties": [ { "id": "decimals", "value": 6 } ] },
+          { "matcher": { "id": "byName", "options": "Altitude (m)" }, "properties": [ { "id": "unit", "value": "lengthm" }, { "id": "decimals", "value": 1 } ] },
+          { "matcher": { "id": "byName", "options": "Heading (°)" }, "properties": [ { "id": "unit", "value": "degree" }, { "id": "decimals", "value": 0 } ] }
+        ]
+      },
+      "options": { "cellHeight": "sm", "footer": { "show": false }, "sortBy": [] }
     }
   ]
 }

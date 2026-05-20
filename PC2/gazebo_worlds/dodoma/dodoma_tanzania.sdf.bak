@@ -1,0 +1,3563 @@
+<?xml version="1.0" ?>
+<!--
+  =============================================================
+  DODOMA CITY (TANZANIA) DRONE SIMULATION — Gazebo Harmonic
+  Expanded urban environment with 50+ obstacle objects
+  for drone obstacle avoidance training and testing
+  =============================================================
+  GPS: -6.1629, 35.7516, 1120m elevation
+  Roads: India Road, Uhuru Street, Jamhuri Street, Azikiwe Street
+  Landmarks: Bunge Parliament, Central Roundabout, City Garden
+  =============================================================
+-->
+<sdf version="1.10">
+  <world name="dodoma_tanzania">
+
+    <!-- DODOMA GPS COORDINATES -->
+    <spherical_coordinates>
+      <surface_model>EARTH_WGS84</surface_model>
+      <world_frame_orientation>ENU</world_frame_orientation>
+      <latitude_deg>-6.1629</latitude_deg>
+      <longitude_deg>35.7516</longitude_deg>
+      <elevation>1120</elevation>
+      <heading_deg>0</heading_deg>
+    </spherical_coordinates>
+
+    <!-- ============================================================ -->
+    <!-- PHYSICS                                                       -->
+    <!-- ============================================================ -->
+    <physics type="ode">
+      <real_time_update_rate>1000</real_time_update_rate>
+      <max_step_size>0.001</max_step_size>
+      <real_time_factor>1</real_time_factor>
+      <gravity>0 0 -9.80665</gravity>
+    </physics>
+
+    <!-- ============================================================ -->
+    <!-- SCENE SETTINGS                                                -->
+    <!-- ============================================================ -->
+    <scene>
+      <ambient>0.4 0.4 0.45 1</ambient>
+      <background>0.3 0.35 0.4 1</background>
+      <sky>
+        <time>12</time>
+        <cloud_speed>0.03</cloud_speed>
+      </sky>
+      <shadows>true</shadows>
+    </scene>
+
+    <!-- ============================================================ -->
+    <!-- LIGHT - Dodoma tropical sun (overhead, slightly south)        -->
+    <!-- ============================================================ -->
+    <light type="directional" name="sun">
+      <pose>0 0 200 0 0 0</pose>
+      <diffuse>1 1 0.95 1</diffuse>
+      <specular>0.95 0.95 0.9 1</specular>
+      <direction>-0.2 -0.1 -1</direction>
+      <attenuation>
+        <range>1000</range>
+        <constant>0.5</constant>
+        <linear>0.01</linear>
+        <quadratic>0.001</quadratic>
+      </attenuation>
+      <cast_shadows>true</cast_shadows>
+    </light>
+
+    <!-- ============================================================ -->
+    <!-- GROUND PLANE - Flat terrain with road surface                 -->
+    <!-- ============================================================ -->
+    <model name="ground_plane">
+      <static>true</static>
+      <link name="ground_link">
+        <collision name="collision">
+          <geometry>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>1000 1000</size>
+            </plane>
+          </geometry>
+        </collision>
+        <visual name="ground_vis">
+          <geometry>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>1000 1000</size>
+            </plane>
+          </geometry>
+          <material>
+            <ambient>0.65 0.6 0.5 1</ambient>
+            <diffuse>0.7 0.65 0.55 1</diffuse>
+            <specular>0.01 0.01 0.01 1</specular>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- ============================================================ -->
+    <!-- DRONE SPAWN PAD (at origin where x500 lands)                  -->
+    <!-- ============================================================ -->
+    <model name="spawn_pad">
+      <pose>0 0 0.01 0 0 0</pose>
+      <static>true</static>
+      <link name="pad">
+        <visual name="pad_vis">
+          <geometry>
+            <cylinder>
+              <radius>1.5</radius>
+              <length>0.02</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.2 0.2 0.2 1</ambient>
+            <diffuse>0.25 0.25 0.25 1</diffuse>
+          </material>
+        </visual>
+        <visual name="pad_marking">
+          <pose>0 0 0.02 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>1.0</radius>
+              <length>0.01</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.9 0.9 0.1 1</ambient>
+            <diffuse>1 1 0.2 1</diffuse>
+          </material>
+        </visual>
+        <visual name="cross_h">
+          <pose>0 0 0.03 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>0.1 1.8 0.01</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0 0 0 1</ambient>
+            <diffuse>0 0 0 1</diffuse>
+          </material>
+        </visual>
+        <visual name="cross_v">
+          <pose>0 0 0.03 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>1.8 0.1 0.01</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0 0 0 1</ambient>
+            <diffuse>0 0 0 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- ============================================================ -->
+    <!-- ROAD NETWORK - Dodoma city streets                            -->
+    <!-- ============================================================ -->
+
+    <!-- EAST-WEST MAIN ROAD (India Road equivalent) -->
+    <model name="ew_main_road">
+      <pose>0 0 0.01 0 0 0</pose>
+      <static>true</static>
+      <link name="road">
+        <visual name="road_vis">
+          <geometry>
+            <box>
+              <size>300 12 0.02</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.22 0.22 0.22 1</ambient>
+            <diffuse>0.28 0.28 0.28 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+          </material>
+        </visual>
+        <visual name="road_centre">
+          <pose>0 0 0.02 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>300 0.2 0.01</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.7 0.7 0.2 1</ambient>
+            <diffuse>0.8 0.8 0.3 1</diffuse>
+          </material>
+        </visual>
+        <visual name="lane_left">
+          <pose>-3 0 0.02 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>300 0.1 0.01</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.8 0.8 0.8 1</ambient>
+            <diffuse>0.9 0.9 0.9 1</diffuse>
+          </material>
+        </visual>
+        <visual name="lane_right">
+          <pose>3 0 0.02 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>300 0.1 0.01</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.8 0.8 0.8 1</ambient>
+            <diffuse>0.9 0.9 0.9 1</diffuse>
+          </material>
+        </visual>
+        <visual name="sidewalk_north">
+          <pose>0 -6.5 0.03 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>300 1 0.03</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.55 0.53 0.5 1</ambient>
+            <diffuse>0.6 0.58 0.55 1</diffuse>
+          </material>
+        </visual>
+        <visual name="sidewalk_south">
+          <pose>0 6.5 0.03 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>300 1 0.03</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.55 0.53 0.5 1</ambient>
+            <diffuse>0.6 0.58 0.55 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+    
+    <!-- NORTH-SOUTH MAIN ROAD (Uhuru Street equivalent) -->
+    <model name="ns_main_road">
+      <pose>0 0 0.01 0 0 0</pose>
+      <static>true</static>
+      <link name="road">
+        <visual name="road_vis">
+          <geometry>
+            <box>
+              <size>12 300 0.02</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.22 0.22 0.22 1</ambient>
+            <diffuse>0.28 0.28 0.28 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+          </material>
+        </visual>
+        <visual name="road_centre">
+          <pose>0 0 0.02 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>0.2 300 0.01</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.7 0.7 0.2 1</ambient>
+            <diffuse>0.8 0.8 0.3 1</diffuse>
+          </material>
+        </visual>
+        <visual name="lane_left">
+          <pose>0 -3 0.02 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>0.1 300 0.01</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.8 0.8 0.8 1</ambient>
+            <diffuse>0.9 0.9 0.9 1</diffuse>
+          </material>
+        </visual>
+        <visual name="lane_right">
+          <pose>0 3 0.02 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>0.1 300 0.01</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.8 0.8 0.8 1</ambient>
+            <diffuse>0.9 0.9 0.9 1</diffuse>
+          </material>
+        </visual>
+        <visual name="sidewalk_west">
+          <pose>-6.5 0 0.03 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>1 300 0.03</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.55 0.53 0.5 1</ambient>
+            <diffuse>0.6 0.58 0.55 1</diffuse>
+          </material>
+        </visual>
+        <visual name="sidewalk_east">
+          <pose>6.5 0 0.03 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>1 300 0.03</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.55 0.53 0.5 1</ambient>
+            <diffuse>0.6 0.58 0.55 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- SECONDARY ROAD 1 (Jamhuri Street - north) -->
+    <model name="secondary_road_1">
+      <pose>0 60 0.01 0 0 0</pose>
+      <static>true</static>
+      <link name="road">
+        <visual name="road_vis">
+          <geometry>
+            <box>
+              <size>8 200 0.02</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.28 0.28 0.28 1</ambient>
+            <diffuse>0.33 0.33 0.33 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- SECONDARY ROAD 2 (Azikiwe Street - south) -->
+    <model name="secondary_road_2">
+      <pose>0 -60 0.01 0 0 0</pose>
+      <static>true</static>
+      <link name="road">
+        <visual name="road_vis">
+          <geometry>
+            <box>
+              <size>8 200 0.02</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.28 0.28 0.28 1</ambient>
+            <diffuse>0.33 0.33 0.33 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- SECONDARY ROAD 3 (west collector) -->
+    <model name="secondary_road_3">
+      <pose>-60 0 0.01 0 0 0</pose>
+      <static>true</static>
+      <link name="road">
+        <visual name="road_vis">
+          <geometry>
+            <box>
+              <size>200 8 0.02</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.28 0.28 0.28 1</ambient>
+            <diffuse>0.33 0.33 0.33 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- SECONDARY ROAD 4 (east collector) -->
+    <model name="secondary_road_4">
+      <pose>60 0 0.01 0 0 0</pose>
+      <static>true</static>
+      <link name="road">
+        <visual name="road_vis">
+          <geometry>
+            <box>
+              <size>200 8 0.02</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.28 0.28 0.28 1</ambient>
+            <diffuse>0.33 0.33 0.33 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- ROAD CONNECTORS (diagonal linking roads) -->
+    <model name="connector_road_ne">
+      <pose>30 30 0.01 0 0 0.785</pose>
+      <static>true</static>
+      <link name="road">
+        <visual name="road_vis">
+          <geometry>
+            <box>
+              <size>60 6 0.02</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.28 0.28 0.28 1</ambient>
+            <diffuse>0.33 0.33 0.33 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="connector_road_nw">
+      <pose>-30 30 0.01 0 0 -0.785</pose>
+      <static>true</static>
+      <link name="road">
+        <visual name="road_vis">
+          <geometry>
+            <box>
+              <size>60 6 0.02</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.28 0.28 0.28 1</ambient>
+            <diffuse>0.33 0.33 0.33 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="connector_road_se">
+      <pose>30 -30 0.01 0 0 0.785</pose>
+      <static>true</static>
+      <link name="road">
+        <visual name="road_vis">
+          <geometry>
+            <box>
+              <size>60 6 0.02</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.28 0.28 0.28 1</ambient>
+            <diffuse>0.33 0.33 0.33 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="connector_road_sw">
+      <pose>-30 -30 0.01 0 0 -0.785</pose>
+      <static>true</static>
+      <link name="road">
+        <visual name="road_vis">
+          <geometry>
+            <box>
+              <size>60 6 0.02</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.28 0.28 0.28 1</ambient>
+            <diffuse>0.33 0.33 0.33 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- ============================================================ -->
+    <!-- CENTRAL ROUNDABOUT (Dodoma's iconic circular junction)        -->
+    <!-- ============================================================ -->
+    <model name="roundabout_ring">
+      <pose>0 0 0.01 0 0 0</pose>
+      <static>true</static>
+      <link name="ring">
+        <visual name="ring_vis">
+          <geometry>
+            <torus>
+              <radius>6</radius>
+              <tube_radius>0.5</tube_radius>
+            </torus>
+          </geometry>
+          <material>
+            <ambient>0.2 0.2 0.2 1</ambient>
+            <diffuse>0.25 0.25 0.25 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Roundabout centre garden -->
+    <model name="roundabout_garden">
+      <pose>0 0 0.01 0 0 0</pose>
+      <static>true</static>
+      <link name="garden">
+        <visual name="soil">
+          <geometry>
+            <cylinder>
+              <radius>5.5</radius>
+              <length>0.05</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.35 0.25 0.15 1</ambient>
+            <diffuse>0.4 0.3 0.2 1</diffuse>
+          </material>
+        </visual>
+        <visual name="garden_wall">
+          <pose>0 0 0.2 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>5.5</radius>
+              <length>0.4</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.6 0.55 0.5 1</ambient>
+            <diffuse>0.65 0.6 0.55 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Central acacia tree in roundabout -->
+    <model name="roundabout_tree">
+      <pose>0 0 0 0 0 0</pose>
+      <static>true</static>
+      <link name="trunk">
+        <visual name="trunk_vis">
+          <geometry>
+            <cylinder>
+              <radius>0.35</radius>
+              <length>2.5</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.4 0.35 0.3 1</ambient>
+            <diffuse>0.45 0.4 0.35 1</diffuse>
+          </material>
+        </visual>
+      </link>
+      <link name="canopy">
+        <pose>0 0 2.3 0 0 0</pose>
+        <visual name="canopy_vis">
+          <geometry>
+            <sphere>
+              <radius>2.0</radius>
+            </sphere>
+          </geometry>
+          <material>
+            <ambient>0.2 0.45 0.15 1</ambient>
+            <diffuse>0.25 0.55 0.2 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- ============================================================ -->
+    <!-- BUILDINGS - City block arrangement                           -->
+    <!-- ============================================================ -->
+
+    <!-- BANK BUILDING (3 sections) -->
+    <model name="bank_building_1">
+      <pose>-20 20 0 0 0 0</pose>
+      <static>true</static>
+      <link name="building">
+        <visual name="walls">
+          <geometry>
+            <box>
+              <size>12 10 8</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.72 0.68 0.62 1</ambient>
+            <diffuse>0.78 0.74 0.68 1</diffuse>
+            <specular>0.1 0.1 0.1 1</specular>
+          </material>
+        </visual>
+        <visual name="windows_front">
+          <pose>0 5.1 4 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>10 0.2 5</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.6 0.8 1</ambient>
+            <diffuse>0.55 0.65 0.85 1</diffuse>
+            <specular>0.3 0.3 0.3 1</specular>
+          </material>
+        </visual>
+        <visual name="windows_back">
+          <pose>0 -5.1 4 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>10 0.2 5</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.6 0.8 1</ambient>
+            <diffuse>0.55 0.65 0.85 1</diffuse>
+            <specular>0.3 0.3 0.3 1</specular>
+          </material>
+        </visual>
+        <visual name="roof">
+          <pose>0 0 4.1 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>12.4 10.4 0.3</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.45 0.4 1</ambient>
+            <diffuse>0.55 0.5 0.45 1</diffuse>
+          </material>
+        </visual>
+        <collision name="collision">
+          <geometry>
+            <box>
+              <size>12 10 8</size>
+            </box>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <model name="bank_building_2">
+      <pose>-20 30 0 0 0 0</pose>
+      <static>true</static>
+      <link name="building">
+        <visual name="building_vis">
+          <geometry>
+            <box>
+              <size>12 6 6</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.55 0.5 0.45 1</ambient>
+            <diffuse>0.6 0.55 0.5 1</diffuse>
+          </material>
+        </visual>
+        <collision name="collision">
+          <geometry>
+            <box>
+              <size>12 6 6</size>
+            </box>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <model name="bank_building_3">
+      <pose>-20 10 0 0 0 0</pose>
+      <static>true</static>
+      <link name="building">
+        <visual name="building_vis">
+          <geometry>
+            <box>
+              <size>12 6 6</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.45 0.4 1</ambient>
+            <diffuse>0.55 0.5 0.45 1</diffuse>
+          </material>
+        </visual>
+        <collision name="collision">
+          <geometry>
+            <box>
+              <size>12 6 6</size>
+            </box>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <!-- OFFICE BUILDING BLOCK -->
+    <model name="office_block">
+      <pose>20 20 0 0 0 0</pose>
+      <static>true</static>
+      <link name="building">
+        <visual name="building_vis">
+          <geometry>
+            <box>
+              <size>14 12 12</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.55 0.6 1</ambient>
+            <diffuse>0.55 0.6 0.65 1</diffuse>
+          </material>
+        </visual>
+        <collision name="collision">
+          <geometry>
+            <box>
+              <size>14 12 12</size>
+            </box>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <!-- SHOP CENTRE -->
+    <model name="shop_centre">
+      <pose>20 -20 0 0 0 0</pose>
+      <static>true</static>
+      <link name="building">
+        <visual name="building_vis">
+          <geometry>
+            <box>
+              <size>10 16 5</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.7 0.65 0.55 1</ambient>
+            <diffuse>0.75 0.7 0.6 1</diffuse>
+          </material>
+        </visual>
+        <collision name="collision">
+          <geometry>
+            <box>
+              <size>10 16 5</size>
+            </box>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <!-- SHOPPING MALL -->
+    <model name="shopping_mall">
+      <pose>-30 -25 0 0 0 0</pose>
+      <static>true</static>
+      <link name="building">
+        <visual name="building_vis">
+          <geometry>
+            <box>
+              <size>18 20 10</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.65 0.6 0.7 1</ambient>
+            <diffuse>0.7 0.65 0.75 1</diffuse>
+          </material>
+        </visual>
+        <collision name="collision">
+          <geometry>
+            <box>
+              <size>18 20 10</size>
+            </box>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <!-- 2-STOREY APARTMENT -->
+    <model name="apartment_2storey">
+      <pose>30 -30 0 0 0 0</pose>
+      <static>true</static>
+      <link name="building">
+        <visual name="building_vis">
+          <geometry>
+            <box>
+              <size>10 10 7</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.75 0.7 0.6 1</ambient>
+            <diffuse>0.8 0.75 0.65 1</diffuse>
+          </material>
+        </visual>
+        <collision name="collision">
+          <geometry>
+            <box>
+              <size>10 10 7</size>
+            </box>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <!-- SMALL SHOP -->
+    <model name="small_shop">
+      <pose>-45 20 0 0 0 0</pose>
+      <static>true</static>
+      <link name="building">
+        <visual name="building_vis">
+          <geometry>
+            <box>
+              <size>6 5 3.5</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.45 0.4 1</ambient>
+            <diffuse>0.55 0.5 0.45 1</diffuse>
+          </material>
+        </visual>
+        <collision name="collision">
+          <geometry>
+            <box>
+              <size>6 5 3.5</size>
+            </box>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <!-- HOUSE 1 -->
+    <model name="house_1">
+      <pose>45 20 0 0 0 0</pose>
+      <static>true</static>
+      <link name="house">
+        <visual name="house_vis">
+          <geometry>
+            <box>
+              <size>8 6 4</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.8 0.75 0.65 1</ambient>
+            <diffuse>0.85 0.8 0.7 1</diffuse>
+          </material>
+        </visual>
+        <visual name="roof">
+          <pose>0 0 2.5 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>8.5 6.5 0.3</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.6 0.3 0.2 1</ambient>
+            <diffuse>0.65 0.35 0.25 1</diffuse>
+          </material>
+        </visual>
+        <collision name="collision">
+          <geometry>
+            <box>
+              <size>8 6 4</size>
+            </box>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <!-- HOUSE 2 -->
+    <model name="house_2">
+      <pose>-45 -20 0 0 0 0</pose>
+      <static>true</static>
+      <link name="house">
+        <visual name="house_vis">
+          <geometry>
+            <box>
+              <size>7 7 4</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.7 0.65 0.55 1</ambient>
+            <diffuse>0.75 0.7 0.6 1</diffuse>
+          </material>
+        </visual>
+        <visual name="roof">
+          <pose>0 0 2.5 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>7.5 7.5 0.3</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.25 0.15 1</ambient>
+            <diffuse>0.55 0.3 0.2 1</diffuse>
+          </material>
+        </visual>
+        <collision name="collision">
+          <geometry>
+            <box>
+              <size>7 7 4</size>
+            </box>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <!-- GOVERNMENT BUILDING -->
+    <model name="govt_building">
+      <pose>20 -65 0 0 0 0</pose>
+      <static>true</static>
+      <link name="building">
+        <visual name="building_vis">
+          <geometry>
+            <box>
+              <size>15 10 8</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.55 0.55 0.6 1</ambient>
+            <diffuse>0.6 0.6 0.65 1</diffuse>
+          </material>
+        </visual>
+        <collision name="collision">
+          <geometry>
+            <box>
+              <size>15 10 8</size>
+            </box>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <!-- GOVERNMENT HOUSES (2) -->
+    <model name="govt_house_1">
+      <pose>40 -65 0 0 0 0</pose>
+      <static>true</static>
+      <link name="house">
+        <visual name="house_vis">
+          <geometry>
+            <box>
+              <size>8 6 4.5</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.8 0.75 0.7 1</ambient>
+            <diffuse>0.85 0.8 0.75 1</diffuse>
+          </material>
+        </visual>
+        <collision name="collision">
+          <geometry>
+            <box>
+              <size>8 6 4.5</size>
+            </box>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <model name="govt_house_2">
+      <pose>5 -65 0 0 0 0</pose>
+      <static>true</static>
+      <link name="house">
+        <visual name="house_vis">
+          <geometry>
+            <box>
+              <size>7 7 4</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.7 0.7 0.65 1</ambient>
+            <diffuse>0.75 0.75 0.7 1</diffuse>
+          </material>
+        </visual>
+        <collision name="collision">
+          <geometry>
+            <box>
+              <size>7 7 4</size>
+            </box>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <!-- BUNGE PARLIAMENT (landmark) -->
+    <model name="bunge_parliament">
+      <pose>80 -40 0 0 0 0</pose>
+      <static>true</static>
+      <link name="main_hall">
+        <visual name="main_vis">
+          <geometry>
+            <box>
+              <size>20 15 14</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.75 0.7 0.6 1</ambient>
+            <diffuse>0.8 0.75 0.65 1</diffuse>
+          </material>
+        </visual>
+        <visual name="dome_base">
+          <pose>0 0 7.5 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>6</radius>
+              <length>1</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.7 0.65 0.55 1</ambient>
+            <diffuse>0.75 0.7 0.6 1</diffuse>
+          </material>
+        </visual>
+        <visual name="dome">
+          <pose>0 0 9 0 0 0</pose>
+          <geometry>
+            <sphere>
+              <radius>4</radius>
+            </sphere>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.55 1</ambient>
+            <diffuse>0.55 0.55 0.6 1</diffuse>
+          </material>
+        </visual>
+        <collision name="collision">
+          <geometry>
+            <box>
+              <size>20 15 14</size>
+            </box>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <!-- ============================================================ -->
+    <!-- NEW BUILDING ADDITIONS (6 more buildings for density)         -->
+    <!-- ============================================================ -->
+
+    <!-- 3-STOREY APARTMENT BUILDING -->
+    <model name="apartment_3storey_1">
+      <pose>50 30 0 0 0 0</pose>
+      <static>true</static>
+      <link name="building">
+        <visual name="vis">
+          <geometry>
+            <box>
+              <size>8 12 10</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.7 0.6 0.55 1</ambient>
+            <diffuse>0.75 0.65 0.6 1</diffuse>
+          </material>
+        </visual>
+        <collision name="col">
+          <geometry>
+            <box>
+              <size>8 12 10</size>
+            </box>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <model name="apartment_3storey_2">
+      <pose>-50 35 0 0 0 0</pose>
+      <static>true</static>
+      <link name="building">
+        <visual name="vis">
+          <geometry>
+            <box>
+              <size>10 10 10</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.65 0.6 0.5 1</ambient>
+            <diffuse>0.7 0.65 0.55 1</diffuse>
+          </material>
+        </visual>
+        <collision name="col">
+          <geometry>
+            <box>
+              <size>10 10 10</size>
+            </box>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <!-- SMALL COMMERCIAL KIOSK 1 -->
+    <model name="kiosk_1">
+      <pose>35 15 0 0 0 0</pose>
+      <static>true</static>
+      <link name="kiosk">
+        <visual name="vis">
+          <geometry>
+            <box>
+              <size>3 2.5 2.5</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.4 0.6 0.4 1</ambient>
+            <diffuse>0.45 0.65 0.45 1</diffuse>
+          </material>
+        </visual>
+        <collision name="col">
+          <geometry>
+            <box>
+              <size>3 2.5 2.5</size>
+            </box>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <model name="kiosk_2">
+      <pose>-35 -15 0 0 0 0</pose>
+      <static>true</static>
+      <link name="kiosk">
+        <visual name="vis">
+          <geometry>
+            <box>
+              <size>3 2.5 2.5</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.6 1</ambient>
+            <diffuse>0.55 0.55 0.65 1</diffuse>
+          </material>
+        </visual>
+        <collision name="col">
+          <geometry>
+            <box>
+              <size>3 2.5 2.5</size>
+            </box>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <!-- WAREHOUSE 1 -->
+    <model name="warehouse_1">
+      <pose>80 30 0 0 0 0</pose>
+      <static>true</static>
+      <link name="bldg">
+        <visual name="vis">
+          <geometry>
+            <box>
+              <size>15 12 6</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.55 0.55 0.55 1</diffuse>
+          </material>
+        </visual>
+        <collision name="col">
+          <geometry>
+            <box>
+              <size>15 12 6</size>
+            </box>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <!-- FUEL STATION (gas station) -->
+    <model name="fuel_station">
+      <pose>-75 -30 0 0 0 0</pose>
+      <static>true</static>
+      <link name="canopy">
+        <visual name="canopy_vis">
+          <geometry>
+            <box>
+              <size>10 8 0.3</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.3 0.3 0.35 1</ambient>
+            <diffuse>0.35 0.35 0.4 1</diffuse>
+          </material>
+        </visual>
+        <visual name="column1">
+          <pose>-4 -3 1.5 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>0.15</radius>
+              <length>3</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.6 0.6 0.6 1</diffuse>
+          </material>
+        </visual>
+        <visual name="column2">
+          <pose>4 -3 1.5 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>0.15</radius>
+              <length>3</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.6 0.6 0.6 1</diffuse>
+          </material>
+        </visual>
+        <visual name="column3">
+          <pose>-4 3 1.5 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>0.15</radius>
+              <length>3</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.6 0.6 0.6 1</diffuse>
+          </material>
+        </visual>
+        <visual name="column4">
+          <pose>4 3 1.5 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>0.15</radius>
+              <length>3</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.6 0.6 0.6 1</diffuse>
+          </material>
+        </visual>
+        <collision name="col_canopy">
+          <geometry>
+            <box>
+              <size>10 8 0.3</size>
+            </box>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <!-- ============================================================ -->
+    <!-- VEHICLES - Parked cars and trucks for obstacle objects        -->
+    <!-- ============================================================ -->
+
+    <!-- SEDAN 1 -->
+    <model name="sedan_1">
+      <pose>15 15 0.2 0 0 1.57</pose>
+      <static>true</static>
+      <link name="body">
+        <visual name="body_vis">
+          <geometry>
+            <box>
+              <size>2 4 0.6</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.15 0.15 0.5 1</ambient>
+            <diffuse>0.2 0.2 0.6 1</diffuse>
+            <specular>0.4 0.4 0.4 1</specular>
+          </material>
+        </visual>
+        <visual name="cabin">
+          <pose>0 -0.3 0.5 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>1.8 2.2 0.4</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.3 0.35 0.4 1</ambient>
+            <diffuse>0.35 0.4 0.45 1</diffuse>
+            <specular>0.3 0.3 0.3 1</specular>
+          </material>
+        </visual>
+        <visual name="wheel_fl">
+          <pose>-1.1 1.2 0.1 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>0.25</radius>
+              <length>0.2</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.1 0.1 0.1 1</ambient>
+            <diffuse>0.15 0.15 0.15 1</diffuse>
+          </material>
+        </visual>
+        <visual name="wheel_fr">
+          <pose>1.1 1.2 0.1 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>0.25</radius>
+              <length>0.2</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.1 0.1 0.1 1</ambient>
+            <diffuse>0.15 0.15 0.15 1</diffuse>
+          </material>
+        </visual>
+        <visual name="wheel_rl">
+          <pose>-1.1 -1.2 0.1 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>0.25</radius>
+              <length>0.2</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.1 0.1 0.1 1</ambient>
+            <diffuse>0.15 0.15 0.15 1</diffuse>
+          </material>
+        </visual>
+        <visual name="wheel_rr">
+          <pose>1.1 -1.2 0.1 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>0.25</radius>
+              <length>0.2</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.1 0.1 0.1 1</ambient>
+            <diffuse>0.15 0.15 0.15 1</diffuse>
+          </material>
+        </visual>
+        <visual name="headlight_l">
+          <pose>-0.6 -2.05 0.2 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>0.3 0.1 0.15</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>1 0.9 0.6 1</ambient>
+            <diffuse>1 0.95 0.7 1</diffuse>
+          </material>
+        </visual>
+        <visual name="headlight_r">
+          <pose>0.6 -2.05 0.2 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>0.3 0.1 0.15</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>1 0.9 0.6 1</ambient>
+            <diffuse>1 0.95 0.7 1</diffuse>
+          </material>
+        </visual>
+        <collision name="col">
+          <geometry>
+            <box>
+              <size>2 4 0.6</size>
+            </box>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <!-- SEDAN 2 -->
+    <model name="sedan_2">
+      <pose>-15 -15 0.2 0 0 0</pose>
+      <static>true</static>
+      <link name="body">
+        <visual name="body_vis">
+          <geometry>
+            <box>
+              <size>2 4 0.6</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.6 0.2 0.2 1</ambient>
+            <diffuse>0.65 0.25 0.25 1</diffuse>
+          </material>
+        </visual>
+        <visual name="cabin">
+          <pose>0 -0.3 0.5 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>1.8 2.2 0.4</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.4 0.4 0.45 1</ambient>
+            <diffuse>0.45 0.45 0.5 1</diffuse>
+          </material>
+        </visual>
+        <collision name="col">
+          <geometry>
+            <box>
+              <size>2 4 0.6</size>
+            </box>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <!-- SEDAN 3 -->
+    <model name="sedan_3">
+      <pose>85 -30 0.2 0 0 1.57</pose>
+      <static>true</static>
+      <link name="body">
+        <visual name="body_vis">
+          <geometry>
+            <box>
+              <size>2 4 0.6</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.2 0.6 0.2 1</ambient>
+            <diffuse>0.25 0.65 0.25 1</diffuse>
+          </material>
+        </visual>
+        <visual name="cabin">
+          <pose>0 -0.3 0.5 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>1.8 2.2 0.4</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.4 0.4 0.45 1</ambient>
+            <diffuse>0.45 0.45 0.5 1</diffuse>
+          </material>
+        </visual>
+        <collision name="col">
+          <geometry>
+            <box>
+              <size>2 4 0.6</size>
+            </box>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <!-- PICKUP TRUCK 1 -->
+    <model name="pickup_1">
+      <pose>25 25 0.25 0 0 -0.785</pose>
+      <static>true</static>
+      <link name="body">
+        <visual name="cab">
+          <geometry>
+            <box>
+              <size>2 2.2 0.7</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.8 0.8 0.8 1</ambient>
+            <diffuse>0.85 0.85 0.85 1</diffuse>
+          </material>
+        </visual>
+        <visual name="bed">
+          <pose>0 2.0 0.2 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>2 2.2 0.4</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.6 0.55 0.5 1</ambient>
+            <diffuse>0.65 0.6 0.55 1</diffuse>
+          </material>
+        </visual>
+        <collision name="col">
+          <geometry>
+            <box>
+              <size>2 4 0.7</size>
+            </box>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <!-- PICKUP TRUCK 2 -->
+    <model name="pickup_2">
+      <pose>-60 40 0.25 0 0 1.57</pose>
+      <static>true</static>
+      <link name="body">
+        <visual name="cab">
+          <geometry>
+            <box>
+              <size>2 2.2 0.7</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.7 0.4 0.2 1</ambient>
+            <diffuse>0.75 0.45 0.25 1</diffuse>
+          </material>
+        </visual>
+        <visual name="bed">
+          <pose>0 2.0 0.2 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>2 2.2 0.4</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.6 0.55 0.5 1</ambient>
+            <diffuse>0.65 0.6 0.55 1</diffuse>
+          </material>
+        </visual>
+        <collision name="col">
+          <geometry>
+            <box>
+              <size>2 4 0.7</size>
+            </box>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <!-- BUS -->
+    <model name="bus_1">
+      <pose>55 -35 0.3 0 0 0</pose>
+      <static>true</static>
+      <link name="body">
+        <visual name="body_vis">
+          <geometry>
+            <box>
+              <size>2.5 8 1.3</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.9 0.8 0.1 1</ambient>
+            <diffuse>1 0.85 0.15 1</diffuse>
+          </material>
+        </visual>
+        <visual name="windows">
+          <pose>0 0 0.6 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>2.3 7 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.6 0.7 0.6</ambient>
+            <diffuse>0.55 0.65 0.75 0.6</diffuse>
+          </material>
+        </visual>
+        <collision name="col">
+          <geometry>
+            <box>
+              <size>2.5 8 1.3</size>
+            </box>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <!-- SUV -->
+    <model name="suv_1">
+      <pose>-55 50 0.25 0 0 -0.785</pose>
+      <static>true</static>
+      <link name="body">
+        <visual name="body_vis">
+          <geometry>
+            <box>
+              <size>2.2 4.5 0.8</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.15 0.15 0.15 1</ambient>
+            <diffuse>0.2 0.2 0.2 1</diffuse>
+          </material>
+        </visual>
+        <visual name="cabin">
+          <pose>0 -0.4 0.6 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>2 2.8 0.4</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.3 0.3 0.35 1</ambient>
+            <diffuse>0.35 0.35 0.4 1</diffuse>
+          </material>
+        </visual>
+        <collision name="col">
+          <geometry>
+            <box>
+              <size>2.2 4.5 0.8</size>
+            </box>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <!-- MOTORCYCLE -->
+    <model name="motorcycle_1">
+      <pose>-30 45 0.15 0 0 0</pose>
+      <static>true</static>
+      <link name="body">
+        <visual name="frame">
+          <geometry>
+            <box>
+              <size>0.6 1.8 0.3</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.2 0.2 0.2 1</ambient>
+            <diffuse>0.25 0.25 0.25 1</diffuse>
+          </material>
+        </visual>
+        <visual name="wheel1">
+          <pose>-0.4 -0.7 0.15 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>0.25</radius>
+              <length>0.1</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.1 0.1 0.1 1</ambient>
+            <diffuse>0.15 0.15 0.15 1</diffuse>
+          </material>
+        </visual>
+        <visual name="wheel2">
+          <pose>0.4 -0.7 0.15 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>0.25</radius>
+              <length>0.1</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.1 0.1 0.1 1</ambient>
+            <diffuse>0.15 0.15 0.15 1</diffuse>
+          </material>
+        </visual>
+        <collision name="col">
+          <geometry>
+            <box>
+              <size>0.6 1.8 0.3</size>
+            </box>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <!-- ============================================================ -->
+    <!-- JERSEY BARRIERS - Concrete barriers along roads               -->
+    <!-- ============================================================ -->
+
+    <model name="jersey_1">
+      <pose>15 9 0.3 0 0 0</pose>
+      <static>true</static>
+      <link name="barrier">
+        <visual name="vis">
+          <geometry>
+            <box>
+              <size>0.6 2 0.6</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.55 0.55 0.55 1</diffuse>
+          </material>
+        </visual>
+        <collision name="col">
+          <geometry>
+            <box>
+              <size>0.6 2 0.6</size>
+            </box>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <model name="jersey_2">
+      <pose>18 9 0.3 0 0 0</pose>
+      <static>true</static>
+      <link name="barrier">
+        <visual name="vis">
+          <geometry>
+            <box>
+              <size>0.6 2 0.6</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.55 0.55 0.55 1</diffuse>
+          </material>
+        </visual>
+        <collision name="col">
+          <geometry>
+            <box>
+              <size>0.6 2 0.6</size>
+            </box>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <model name="jersey_3">
+      <pose>-15 9 0.3 0 0 0</pose>
+      <static>true</static>
+      <link name="barrier">
+        <visual name="vis">
+          <geometry>
+            <box>
+              <size>0.6 2 0.6</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.55 0.55 0.55 1</diffuse>
+          </material>
+        </visual>
+        <collision name="col">
+          <geometry>
+            <box>
+              <size>0.6 2 0.6</size>
+            </box>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <model name="jersey_4">
+      <pose>-18 9 0.3 0 0 0</pose>
+      <static>true</static>
+      <link name="barrier">
+        <visual name="vis">
+          <geometry>
+            <box>
+              <size>0.6 2 0.6</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.55 0.55 0.55 1</diffuse>
+          </material>
+        </visual>
+        <collision name="col">
+          <geometry>
+            <box>
+              <size>0.6 2 0.6</size>
+            </box>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <model name="jersey_5">
+      <pose>15 -9 0.3 0 0 0</pose>
+      <static>true</static>
+      <link name="barrier">
+        <visual name="vis">
+          <geometry>
+            <box>
+              <size>0.6 2 0.6</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.55 0.55 0.55 1</diffuse>
+          </material>
+        </visual>
+        <collision name="col">
+          <geometry>
+            <box>
+              <size>0.6 2 0.6</size>
+            </box>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <model name="jersey_6">
+      <pose>18 -9 0.3 0 0 0</pose>
+      <static>true</static>
+      <link name="barrier">
+        <visual name="vis">
+          <geometry>
+            <box>
+              <size>0.6 2 0.6</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.55 0.55 0.55 1</diffuse>
+          </material>
+        </visual>
+        <collision name="col">
+          <geometry>
+            <box>
+              <size>0.6 2 0.6</size>
+            </box>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <model name="jersey_7">
+      <pose>-15 -9 0.3 0 0 0</pose>
+      <static>true</static>
+      <link name="barrier">
+        <visual name="vis">
+          <geometry>
+            <box>
+              <size>0.6 2 0.6</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.55 0.55 0.55 1</diffuse>
+          </material>
+        </visual>
+        <collision name="col">
+          <geometry>
+            <box>
+              <size>0.6 2 0.6</size>
+            </box>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <model name="jersey_8">
+      <pose>-18 -9 0.3 0 0 0</pose>
+      <static>true</static>
+      <link name="barrier">
+        <visual name="vis">
+          <geometry>
+            <box>
+              <size>0.6 2 0.6</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.55 0.55 0.55 1</diffuse>
+          </material>
+        </visual>
+        <collision name="col">
+          <geometry>
+            <box>
+              <size>0.6 2 0.6</size>
+            </box>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <!-- ============================================================ -->
+    <!-- TRAFFIC CONES                                                 -->
+    <!-- ============================================================ -->
+
+    <model name="cone_1">
+      <pose>10 10 0.15 0 0 0</pose>
+      <static>true</static>
+      <link name="cone">
+        <visual name="vis">
+          <geometry>
+            <cone>
+              <radius>0.15</radius>
+              <length>0.5</length>
+            </cone>
+          </geometry>
+          <material>
+            <ambient>1 0.4 0 1</ambient>
+            <diffuse>1 0.5 0 1</diffuse>
+          </material>
+        </visual>
+        <collision name="col">
+          <geometry>
+            <cone>
+              <radius>0.15</radius>
+              <length>0.5</length>
+            </cone>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <model name="cone_2">
+      <pose>-10 10 0.15 0 0 0</pose>
+      <static>true</static>
+      <link name="cone">
+        <visual name="vis">
+          <geometry>
+            <cone>
+              <radius>0.15</radius>
+              <length>0.5</length>
+            </cone>
+          </geometry>
+          <material>
+            <ambient>1 0.4 0 1</ambient>
+            <diffuse>1 0.5 0 1</diffuse>
+          </material>
+        </visual>
+        <collision name="col">
+          <geometry>
+            <cone>
+              <radius>0.15</radius>
+              <length>0.5</length>
+            </cone>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <model name="cone_3">
+      <pose>10 -10 0.15 0 0 0</pose>
+      <static>true</static>
+      <link name="cone">
+        <visual name="vis">
+          <geometry>
+            <cone>
+              <radius>0.15</radius>
+              <length>0.5</length>
+            </cone>
+          </geometry>
+          <material>
+            <ambient>1 0.4 0 1</ambient>
+            <diffuse>1 0.5 0 1</diffuse>
+          </material>
+        </visual>
+        <collision name="col">
+          <geometry>
+            <cone>
+              <radius>0.15</radius>
+              <length>0.5</length>
+            </cone>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <model name="cone_4">
+      <pose>-10 -10 0.15 0 0 0</pose>
+      <static>true</static>
+      <link name="cone">
+        <visual name="vis">
+          <geometry>
+            <cone>
+              <radius>0.15</radius>
+              <length>0.5</length>
+            </cone>
+          </geometry>
+          <material>
+            <ambient>1 0.4 0 1</ambient>
+            <diffuse>1 0.5 0 1</diffuse>
+          </material>
+        </visual>
+        <collision name="col">
+          <geometry>
+            <cone>
+              <radius>0.15</radius>
+              <length>0.5</length>
+            </cone>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <model name="cone_5">
+      <pose>8 -8 0.15 0 0 0</pose>
+      <static>true</static>
+      <link name="cone">
+        <visual name="vis">
+          <geometry>
+            <cone>
+              <radius>0.15</radius>
+              <length>0.5</length>
+            </cone>
+          </geometry>
+          <material>
+            <ambient>1 0.4 0 1</ambient>
+            <diffuse>1 0.5 0 1</diffuse>
+          </material>
+        </visual>
+        <collision name="col">
+          <geometry>
+            <cone>
+              <radius>0.15</radius>
+              <length>0.5</length>
+            </cone>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <model name="cone_6">
+      <pose>-8 8 0.15 0 0 0</pose>
+      <static>true</static>
+      <link name="cone">
+        <visual name="vis">
+          <geometry>
+            <cone>
+              <radius>0.15</radius>
+              <length>0.5</length>
+            </cone>
+          </geometry>
+          <material>
+            <ambient>1 0.4 0 1</ambient>
+            <diffuse>1 0.5 0 1</diffuse>
+          </material>
+        </visual>
+        <collision name="col">
+          <geometry>
+            <cone>
+              <radius>0.15</radius>
+              <length>0.5</length>
+            </cone>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <!-- ============================================================ -->
+    <!-- CONSTRUCTION BARRIERS (temporary fence panels)                 -->
+    <!-- ============================================================ -->
+
+    <model name="const_barrier_1">
+      <pose>11 -6 0.6 0 0 0</pose>
+      <static>true</static>
+      <link name="panel">
+        <visual name="vis">
+          <geometry>
+            <box>
+              <size>2 0.08 1.2</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.9 0.7 0.1 1</ambient>
+            <diffuse>1 0.8 0.15 1</diffuse>
+          </material>
+        </visual>
+        <collision name="col">
+          <geometry>
+            <box>
+              <size>2 0.08 1.2</size>
+            </box>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <model name="const_barrier_2">
+      <pose>13 -6 0.6 0 0 0</pose>
+      <static>true</static>
+      <link name="panel">
+        <visual name="vis">
+          <geometry>
+            <box>
+              <size>2 0.08 1.2</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.9 0.7 0.1 1</ambient>
+            <diffuse>1 0.8 0.15 1</diffuse>
+          </material>
+        </visual>
+        <collision name="col">
+          <geometry>
+            <box>
+              <size>2 0.08 1.2</size>
+            </box>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <model name="const_barrier_3">
+      <pose>-11 -6 0.6 0 0 0</pose>
+      <static>true</static>
+      <link name="panel">
+        <visual name="vis">
+          <geometry>
+            <box>
+              <size>2 0.08 1.2</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.9 0.7 0.1 1</ambient>
+            <diffuse>1 0.8 0.15 1</diffuse>
+          </material>
+        </visual>
+        <collision name="col">
+          <geometry>
+            <box>
+              <size>2 0.08 1.2</size>
+            </box>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <model name="const_barrier_4">
+      <pose>-13 -6 0.6 0 0 0</pose>
+      <static>true</static>
+      <link name="panel">
+        <visual name="vis">
+          <geometry>
+            <box>
+              <size>2 0.08 1.2</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.9 0.7 0.1 1</ambient>
+            <diffuse>1 0.8 0.15 1</diffuse>
+          </material>
+        </visual>
+        <collision name="col">
+          <geometry>
+            <box>
+              <size>2 0.08 1.2</size>
+            </box>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <!-- ============================================================ -->
+    <!-- SHIPPING CONTAINERS                                           -->
+    <!-- ============================================================ -->
+
+    <model name="container_1">
+      <pose>75 -25 1.2 0 0 0</pose>
+      <static>true</static>
+      <link name="container">
+        <visual name="vis">
+          <geometry>
+            <box>
+              <size>2.4 6 2.4</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.2 0.4 0.6 1</ambient>
+            <diffuse>0.25 0.45 0.65 1</diffuse>
+          </material>
+        </visual>
+        <collision name="col">
+          <geometry>
+            <box>
+              <size>2.4 6 2.4</size>
+            </box>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <model name="container_2">
+      <pose>75 -22 1.2 0 0 0</pose>
+      <static>true</static>
+      <link name="container">
+        <visual name="vis">
+          <geometry>
+            <box>
+              <size>2.4 6 2.4</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.6 0.3 0.2 1</ambient>
+            <diffuse>0.65 0.35 0.25 1</diffuse>
+          </material>
+        </visual>
+        <collision name="col">
+          <geometry>
+            <box>
+              <size>2.4 6 2.4</size>
+            </box>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <!-- ============================================================ -->
+    <!-- STREET FURNITURE - Bus stops, benches, bins, signs            -->
+    <!-- ============================================================ -->
+
+    <!-- BUS STOP SHELTER 1 -->
+    <model name="bus_stop_1">
+      <pose>55 12 0 0 0 0</pose>
+      <static>true</static>
+      <link name="shelter">
+        <visual name="roof">
+          <pose>0 0 2.2 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>1.5 3 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.3 0.3 0.35 1</ambient>
+            <diffuse>0.35 0.35 0.4 1</diffuse>
+          </material>
+        </visual>
+        <visual name="post1">
+          <pose>-0.6 -1.2 1.1 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>0.04</radius>
+              <length>2.2</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.6 0.6 0.6 1</diffuse>
+          </material>
+        </visual>
+        <visual name="post2">
+          <pose>0.6 -1.2 1.1 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>0.04</radius>
+              <length>2.2</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.6 0.6 0.6 1</diffuse>
+          </material>
+        </visual>
+        <visual name="post3">
+          <pose>-0.6 1.2 1.1 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>0.04</radius>
+              <length>2.2</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.6 0.6 0.6 1</diffuse>
+          </material>
+        </visual>
+        <visual name="post4">
+          <pose>0.6 1.2 1.1 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>0.04</radius>
+              <length>2.2</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.6 0.6 0.6 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- BUS STOP SHELTER 2 -->
+    <model name="bus_stop_2">
+      <pose>-55 12 0 0 0 0</pose>
+      <static>true</static>
+      <link name="shelter">
+        <visual name="roof">
+          <pose>0 0 2.2 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>1.5 3 0.1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.3 0.3 0.35 1</ambient>
+            <diffuse>0.35 0.35 0.4 1</diffuse>
+          </material>
+        </visual>
+        <visual name="post1">
+          <pose>-0.6 -1.2 1.1 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>0.04</radius>
+              <length>2.2</length>
+            </cylinder>
+          </geometry>
+        </visual>
+        <visual name="post2">
+          <pose>0.6 -1.2 1.1 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>0.04</radius>
+              <length>2.2</length>
+            </cylinder>
+          </geometry>
+        </visual>
+        <visual name="post3">
+          <pose>-0.6 1.2 1.1 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>0.04</radius>
+              <length>2.2</length>
+            </cylinder>
+          </geometry>
+        </visual>
+        <visual name="post4">
+          <pose>0.6 1.2 1.1 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>0.04</radius>
+              <length>2.2</length>
+            </cylinder>
+          </geometry>
+        </visual>
+      </link>
+    </model>
+
+    <!-- BENCH 1 -->
+    <model name="bench_1">
+      <pose>40 15 0.25 0 0 0</pose>
+      <static>true</static>
+      <link name="bench">
+        <visual name="seat">
+          <geometry>
+            <box>
+              <size>0.4 1.5 0.05</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.3 0.2 0.1 1</ambient>
+            <diffuse>0.35 0.25 0.15 1</diffuse>
+          </material>
+        </visual>
+        <visual name="leg1">
+          <pose>-0.2 -0.6 -0.2 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>0.05 0.05 0.4</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.3 0.3 0.3 1</ambient>
+            <diffuse>0.35 0.35 0.35 1</diffuse>
+          </material>
+        </visual>
+        <visual name="leg2">
+          <pose>0.2 -0.6 -0.2 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>0.05 0.05 0.4</size>
+            </box>
+          </geometry>
+        </visual>
+        <visual name="leg3">
+          <pose>-0.2 0.6 -0.2 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>0.05 0.05 0.4</size>
+            </box>
+          </geometry>
+        </visual>
+        <visual name="leg4">
+          <pose>0.2 0.6 -0.2 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>0.05 0.05 0.4</size>
+            </box>
+          </geometry>
+        </visual>
+        <collision name="col">
+          <geometry>
+            <box>
+              <size>0.4 1.5 0.05</size>
+            </box>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <!-- BENCH 2 -->
+    <model name="bench_2">
+      <pose>-40 15 0.25 0 0 0</pose>
+      <static>true</static>
+      <link name="bench">
+        <visual name="seat">
+          <geometry>
+            <box>
+              <size>0.4 1.5 0.05</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.3 0.2 0.1 1</ambient>
+            <diffuse>0.35 0.25 0.15 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- TRASH BIN 1 -->
+    <model name="trash_bin_1">
+      <pose>12 8 0.3 0 0 0</pose>
+      <static>true</static>
+      <link name="bin">
+        <visual name="vis">
+          <geometry>
+            <cylinder>
+              <radius>0.2</radius>
+              <length>0.6</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.2 0.5 0.2 1</ambient>
+            <diffuse>0.25 0.55 0.25 1</diffuse>
+          </material>
+        </visual>
+        <collision name="col">
+          <geometry>
+            <cylinder>
+              <radius>0.2</radius>
+              <length>0.6</length>
+            </cylinder>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <!-- TRASH BIN 2 -->
+    <model name="trash_bin_2">
+      <pose>-12 8 0.3 0 0 0</pose>
+      <static>true</static>
+      <link name="bin">
+        <visual name="vis">
+          <geometry>
+            <cylinder>
+              <radius>0.2</radius>
+              <length>0.6</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.2 0.5 0.2 1</ambient>
+            <diffuse>0.25 0.55 0.25 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- TRASH BIN 3 -->
+    <model name="trash_bin_3">
+      <pose>12 -8 0.3 0 0 0</pose>
+      <static>true</static>
+      <link name="bin">
+        <visual name="vis">
+          <geometry>
+            <cylinder>
+              <radius>0.2</radius>
+              <length>0.6</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.2 1</ambient>
+            <diffuse>0.55 0.55 0.25 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- TRASH BIN 4 -->
+    <model name="trash_bin_4">
+      <pose>-12 -8 0.3 0 0 0</pose>
+      <static>true</static>
+      <link name="bin">
+        <visual name="vis">
+          <geometry>
+            <cylinder>
+              <radius>0.2</radius>
+              <length>0.6</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.2 1</ambient>
+            <diffuse>0.55 0.55 0.25 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- STREET SIGN 1 -->
+    <model name="street_sign_1">
+      <pose>60 0 1.2 0 0 0</pose>
+      <static>true</static>
+      <link name="post">
+        <visual name="pole">
+          <geometry>
+            <cylinder>
+              <radius>0.04</radius>
+              <length>2.4</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.6 0.6 0.6 1</diffuse>
+          </material>
+        </visual>
+        <visual name="sign">
+          <pose>0 0.2 1.2 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>0.6 0.02 0.4</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.2 0.4 0.6 1</ambient>
+            <diffuse>0.25 0.45 0.65 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- STREET SIGN 2 -->
+    <model name="street_sign_2">
+      <pose>-60 0 1.2 0 0 0</pose>
+      <static>true</static>
+      <link name="post">
+        <visual name="pole">
+          <geometry>
+            <cylinder>
+              <radius>0.04</radius>
+              <length>2.4</length>
+            </cylinder>
+          </geometry>
+        </visual>
+        <visual name="sign">
+          <pose>0 0.2 1.2 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>0.6 0.02 0.4</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.2 0.4 0.6 1</ambient>
+            <diffuse>0.25 0.45 0.65 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- ============================================================ -->
+    <!-- LAMP POSTS (additional 4, plus originals                     -->
+    <!-- ============================================================ -->
+
+    <model name="lamp_post_1">
+      <pose>65 12 1.5 0 0 0</pose>
+      <static>true</static>
+      <link name="post">
+        <visual name="pole">
+          <geometry>
+            <cylinder>
+              <radius>0.06</radius>
+              <length>3</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.3 0.3 0.3 1</ambient>
+            <diffuse>0.35 0.35 0.35 1</diffuse>
+          </material>
+        </visual>
+        <visual name="lamp">
+          <pose>0 0 1.6 0 0 0</pose>
+          <geometry>
+            <sphere>
+              <radius>0.12</radius>
+            </sphere>
+          </geometry>
+          <material>
+            <ambient>1 1 0.7 1</ambient>
+            <diffuse>1 1 0.8 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="lamp_post_2">
+      <pose>-65 12 1.5 0 0 0</pose>
+      <static>true</static>
+      <link name="post">
+        <visual name="pole">
+          <geometry>
+            <cylinder>
+              <radius>0.06</radius>
+              <length>3</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.3 0.3 0.3 1</ambient>
+            <diffuse>0.35 0.35 0.35 1</diffuse>
+          </material>
+        </visual>
+        <visual name="lamp">
+          <pose>0 0 1.6 0 0 0</pose>
+          <geometry>
+            <sphere>
+              <radius>0.12</radius>
+            </sphere>
+          </geometry>
+        </visual>
+      </link>
+    </model>
+
+    <model name="lamp_post_3">
+      <pose>65 -12 1.5 0 0 0</pose>
+      <static>true</static>
+      <link name="post">
+        <visual name="pole">
+          <geometry>
+            <cylinder>
+              <radius>0.06</radius>
+              <length>3</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.3 0.3 0.3 1</ambient>
+            <diffuse>0.35 0.35 0.35 1</diffuse>
+          </material>
+        </visual>
+        <visual name="lamp">
+          <pose>0 0 1.6 0 0 0</pose>
+          <geometry>
+            <sphere>
+              <radius>0.12</radius>
+            </sphere>
+          </geometry>
+        </visual>
+      </link>
+    </model>
+
+    <model name="lamp_post_4">
+      <pose>-65 -12 1.5 0 0 0</pose>
+      <static>true</static>
+      <link name="post">
+        <visual name="pole">
+          <geometry>
+            <cylinder>
+              <radius>0.06</radius>
+              <length>3</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.3 0.3 0.3 1</ambient>
+            <diffuse>0.35 0.35 0.35 1</diffuse>
+          </material>
+        </visual>
+        <visual name="lamp">
+          <pose>0 0 1.6 0 0 0</pose>
+          <geometry>
+            <sphere>
+              <radius>0.12</radius>
+            </sphere>
+          </geometry>
+        </visual>
+      </link>
+    </model>
+
+    <!-- ============================================================ -->
+    <!-- WATER TOWER                                                  -->
+    <!-- ============================================================ -->
+    <model name="water_tower">
+      <pose>90 60 0 0 0 0</pose>
+      <static>true</static>
+      <link name="tower">
+        <visual name="leg1">
+          <pose>-1.5 -1.5 2 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>0.1</radius>
+              <length>4</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.4 0.4 0.4 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+          </material>
+        </visual>
+        <visual name="leg2">
+          <pose>1.5 -1.5 2 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>0.1</radius>
+              <length>4</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.4 0.4 0.4 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+          </material>
+        </visual>
+        <visual name="leg3">
+          <pose>-1.5 1.5 2 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>0.1</radius>
+              <length>4</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.4 0.4 0.4 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+          </material>
+        </visual>
+        <visual name="leg4">
+          <pose>1.5 1.5 2 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>0.1</radius>
+              <length>4</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.4 0.4 0.4 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+          </material>
+        </visual>
+        <visual name="tank">
+          <pose>0 0 4.2 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>2</radius>
+              <length>1.5</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.55 1</ambient>
+            <diffuse>0.55 0.55 0.6 1</diffuse>
+          </material>
+        </visual>
+        <collision name="col_tank">
+          <pose>0 0 4.2 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>2</radius>
+              <length>1.5</length>
+            </cylinder>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <!-- ============================================================ -->
+    <!-- FENCE SECTIONS (around government buildings)                  -->
+    <!-- ============================================================ -->
+
+    <model name="fence_section_1">
+      <pose>28 -60 0.6 0 0 0</pose>
+      <static>true</static>
+      <link name="post1">
+        <pose>-2.5 0 0 0 0 0</pose>
+        <visual name="vis">
+          <geometry>
+            <cylinder>
+              <radius>0.05</radius>
+              <length>1.2</length>
+            </cylinder>
+          </geometry>
+        </visual>
+      </link>
+      <link name="post2">
+        <pose>2.5 0 0 0 0 0</pose>
+        <visual name="vis">
+          <geometry>
+            <cylinder>
+              <radius>0.05</radius>
+              <length>1.2</length>
+            </cylinder>
+          </geometry>
+        </visual>
+      </link>
+      <link name="rail_top">
+        <visual name="vis">
+          <geometry>
+            <box>
+              <size>5 0.03 0.03</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.6 0.6 0.6 1</ambient>
+            <diffuse>0.7 0.7 0.7 1</diffuse>
+          </material>
+        </visual>
+      </link>
+      <link name="rail_bottom">
+        <pose>0 -0.3 0 0 0 0</pose>
+        <visual name="vis">
+          <geometry>
+            <box>
+              <size>5 0.03 0.03</size>
+            </box>
+          </geometry>
+        </visual>
+      </link>
+    </model>
+
+    <model name="fence_section_2">
+      <pose>28 -68 0.6 0 0 0</pose>
+      <static>true</static>
+      <link name="rail_top">
+        <visual name="vis">
+          <geometry>
+            <box>
+              <size>5 0.03 0.03</size>
+            </box>
+          </geometry>
+        </visual>
+      </link>
+      <link name="rail_bottom">
+        <pose>0 -0.3 0 0 0 0</pose>
+        <visual name="vis">
+          <geometry>
+            <box>
+              <size>5 0.03 0.03</size>
+            </box>
+          </geometry>
+        </visual>
+      </link>
+    </model>
+
+    <model name="fence_section_3">
+      <pose>12 -60 0.6 0 0 0</pose>
+      <static>true</static>
+      <link name="rail_top">
+        <visual name="vis">
+          <geometry>
+            <box>
+              <size>5 0.03 0.03</size>
+            </box>
+          </geometry>
+        </visual>
+      </link>
+    </model>
+
+    <model name="fence_section_4">
+      <pose>12 -68 0.6 0 0 0</pose>
+      <static>true</static>
+      <link name="rail_top">
+        <visual name="vis">
+          <geometry>
+            <box>
+              <size>5 0.03 0.03</size>
+            </box>
+          </geometry>
+        </visual>
+      </link>
+    </model>
+
+    <!-- ============================================================ -->
+    <!-- FIRE HYDRANT                                                  -->
+    <!-- ============================================================ -->
+    <model name="fire_hydrant">
+      <pose>22 12 0.3 0 0 0</pose>
+      <static>true</static>
+      <link name="hydrant">
+        <visual name="body">
+          <geometry>
+            <cylinder>
+              <radius>0.12</radius>
+              <length>0.6</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.8 0.15 0.15 1</ambient>
+            <diffuse>0.85 0.2 0.2 1</diffuse>
+          </material>
+        </visual>
+        <visual name="cap">
+          <pose>0 0 0.35 0 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>0.16</radius>
+              <length>0.08</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.7 0.7 0.7 1</ambient>
+            <diffuse>0.8 0.8 0.8 1</diffuse>
+          </material>
+        </visual>
+        <collision name="col">
+          <geometry>
+            <cylinder>
+              <radius>0.12</radius>
+              <length>0.6</length>
+            </cylinder>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <!-- ============================================================ -->
+    <!-- BILLBOARD 1                                                   -->
+    <!-- ============================================================ -->
+    <model name="billboard_1">
+      <pose>70 10 0 0 0 0</pose>
+      <static>true</static>
+      <link name="post">
+        <visual name="pole">
+          <geometry>
+            <cylinder>
+              <radius>0.08</radius>
+              <length>4</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.4 0.4 0.4 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+          </material>
+        </visual>
+        <visual name="board">
+          <pose>0 0 3 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>3 0.08 1.5</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.9 0.9 0.9 1</ambient>
+            <diffuse>1 1 1 1</diffuse>
+          </material>
+        </visual>
+        <collision name="col_board">
+          <pose>0 0 3 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>3 0.08 1.5</size>
+            </box>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <!-- BILLBOARD 2 -->
+    <model name="billboard_2">
+      <pose>-70 -10 0 0 0 0</pose>
+      <static>true</static>
+      <link name="post">
+        <visual name="pole">
+          <geometry>
+            <cylinder>
+              <radius>0.08</radius>
+              <length>4</length>
+            </cylinder>
+          </geometry>
+        </visual>
+        <visual name="board">
+          <pose>0 0 3 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>3 0.08 1.5</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.9 0.9 0.9 1</ambient>
+            <diffuse>1 1 1 1</diffuse>
+          </material>
+        </visual>
+        <collision name="col_board">
+          <pose>0 0 3 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>3 0.08 1.5</size>
+            </box>
+          </geometry>
+        </collision>
+      </link>
+    </model>
+
+    <!-- ============================================================ -->
+    <!-- FLAG POLE                                                     -->
+    <!-- ============================================================ -->
+    <model name="flag_pole">
+      <pose>20 -55 0 0 0 0</pose>
+      <static>true</static>
+      <link name="pole">
+        <visual name="pole_vis">
+          <geometry>
+            <cylinder>
+              <radius>0.05</radius>
+              <length>6</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.7 0.7 0.7 1</ambient>
+            <diffuse>0.8 0.8 0.8 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- ============================================================ -->
+    <!-- TREES - Acacia trees (Dodoma's characteristic vegetation)     -->
+    <!-- ============================================================ -->
+
+    <!-- Street acacia trees (along main roads) -->
+    <model name="acacia_street_1">
+      <pose>-40 25 0 0 0 0</pose>
+      <static>true</static>
+      <link name="trunk">
+        <visual name="trunk_vis">
+          <geometry>
+            <cylinder>
+              <radius>0.25</radius>
+              <length>3</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.45 0.35 0.25 1</ambient>
+            <diffuse>0.5 0.4 0.3 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+          </material>
+        </visual>
+      </link>
+      <link name="canopy">
+        <pose>0 0 4.5 0 0 0</pose>
+        <visual name="canopy_vis">
+          <geometry>
+            <cylinder>
+              <radius>2.5</radius>
+              <length>0.8</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.25 0.5 0.18 1</ambient>
+            <diffuse>0.3 0.55 0.22 1</diffuse>
+            <specular>0.1 0.2 0.05 1</specular>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="acacia_street_2">
+      <pose>40 25 0 0 0 0</pose>
+      <static>true</static>
+      <link name="trunk">
+        <visual name="trunk_vis">
+          <geometry>
+            <cylinder>
+              <radius>0.3</radius>
+              <length>2.5</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.4 0.35 0.3 1</ambient>
+            <diffuse>0.45 0.4 0.35 1</diffuse>
+          </material>
+        </visual>
+      </link>
+      <link name="canopy">
+        <pose>0 0 2.2 0 0 0</pose>
+        <visual name="canopy_vis">
+          <geometry>
+            <sphere>
+              <radius>1.8</radius>
+            </sphere>
+          </geometry>
+          <material>
+            <ambient>0.2 0.45 0.15 1</ambient>
+            <diffuse>0.25 0.55 0.2 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="acacia_street_3">
+      <pose>-40 -25 0 0 0 0</pose>
+      <static>true</static>
+      <link name="trunk">
+        <visual name="trunk_vis">
+          <geometry>
+            <cylinder>
+              <radius>0.3</radius>
+              <length>2.5</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.4 0.35 0.3 1</ambient>
+            <diffuse>0.45 0.4 0.35 1</diffuse>
+          </material>
+        </visual>
+      </link>
+      <link name="canopy">
+        <pose>0 0 2.2 0 0 0</pose>
+        <visual name="canopy_vis">
+          <geometry>
+            <sphere>
+              <radius>1.8</radius>
+            </sphere>
+          </geometry>
+          <material>
+            <ambient>0.2 0.45 0.15 1</ambient>
+            <diffuse>0.25 0.55 0.2 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="acacia_street_4">
+      <pose>40 -25 0 0 0 0</pose>
+      <static>true</static>
+      <link name="trunk">
+        <visual name="trunk_vis">
+          <geometry>
+            <cylinder>
+              <radius>0.3</radius>
+              <length>2.5</length>
+            </cylinder>
+          </geometry>
+        </visual>
+      </link>
+      <link name="canopy">
+        <pose>0 0 2.2 0 0 0</pose>
+        <visual name="canopy_vis">
+          <geometry>
+            <sphere>
+              <radius>1.8</radius>
+            </sphere>
+          </geometry>
+          <material>
+            <ambient>0.2 0.45 0.15 1</ambient>
+            <diffuse>0.25 0.55 0.2 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Scattered acacia trees (original) -->
+    <model name="acacia_scatter_1">
+      <pose>-150 100 0 0 0 0</pose>
+      <static>true</static>
+      <link name="trunk">
+        <visual name="trunk_vis">
+          <geometry>
+            <cylinder>
+              <radius>0.4</radius>
+              <length>3</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.4 0.35 0.3 1</ambient>
+            <diffuse>0.45 0.4 0.35 1</diffuse>
+          </material>
+        </visual>
+      </link>
+      <link name="canopy">
+        <pose>0 0 2.7 0 0 0</pose>
+        <visual name="canopy_vis">
+          <geometry>
+            <sphere>
+              <radius>2.2</radius>
+            </sphere>
+          </geometry>
+          <material>
+            <ambient>0.18 0.42 0.12 1</ambient>
+            <diffuse>0.22 0.52 0.17 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="acacia_scatter_2">
+      <pose>150 -100 0 0 0 0</pose>
+      <static>true</static>
+      <link name="trunk">
+        <visual name="trunk_vis">
+          <geometry>
+            <cylinder>
+              <radius>0.4</radius>
+              <length>3</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.4 0.35 0.3 1</ambient>
+            <diffuse>0.45 0.4 0.35 1</diffuse>
+          </material>
+        </visual>
+      </link>
+      <link name="canopy">
+        <pose>0 0 2.7 0 0 0</pose>
+        <visual name="canopy_vis">
+          <geometry>
+            <sphere>
+              <radius>2.2</radius>
+            </sphere>
+          </geometry>
+          <material>
+            <ambient>0.18 0.42 0.12 1</ambient>
+            <diffuse>0.22 0.52 0.17 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- NEW ADDITIONAL ACACIA TREES (10 more for density) -->
+    <model name="acacia_add_1">
+      <pose>-30 40 0 0 0 0</pose>
+      <static>true</static>
+      <link name="trunk">
+        <visual name="trunk_vis">
+          <geometry>
+            <cylinder>
+              <radius>0.3</radius>
+              <length>2.5</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.4 0.35 0.3 1</ambient>
+            <diffuse>0.45 0.4 0.35 1</diffuse>
+          </material>
+        </visual>
+      </link>
+      <link name="canopy">
+        <pose>0 0 2.2 0 0 0</pose>
+        <visual name="canopy_vis">
+          <geometry>
+            <sphere>
+              <radius>1.7</radius>
+            </sphere>
+          </geometry>
+          <material><ambient>0.2 0.45 0.15 1</ambient><diffuse>0.25 0.55 0.2 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="acacia_add_2">
+      <pose>30 40 0 0 0 0</pose>
+      <static>true</static>
+      <link name="trunk">
+        <visual name="trunk_vis">
+          <geometry>
+            <cylinder>
+              <radius>0.28</radius>
+              <length>2.3</length>
+            </cylinder>
+          </geometry>
+          <material><ambient>0.4 0.35 0.3 1</ambient><diffuse>0.45 0.4 0.35 1</diffuse></material>
+        </visual>
+      </link>
+      <link name="canopy">
+        <pose>0 0 2.0 0 0 0</pose>
+        <visual name="canopy_vis">
+          <geometry><sphere><radius>1.6</radius></sphere></geometry>
+          <material><ambient>0.2 0.45 0.15 1</ambient><diffuse>0.25 0.55 0.2 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="acacia_add_3">
+      <pose>-30 -40 0 0 0 0</pose>
+      <static>true</static>
+      <link name="trunk">
+        <visual name="trunk_vis">
+          <geometry><cylinder><radius>0.32</radius><length>2.6</length></cylinder></geometry>
+          <material><ambient>0.4 0.35 0.3 1</ambient><diffuse>0.45 0.4 0.35 1</diffuse></material>
+        </visual>
+      </link>
+      <link name="canopy">
+        <pose>0 0 2.3 0 0 0</pose>
+        <visual name="canopy_vis">
+          <geometry><sphere><radius>1.9</radius></sphere></geometry>
+          <material><ambient>0.2 0.5 0.15 1</ambient><diffuse>0.25 0.6 0.2 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="acacia_add_4">
+      <pose>30 -40 0 0 0 0</pose>
+      <static>true</static>
+      <link name="trunk">
+        <visual name="trunk_vis">
+          <geometry><cylinder><radius>0.25</radius><length>2.2</length></cylinder></geometry>
+          <material><ambient>0.4 0.35 0.3 1</ambient><diffuse>0.45 0.4 0.35 1</diffuse></material>
+        </visual>
+      </link>
+      <link name="canopy">
+        <pose>0 0 1.9 0 0 0</pose>
+        <visual name="canopy_vis">
+          <geometry><sphere><radius>1.5</radius></sphere></geometry>
+          <material><ambient>0.22 0.48 0.16 1</ambient><diffuse>0.28 0.55 0.22 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="acacia_add_5">
+      <pose>-60 -50 0 0 0 0</pose>
+      <static>true</static>
+      <link name="trunk">
+        <visual name="trunk_vis">
+          <geometry><cylinder><radius>0.35</radius><length>2.8</length></cylinder></geometry>
+          <material><ambient>0.4 0.35 0.3 1</ambient><diffuse>0.45 0.4 0.35 1</diffuse></material>
+        </visual>
+      </link>
+      <link name="canopy">
+        <pose>0 0 2.5 0 0 0</pose>
+        <visual name="canopy_vis">
+          <geometry><sphere><radius>2.0</radius></sphere></geometry>
+          <material><ambient>0.2 0.45 0.15 1</ambient><diffuse>0.25 0.55 0.2 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="acacia_add_6">
+      <pose>60 50 0 0 0 0</pose>
+      <static>true</static>
+      <link name="trunk">
+        <visual name="trunk_vis">
+          <geometry><cylinder><radius>0.3</radius><length>2.5</length></cylinder></geometry>
+          <material><ambient>0.4 0.35 0.3 1</ambient><diffuse>0.45 0.4 0.35 1</diffuse></material>
+        </visual>
+      </link>
+      <link name="canopy">
+        <pose>0 0 2.2 0 0 0</pose>
+        <visual name="canopy_vis">
+          <geometry><sphere><radius>1.8</radius></sphere></geometry>
+          <material><ambient>0.18 0.42 0.12 1</ambient><diffuse>0.22 0.52 0.17 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="acacia_add_7">
+      <pose>50 -55 0 0 0 0</pose>
+      <static>true</static>
+      <link name="trunk">
+        <visual name="trunk_vis">
+          <geometry><cylinder><radius>0.28</radius><length>2.4</length></cylinder></geometry>
+          <material><ambient>0.4 0.35 0.3 1</ambient><diffuse>0.45 0.4 0.35 1</diffuse></material>
+        </visual>
+      </link>
+      <link name="canopy">
+        <pose>0 0 2.1 0 0 0</pose>
+        <visual name="canopy_vis">
+          <geometry><sphere><radius>1.7</radius></sphere></geometry>
+          <material><ambient>0.22 0.48 0.15 1</ambient><diffuse>0.28 0.55 0.2 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="acacia_add_8">
+      <pose>-50 55 0 0 0 0</pose>
+      <static>true</static>
+      <link name="trunk">
+        <visual name="trunk_vis">
+          <geometry><cylinder><radius>0.32</radius><length>2.6</length></cylinder></geometry>
+          <material><ambient>0.4 0.35 0.3 1</ambient><diffuse>0.45 0.4 0.35 1</diffuse></material>
+        </visual>
+      </link>
+      <link name="canopy">
+        <pose>0 0 2.3 0 0 0</pose>
+        <visual name="canopy_vis">
+          <geometry><sphere><radius>1.9</radius></sphere></geometry>
+          <material><ambient>0.2 0.45 0.15 1</ambient><diffuse>0.25 0.55 0.2 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="acacia_add_9">
+      <pose>100 80 0 0 0 0</pose>
+      <static>true</static>
+      <link name="trunk">
+        <visual name="trunk_vis">
+          <geometry><cylinder><radius>0.4</radius><length>3</length></cylinder></geometry>
+          <material><ambient>0.4 0.35 0.3 1</ambient><diffuse>0.45 0.4 0.35 1</diffuse></material>
+        </visual>
+      </link>
+      <link name="canopy">
+        <pose>0 0 2.8 0 0 0</pose>
+        <visual name="canopy_vis">
+          <geometry><sphere><radius>2.3</radius></sphere></geometry>
+          <material><ambient>0.18 0.42 0.12 1</ambient><diffuse>0.22 0.52 0.17 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="acacia_add_10">
+      <pose>-100 -80 0 0 0 0</pose>
+      <static>true</static>
+      <link name="trunk">
+        <visual name="trunk_vis">
+          <geometry><cylinder><radius>0.35</radius><length>2.8</length></cylinder></geometry>
+          <material><ambient>0.4 0.35 0.3 1</ambient><diffuse>0.45 0.4 0.35 1</diffuse></material>
+        </visual>
+      </link>
+      <link name="canopy">
+        <pose>0 0 2.5 0 0 0</pose>
+        <visual name="canopy_vis">
+          <geometry><sphere><radius>2.0</radius></sphere></geometry>
+          <material><ambient>0.2 0.45 0.15 1</ambient><diffuse>0.25 0.55 0.2 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- BAOBAB TREES (characteristic of Tanzanian landscape) -->
+    <model name="baobab_1">
+      <pose>-100 50 0 0 0 0</pose>
+      <static>true</static>
+      <link name="trunk">
+        <visual name="trunk_vis">
+          <geometry><cylinder><radius>0.8</radius><length>3</length></cylinder></geometry>
+          <material><ambient>0.55 0.4 0.25 1</ambient><diffuse>0.6 0.45 0.3 1</diffuse></material>
+        </visual>
+      </link>
+      <link name="canopy">
+        <pose>0 0 4 0 0 0</pose>
+        <visual name="canopy_vis">
+          <geometry><sphere><radius>2.5</radius></sphere></geometry>
+          <material><ambient>0.18 0.4 0.12 1</ambient><diffuse>0.22 0.5 0.16 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="baobab_2">
+      <pose>100 -50 0 0 0 0</pose>
+      <static>true</static>
+      <link name="trunk">
+        <visual name="trunk_vis">
+          <geometry><cylinder><radius>0.9</radius><length>3.2</length></cylinder></geometry>
+          <material><ambient>0.55 0.4 0.25 1</ambient><diffuse>0.6 0.45 0.3 1</diffuse></material>
+        </visual>
+      </link>
+      <link name="canopy">
+        <pose>0 0 4.2 0 0 0</pose>
+        <visual name="canopy_vis">
+          <geometry><sphere><radius>2.8</radius></sphere></geometry>
+          <material><ambient>0.18 0.4 0.12 1</ambient><diffuse>0.22 0.5 0.16 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- ============================================================ -->
+    <!-- SPEED BUMPS                                                   -->
+    <!-- ============================================================ -->
+    <model name="speedbump_1">
+      <pose>60 0 0.18 0 0 0</pose>
+      <static>true</static>
+      <link name="bump">
+        <visual name="bump_vis">
+          <geometry><box><size>3 0.5 0.05</size></box></geometry>
+          <material><ambient>0.2 0.2 0.2 1</ambient><diffuse>0.25 0.25 0.25 1</diffuse></material>
+        </visual>
+        <collision name="collision">
+          <geometry><box><size>3 0.5 0.05</size></box></geometry>
+        </collision>
+      </link>
+    </model>
+
+    <model name="speedbump_2">
+      <pose>-60 0 0.18 0 0 0</pose>
+      <static>true</static>
+      <link name="bump">
+        <visual name="bump_vis">
+          <geometry><box><size>3 0.5 0.05</size></box></geometry>
+          <material><ambient>0.2 0.2 0.2 1</ambient><diffuse>0.25 0.25 0.25 1</diffuse></material>
+        </visual>
+        <collision name="collision">
+          <geometry><box><size>3 0.5 0.05</size></box></geometry>
+        </collision>
+      </link>
+    </model>
+
+    <!-- ============================================================ -->
+    <!-- THE GAZEBO - Main test structure for drone maneuvers          -->
+    <!-- ============================================================ -->
+    <model name="test_gazebo_main">
+      <pose>0 150 0 0 0 0</pose>
+      <static>true</static>
+      <link name="base_platform">
+        <collision name="collision">
+          <geometry><cylinder><radius>4.5</radius><length>0.2</length></cylinder></geometry>
+        </collision>
+        <visual name="platform">
+          <geometry><cylinder><radius>4.5</radius><length>0.15</length></cylinder></geometry>
+          <material><ambient>0.65 0.6 0.55 1</ambient><diffuse>0.7 0.65 0.6 1</diffuse></material>
+        </visual>
+        <!-- Pillars -->
+        <visual name="pillar_nw"><pose>-3.5 -3.5 1.5 0 0 0</pose>
+          <geometry><cylinder><radius>0.12</radius><length>3</length></cylinder></geometry>
+          <material><ambient>0.75 0.7 0.65 1</ambient><diffuse>0.8 0.75 0.7 1</diffuse></material>
+        </visual>
+        <visual name="pillar_ne"><pose>3.5 -3.5 1.5 0 0 0</pose>
+          <geometry><cylinder><radius>0.12</radius><length>3</length></cylinder></geometry>
+          <material><ambient>0.75 0.7 0.65 1</ambient><diffuse>0.8 0.75 0.7 1</diffuse></material>
+        </visual>
+        <visual name="pillar_sw"><pose>-3.5 3.5 1.5 0 0 0</pose>
+          <geometry><cylinder><radius>0.12</radius><length>3</length></cylinder></geometry>
+          <material><ambient>0.75 0.7 0.65 1</ambient><diffuse>0.8 0.75 0.7 1</diffuse></material>
+        </visual>
+        <visual name="pillar_se"><pose>3.5 3.5 1.5 0 0 0</pose>
+          <geometry><cylinder><radius>0.12</radius><length>3</length></cylinder></geometry>
+          <material><ambient>0.75 0.7 0.65 1</ambient><diffuse>0.8 0.75 0.7 1</diffuse></material>
+        </visual>
+        <!-- Roof -->
+        <visual name="roof">
+          <pose>0 0 3.1 0 0 0</pose>
+          <geometry><cylinder><radius>4.2</radius><length>0.1</length></cylinder></geometry>
+          <material><ambient>0.55 0.5 0.45 1</ambient><diffuse>0.6 0.55 0.5 1</diffuse></material>
+        </visual>
+        <visual name="roof_top">
+          <pose>0 0 3.2 0 0 0</pose>
+          <geometry><sphere><radius>0.3</radius></sphere></geometry>
+          <material><ambient>0.8 0.7 0.3 1</ambient><diffuse>0.85 0.75 0.35 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- ============================================================ -->
+    <!-- BUSHES AND SHRUBS                                             -->
+    <!-- ============================================================ -->
+    <model name="bush_1">
+      <pose>10 10 0 0 0 0</pose>
+      <static>true</static>
+      <link name="shrub">
+        <visual name="visual">
+          <geometry><sphere><radius>0.5</radius></sphere></geometry>
+          <material><ambient>0.2 0.4 0.15 1</ambient><diffuse>0.25 0.5 0.2 1</diffuse></material>
+        </visual>
+        <collision name="collision">
+          <geometry><sphere><radius>0.5</radius></sphere></geometry>
+        </collision>
+      </link>
+    </model>
+
+    <model name="bush_2">
+      <pose>-10 -10 0 0 0 0</pose>
+      <static>true</static>
+      <link name="shrub">
+        <visual name="visual">
+          <geometry><sphere><radius>0.5</radius></sphere></geometry>
+          <material><ambient>0.2 0.4 0.15 1</ambient><diffuse>0.25 0.5 0.2 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="bush_3">
+      <pose>70 90 0 0 0 0</pose>
+      <static>true</static>
+      <link name="shrub">
+        <visual name="visual">
+          <geometry><sphere><radius>0.6</radius></sphere></geometry>
+          <material><ambient>0.18 0.38 0.12 1</ambient><diffuse>0.22 0.48 0.17 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- ADDITIONAL BUSHES -->
+    <model name="bush_4">
+      <pose>70 -80 0 0 0 0</pose>
+      <static>true</static>
+      <link name="shrub">
+        <visual name="visual">
+          <geometry><sphere><radius>0.5</radius></sphere></geometry>
+          <material><ambient>0.22 0.42 0.16 1</ambient><diffuse>0.28 0.52 0.22 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="bush_5">
+      <pose>-70 80 0 0 0 0</pose>
+      <static>true</static>
+      <link name="shrub">
+        <visual name="visual">
+          <geometry><sphere><radius>0.55</radius></sphere></geometry>
+          <material><ambient>0.2 0.4 0.15 1</ambient><diffuse>0.25 0.5 0.2 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="bush_6">
+      <pose>-80 -70 0 0 0 0</pose>
+      <static>true</static>
+      <link name="shrub">
+        <visual name="visual">
+          <geometry><sphere><radius>0.45</radius></sphere></geometry>
+          <material><ambient>0.18 0.38 0.12 1</ambient><diffuse>0.22 0.48 0.17 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- ============================================================ -->
+    <!-- WIND - Light tropical breeze                                  -->
+    <!-- ============================================================ -->
+    <wind>
+      <linear_velocity>2 1 0</linear_velocity>
+      <noise>0.1</noise>
+    </wind>
+
+    <!-- ============================================================ -->
+    <!-- NOTES:                                                        -->
+    <!-- - Total obstacle objects: 50+ (trees, barriers, cones,       -->
+    <!--   vehicles, buildings, street furniture, containers, etc.)    -->
+    <!-- - Drone (x500) spawned by PX4 at origin                      -->
+    <!-- - All obstacles have collision models for detection          -->
+    <!-- - GPS: -6.1629, 35.7516, 1120m (Dodoma city centre)         -->
+    <!-- ============================================================ -->
+
+  </world>
+</sdf>

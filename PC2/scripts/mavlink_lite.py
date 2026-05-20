@@ -112,9 +112,9 @@ class MAVLink:
         return header + payload + crc
 
     def encode_heartbeat(self):
-        payload = struct.pack('<BBBIBB',
-            MAV_TYPE["GCS"],
+        payload = struct.pack('<IBBBBB',
             0,
+            MAV_TYPE["GCS"],
             0,
             0,
             MAV_STATE["ACTIVE"],
@@ -139,16 +139,16 @@ class MAVLink:
         msg = {"id": msg_id, "payload": payload}
 
         if msg_id == 0 and len(payload) >= 9:
-            fields = struct.unpack('<BBBIBB', payload[:9])
-            msg["type"] = fields[0]
-            msg["autopilot"] = fields[1]
-            msg["base_mode"] = fields[2]
-            msg["custom_mode"] = fields[3]
+            fields = struct.unpack('<IBBBBB', payload[:9])
+            msg["custom_mode"] = fields[0]
+            msg["type"] = fields[1]
+            msg["autopilot"] = fields[2]
+            msg["base_mode"] = fields[3]
             msg["system_status"] = fields[4]
             msg["mavlink_version"] = fields[5] if len(payload) > 9 else 0
             msg["name"] = "HEARTBEAT"
-            msg["armed"] = bool(fields[2] & 128)
-            msg["mode"] = fields[2] & 0x7F
+            msg["armed"] = bool(fields[3] & 128)
+            msg["mode"] = fields[3] & 0x7F
 
         elif msg_id == 24 and len(payload) >= 30:
             fields = struct.unpack('<QiiHHHHBB', payload[:30])
@@ -324,6 +324,15 @@ class DroneConnection:
     def get_telemetry(self):
         with self._lock:
             return dict(self.telemetry)
+
+    def _send_raw_heartbeat(self):
+        if not self.sock:
+            return False
+        try:
+            self.sock.sendall(self.mav.encode_heartbeat())
+            return True
+        except:
+            return False
 
     def _send_command(self, command_id, param1=0, param2=0, param3=0,
                       param4=0, param5=0, param6=0, param7=0):

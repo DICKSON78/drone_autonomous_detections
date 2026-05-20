@@ -3,51 +3,31 @@
   <model name="acacia_tree">
     <static>true</static>
     <link name="trunk">
-      <pose>0 0 2 0 0 0</pose>
-      <visual name="trunk_visual">
-        <geometry>
-          <cylinder>
-            <radius>0.25</radius>
-            <length>4</length>
-          </cylinder>
-        </geometry>
+      <collision name="trunk_col">
+        <geometry><cylinder><radius>0.2</radius><length>3.5</length></cylinder></geometry>
+      </collision>
+      <visual name="trunk_vis">
+        <geometry><cylinder><radius>0.25</radius><length>3.5</length></cylinder></geometry>
         <material>
-          <ambient>0.35 0.25 0.1 1</ambient>
-          <diffuse>0.45 0.35 0.15 1</diffuse>
+          <ambient>0.45 0.35 0.25 1</ambient>
+          <diffuse>0.5 0.4 0.3 1</diffuse>
+          <specular>0.05 0.05 0.05 1</specular>
         </material>
       </visual>
-      <collision name="trunk_collision">
-        <geometry>
-          <cylinder>
-            <radius>0.25</radius>
-            <length>4</length>
-          </cylinder>
-        </geometry>
-      </collision>
     </link>
-
     <link name="canopy">
       <pose>0 0 4.5 0 0 0</pose>
-      <visual name="canopy_visual">
-        <geometry>
-          <cylinder>
-            <radius>3.5</radius>
-            <length>0.8</length>
-          </cylinder>
-        </geometry>
+      <collision name="canopy_col">
+        <geometry><cylinder><radius>3</radius><length>0.6</length></cylinder></geometry>
+      </collision>
+      <visual name="canopy_vis">
+        <geometry><cylinder><radius>3.5</radius><length>0.8</length></cylinder></geometry>
         <material>
-          <ambient>0.1 0.35 0.1 1</ambient>
-          <diffuse>0.15 0.45 0.15 1</diffuse>
+          <ambient>0.2 0.5 0.15 1</ambient>
+          <diffuse>0.25 0.55 0.2 1</diffuse>
+          <specular>0.15 0.3 0.1 1</specular>
         </material>
       </visual>
-      <collision name="canopy_collision">
-        <geometry>
-          <cylinder>
-            <radius>3.5</radius>
-            <length>0.8</length>
-          </cylinder>
-        </geometry>
-      </collision>
     </link>
   </model>
 </sdf>

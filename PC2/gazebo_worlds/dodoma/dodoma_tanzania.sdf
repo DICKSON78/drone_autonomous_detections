@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <sdf version="1.9">
-  <world name="dodoma_city_realistic">
+  <world name="dodoma_tanzania">
 
-    <!-- PHYSICS SETUP -->
     <physics type="ode">
       <max_step_size>0.004</max_step_size>
       <real_time_factor>1.0</real_time_factor>
@@ -10,7 +9,6 @@
       <gravity>0 0 -9.81</gravity>
     </physics>
 
-    <!-- DODOMA GPS COORDINATES - EXACT LOCATION -->
     <spherical_coordinates>
       <surface_model>EARTH_WGS84</surface_model>
       <world_frame_orientation>ENU</world_frame_orientation>
@@ -20,7 +18,6 @@
       <heading_deg>0</heading_deg>
     </spherical_coordinates>
 
-    <!-- SCENE WITH REALISTIC LIGHTING -->
     <scene>
       <grid>false</grid>
       <sky>
@@ -35,7 +32,23 @@
       <shadows>true</shadows>
     </scene>
 
-    <!-- SUN - DIRECTIONAL LIGHT -->
+    <gui fullscreen="false">
+      <plugin filename="MinimalScene" name="3D View">
+        <gz-gui><title>3D View</title><property key="showTitleBar" type="bool">false</property><property key="state" type="string">docked</property></gz-gui>
+        <engine>ogre2</engine><scene>scene</scene>
+        <ambient_light>0.4 0.4 0.45</ambient_light><background_color>0.3 0.35 0.4</background_color>
+        <camera_pose>-12 -12 15 0 0.6 0.785</camera_pose>
+        <camera_clip><near>0.25</near><far>25000</far></camera_clip>
+      </plugin>
+      <plugin filename="EntityContextMenuPlugin" name="Entity context menu"><gz-gui><property key="state" type="string">floating</property><property key="width" type="double">5</property><property key="height" type="double">5</property><property key="showTitleBar" type="bool">false</property></gz-gui></plugin>
+      <plugin filename="GzSceneManager" name="Scene Manager"><gz-gui><property key="resizable" type="bool">false</property><property key="width" type="double">5</property><property key="height" type="double">5</property><property key="state" type="string">floating</property><property key="showTitleBar" type="bool">false</property></gz-gui></plugin>
+      <plugin filename="InteractiveViewControl" name="Interactive view control"><gz-gui><property key="resizable" type="bool">false</property><property key="width" type="double">5</property><property key="height" type="double">5</property><property key="state" type="string">floating</property><property key="showTitleBar" type="bool">false</property></gz-gui></plugin>
+      <plugin filename="CameraTracking" name="Camera Tracking"><gz-gui><property key="resizable" type="bool">false</property><property key="width" type="double">5</property><property key="height" type="double">5</property><property key="state" type="string">floating</property><property key="showTitleBar" type="bool">false</property></gz-gui></plugin>
+      <plugin filename="SelectEntities" name="Select Entities"><gz-gui><property key="resizable" type="bool">false</property><property key="width" type="double">5</property><property key="height" type="double">5</property><property key="state" type="string">floating</property><property key="showTitleBar" type="bool">false</property></gz-gui></plugin>
+      <plugin filename="WorldControl" name="World Control"><gz-gui><property key="resizable" type="bool">false</property><property key="width" type="double">5</property><property key="height" type="double">5</property><property key="state" type="string">floating</property><property key="showTitleBar" type="bool">false</property></gz-gui></plugin>
+      <plugin filename="WorldStats" name="World Stats"><gz-gui><property key="resizable" type="bool">false</property><property key="width" type="double">5</property><property key="height" type="double">5</property><property key="state" type="string">floating</property><property key="showTitleBar" type="bool">false</property></gz-gui></plugin>
+    </gui>
+
     <light type="directional" name="sun">
       <cast_shadows>true</cast_shadows>
       <pose>0 0 100 0 0 0</pose>
@@ -43,1399 +56,374 @@
       <direction>-0.3 0.1 -0.95</direction>
     </light>
 
-    <!-- ============================================================ -->
-    <!-- GROUND - DODOMA SOIL (not just plain grey)                  -->
-    <!-- ============================================================ -->
+    <!-- GROUND -->
     <model name="dodoma_ground">
       <static>true</static>
       <link name="ground">
         <collision name="collision">
-          <geometry>
-            <plane>
-              <normal>0 0 1</normal>
-              <size>1500 1500</size>
-            </plane>
-          </geometry>
+          <geometry><plane><normal>0 0 1</normal><size>1500 1500</size></plane></geometry>
         </collision>
         <visual name="soil">
-          <geometry>
-            <plane>
-              <normal>0 0 1</normal>
-              <size>1500 1500</size>
-            </plane>
-          </geometry>
-          <material>
-            <ambient>0.55 0.45 0.35 1</ambient>
-            <diffuse>0.6 0.5 0.4 1</diffuse>
-          </material>
+          <geometry><plane><normal>0 0 1</normal><size>1500 1500</size></plane></geometry>
+          <material><ambient>0.55 0.45 0.35 1</ambient><diffuse>0.6 0.5 0.4 1</diffuse></material>
         </visual>
       </link>
     </model>
 
-    <!-- ============================================================ -->
-    <!-- REAL ROAD NETWORK - Dodoma city layout                       -->
-    <!-- ============================================================ -->
+    <!-- ROAD NETWORK -->
+    <model name="india_road"><pose>0 0 0.12 0 0 0</pose><static>true</static>
+      <link name="road"><collision name="collision"><geometry><box><size>160 10 0.2</size></box></geometry></collision>
+      <visual name="tarmac"><geometry><box><size>160 10 0.2</size></box></geometry>
+      <material><ambient>0.18 0.18 0.2 1</ambient><diffuse>0.2 0.2 0.22 1</diffuse></material></visual></link></model>
 
-    <!-- MAIN ROAD: India Road (East-West, wide, tarmac) -->
-    <model name="india_road">
-      <pose>0 0 0.12 0 0 0</pose>
-      <static>true</static>
-      <link name="road">
-        <visual name="tarmac">
-          <geometry>
-            <box>
-              <size>500 10 0.15</size>
-            </box>
-          </geometry>
-          <material>
-            <ambient>0.12 0.12 0.12 1</ambient>
-            <diffuse>0.14 0.14 0.14 1</diffuse>
-          </material>
-        </visual>
-        <!-- Center line (yellow) -->
-        <visual name="center_line">
-          <pose>0 0 0.19 0 0 0</pose>
-          <geometry>
-            <box>
-              <size>500 0.12 0.03</size>
-            </box>
-          </geometry>
-          <material>
-            <ambient>1 0.9 0.1 1</ambient>
-            <diffuse>1 0.9 0.1 1</diffuse>
-          </material>
-        </visual>
-        <!-- Edge lines (white) -->
-        <visual name="edge_left">
-          <pose>-4.8 0 0.19 0 0 0</pose>
-          <geometry>
-            <box>
-              <size>500 0.08 0.02</size>
-            </box>
-          </geometry>
-          <material>
-            <ambient>1 1 1 1</ambient>
-            <diffuse>1 1 1 1</diffuse>
-          </material>
-        </visual>
-        <visual name="edge_right">
-          <pose>4.8 0 0.19 0 0 0</pose>
-          <geometry>
-            <box>
-              <size>500 0.08 0.02</size>
-            </box>
-          </geometry>
-          <material>
-            <ambient>1 1 1 1</ambient>
-            <diffuse>1 1 1 1</diffuse>
-          </material>
-        </visual>
-      </link>
-    </model>
+    <model name="uhuru_street"><pose>0 0 0.12 0 0 0</pose><static>true</static>
+      <link name="road"><collision name="collision"><geometry><box><size>10 160 0.2</size></box></geometry></collision>
+      <visual name="tarmac"><geometry><box><size>10 160 0.2</size></box></geometry>
+      <material><ambient>0.18 0.18 0.2 1</ambient><diffuse>0.2 0.2 0.22 1</diffuse></material></visual></link></model>
 
-    <!-- MAIN ROAD: Uhuru Street (North-South) -->
-    <model name="uhuru_street">
-      <pose>0 0 0.12 0 0 0</pose>
-      <static>true</static>
-      <link name="road">
-        <visual name="tarmac">
-          <geometry>
-            <box>
-              <size>10 500 0.15</size>
-            </box>
-          </geometry>
-          <material>
-            <ambient>0.12 0.12 0.12 1</ambient>
-            <diffuse>0.14 0.14 0.14 1</diffuse>
-          </material>
-        </visual>
-        <visual name="center_line">
-          <pose>0 0 0.19 0 0 0</pose>
-          <geometry>
-            <box>
-              <size>0.12 500 0.03</size>
-            </box>
-          </geometry>
-          <material>
-            <ambient>1 0.9 0.1 1</ambient>
-            <diffuse>1 0.9 0.1 1</diffuse>
-          </material>
-        </visual>
-      </link>
-    </model>
+    <model name="jamhuri_street"><pose>-2.5 -2.5 0.12 0 0 0</pose><static>true</static>
+      <link name="road"><collision name="collision"><geometry><box><size>100 8 0.2</size></box></geometry></collision>
+      <visual name="tarmac"><geometry><box><size>100 8 0.2</size></box></geometry>
+      <material><ambient>0.18 0.18 0.2 1</ambient><diffuse>0.2 0.2 0.22 1</diffuse></material></visual></link></model>
 
-    <!-- SECONDARY ROAD: Jamhuri Street (East-West, narrower) -->
-    <model name="jamhuri_street">
-      <pose>0 -120 0.08 0 0 0</pose>
-      <static>true</static>
-      <link name="road">
-        <visual name="tarmac">
-          <geometry>
-            <box>
-              <size>400 7 0.1</size>
-            </box>
-          </geometry>
-          <material>
-            <ambient>0.1 0.1 0.1 1</ambient>
-            <diffuse>0.12 0.12 0.12 1</diffuse>
-          </material>
-        </visual>
-      </link>
-    </model>
+    <model name="azikiwe_street"><pose>2.5 -2.5 0.12 0 0 0</pose><static>true</static>
+      <link name="road"><collision name="collision"><geometry><box><size>8 100 0.2</size></box></geometry></collision>
+      <visual name="tarmac"><geometry><box><size>8 100 0.2</size></box></geometry>
+      <material><ambient>0.18 0.18 0.2 1</ambient><diffuse>0.2 0.2 0.22 1</diffuse></material></visual></link></model>
 
-    <!-- SECONDARY ROAD: Azikiwe Street -->
-    <model name="azikiwe_street">
-      <pose>0 100 0.08 0 0 0</pose>
-      <static>true</static>
-      <link name="road">
-        <visual name="tarmac">
-          <geometry>
-            <box>
-              <size>400 6 0.1</size>
-            </box>
-          </geometry>
-          <material>
-            <ambient>0.1 0.1 0.1 1</ambient>
-            <diffuse>0.12 0.12 0.12 1</diffuse>
-          </material>
-        </visual>
-      </link>
-    </model>
+    <model name="connector_1"><pose>35 35 0.12 0 0 0.785</pose><static>true</static>
+      <link name="road"><collision name="collision"><geometry><box><size>18 8 0.2</size></box></geometry></collision>
+      <visual name="tarmac"><geometry><box><size>18 8 0.2</size></box></geometry>
+      <material><ambient>0.18 0.18 0.2 1</ambient><diffuse>0.2 0.2 0.22 1</diffuse></material></visual></link></model>
 
-    <!-- CONNECTOR ROADS (small streets between blocks) -->
-    <model name="connector_1">
-      <pose>-50 -80 0.06 0 0 0</pose>
-      <static>true</static>
-      <link name="road">
-        <visual name="tarmac">
-          <geometry>
-            <box>
-              <size>4 60 0.08</size>
-            </box>
-          </geometry>
-          <material>
-            <ambient>0.09 0.09 0.09 1</ambient>
-            <diffuse>0.11 0.11 0.11 1</diffuse>
-          </material>
-        </visual>
-      </link>
-    </model>
+    <model name="connector_2"><pose>-35 35 0.12 0 0 -0.785</pose><static>true</static>
+      <link name="road"><collision name="collision"><geometry><box><size>18 8 0.2</size></box></geometry></collision>
+      <visual name="tarmac"><geometry><box><size>18 8 0.2</size></box></geometry>
+      <material><ambient>0.18 0.18 0.2 1</ambient><diffuse>0.2 0.2 0.22 1</diffuse></material></visual></link></model>
 
-    <model name="connector_2">
-      <pose>50 -80 0.06 0 0 0</pose>
-      <static>true</static>
-      <link name="road">
-        <visual name="tarmac">
-          <geometry>
-            <box>
-              <size>4 60 0.08</size>
-            </box>
-          </geometry>
-          <material>
-            <ambient>0.09 0.09 0.09 1</ambient>
-            <diffuse>0.11 0.11 0.11 1</diffuse>
-          </material>
-        </visual>
-      </link>
-    </model>
+    <model name="connector_3"><pose>35 -35 0.12 0 0 -0.785</pose><static>true</static>
+      <link name="road"><collision name="collision"><geometry><box><size>18 8 0.2</size></box></geometry></collision>
+      <visual name="tarmac"><geometry><box><size>18 8 0.2</size></box></geometry>
+      <material><ambient>0.18 0.18 0.2 1</ambient><diffuse>0.2 0.2 0.22 1</diffuse></material></visual></link></model>
 
-    <model name="connector_3">
-      <pose>-60 20 0.06 0 0 0</pose>
-      <static>true</static>
-      <link name="road">
-        <visual name="tarmac">
-          <geometry>
-            <box>
-              <size>4 80 0.08</size>
-            </box>
-          </geometry>
-          <material>
-            <ambient>0.09 0.09 0.09 1</ambient>
-            <diffuse>0.11 0.11 0.11 1</diffuse>
-          </material>
-        </visual>
-      </link>
-    </model>
+    <model name="connector_4"><pose>-35 -35 0.12 0 0 0.785</pose><static>true</static>
+      <link name="road"><collision name="collision"><geometry><box><size>18 8 0.2</size></box></geometry></collision>
+      <visual name="tarmac"><geometry><box><size>18 8 0.2</size></box></geometry>
+      <material><ambient>0.18 0.18 0.2 1</ambient><diffuse>0.2 0.2 0.22 1</diffuse></material></visual></link></model>
 
-    <model name="connector_4">
-      <pose>60 20 0.06 0 0 0</pose>
-      <static>true</static>
-      <link name="road">
-        <visual name="tarmac">
-          <geometry>
-            <box>
-              <size>4 80 0.08</size>
-            </box>
-          </geometry>
-          <material>
-            <ambient>0.09 0.09 0.09 1</ambient>
-            <diffuse>0.11 0.11 0.11 1</diffuse>
-          </material>
-        </visual>
-      </link>
-    </model>
-
-    <!-- ============================================================ -->
-    <!-- ROUNDABOUT - Central Dodoma landmark                          -->
-    <!-- ============================================================ -->
-    <model name="central_roundabout">
-      <pose>0 0 0.15 0 0 0</pose>
-      <static>true</static>
-      <link name="roundabout">
-        <visual name="circle">
-          <geometry>
-            <cylinder>
-              <radius>12</radius>
-              <length>0.2</length>
-            </cylinder>
-          </geometry>
-          <material>
-            <ambient>0.15 0.15 0.15 1</ambient>
-            <diffuse>0.18 0.18 0.18 1</diffuse>
-          </material>
-        </visual>
-        <!-- Center garden -->
-        <visual name="garden">
-          <pose>0 0 0.25 0 0 0</pose>
-          <geometry>
-            <cylinder>
-              <radius>6</radius>
-              <length>0.1</length>
-            </cylinder>
-          </geometry>
-          <material>
-            <ambient>0.2 0.45 0.1 1</ambient>
-            <diffuse>0.25 0.55 0.15 1</diffuse>
-          </material>
-        </visual>
-        <!-- Tree in center -->
-        <visual name="center_tree">
-          <pose>0 0 0.8 0 0 0</pose>
-          <geometry>
-            <cylinder>
-              <radius>0.5</radius>
-              <length>3</length>
-            </cylinder>
-          </geometry>
-          <material>
-            <ambient>0.35 0.3 0.25 1</ambient>
-            <diffuse>0.4 0.35 0.3 1</diffuse>
-          </material>
-        </visual>
-        <visual name="center_foliage">
-          <pose>0 0 3.5 0 0 0</pose>
-          <geometry>
-            <sphere>
-              <radius>1.5</radius>
-            </sphere>
-          </geometry>
-          <material>
-            <ambient>0.15 0.4 0.1 1</ambient>
-            <diffuse>0.2 0.5 0.15 1</diffuse>
-          </material>
-        </visual>
-      </link>
-    </model>
-
-    <!-- ============================================================ -->
-    <!-- BUILDINGS - City blocks (realistic Dodoma architecture)      -->
-    <!-- ============================================================ -->
-
-    <!-- BLOCK 1: Commercial buildings (NE quadrant) -->
-    <model name="bank_building">
-      <pose>30 30 0 0 0 0</pose>
-      <static>true</static>
-      <link name="building">
-        <collision name="collision">
-          <geometry>
-            <box>
-              <size>14 12 8</size>
-            </box>
-          </geometry>
-        </collision>
-        <visual name="walls">
-          <geometry>
-            <box>
-              <size>14 12 8</size>
-            </box>
-          </geometry>
-          <material>
-            <ambient>0.75 0.72 0.68 1</ambient>
-            <diffuse>0.8 0.77 0.73 1</diffuse>
-          </material>
-        </visual>
-        <visual name="windows">
-          <pose>0 6 4 0 0 0</pose>
-          <geometry>
-            <box>
-              <size>12 0.1 5</size>
-            </box>
-          </geometry>
-          <material>
-            <ambient>0.4 0.55 0.75 0.6</ambient>
-            <diffuse>0.45 0.6 0.8 0.6</diffuse>
-            <transparency>0.4</transparency>
-          </material>
-        </visual>
-        <visual name="roof">
-          <pose>0 0 8.1 0 0 0</pose>
-          <geometry>
-            <box>
-              <size>14.5 12.5 0.3</size>
-            </box>
-          </geometry>
-          <material>
-            <ambient>0.5 0.48 0.45 1</ambient>
-            <diffuse>0.55 0.53 0.5 1</diffuse>
-          </material>
-        </visual>
-      </link>
-    </model>
+    <model name="central_roundabout"><pose>0 0 0.12 0 0 0</pose><static>true</static>
+      <link name="surface"><collision name="collision"><geometry><cylinder><radius>8</radius><length>0.2</length></cylinder></geometry></collision>
+      <visual name="tarmac"><geometry><cylinder><radius>8</radius><length>0.2</length></cylinder></geometry>
+      <material><ambient>0.18 0.18 0.2 1</ambient><diffuse>0.2 0.2 0.22 1</diffuse></material></visual></link></model>
 
     <model name="office_building_1">
       <pose>30 -30 0 0 0 0</pose>
       <static>true</static>
-      <link name="building">
-        <collision name="collision">
-          <geometry>
-            <box>
-              <size>12 12 12</size>
-            </box>
-          </geometry>
-        </collision>
-        <visual name="walls">
-          <geometry>
-            <box>
-              <size>12 12 12</size>
-            </box>
-          </geometry>
-          <material>
-            <ambient>0.68 0.65 0.62 1</ambient>
-            <diffuse>0.73 0.7 0.67 1</diffuse>
-          </material>
-        </visual>
-        <visual name="glass">
-          <pose>6 0 6 0 0 0</pose>
-          <geometry>
-            <box>
-              <size>0.1 10 8</size>
-            </box>
-          </geometry>
-          <material>
-            <ambient>0.35 0.5 0.7 0.5</ambient>
-            <diffuse>0.4 0.55 0.75 0.5</diffuse>
-            <transparency>0.5</transparency>
-          </material>
-        </visual>
-      </link>
+      <include>
+        <uri>office_building</uri>
+      </include>
     </model>
-
-    <model name="shop_center">
+    <model name="apartment_1">
       <pose>-30 30 0 0 0 0</pose>
       <static>true</static>
-      <link name="building">
-        <collision name="collision">
-          <geometry>
-            <box>
-              <size>18 15 5</size>
-            </box>
-          </geometry>
-        </collision>
-        <visual name="walls">
-          <geometry>
-            <box>
-              <size>18 15 5</size>
-            </box>
-          </geometry>
-          <material>
-            <ambient>0.7 0.68 0.6 1</ambient>
-            <diffuse>0.75 0.73 0.65 1</diffuse>
-          </material>
-        </visual>
-        <visual name="sign">
-          <pose>0 7.5 2.5 0 0 0</pose>
-          <geometry>
-            <box>
-              <size>16 0.1 1</size>
-            </box>
-          </geometry>
-          <material>
-            <ambient>0.2 0.5 0.8 1</ambient>
-            <diffuse>0.25 0.55 0.85 1</diffuse>
-          </material>
-        </visual>
-      </link>
+      <include>
+        <uri>apartment</uri>
+      </include>
     </model>
-
-    <model name="mall_complex">
-      <pose>-30 -30 0 0 0 0.1</pose>
-      <static>true</static>
-      <link name="building">
-        <collision name="collision">
-          <geometry>
-            <box>
-              <size>20 25 6</size>
-            </box>
-          </geometry>
-        </collision>
-        <visual name="walls">
-          <geometry>
-            <box>
-              <size>20 25 6</size>
-            </box>
-          </geometry>
-          <material>
-            <ambient>0.72 0.7 0.63 1</ambient>
-            <diffuse>0.77 0.75 0.68 1</diffuse>
-          </material>
-        </visual>
-      </link>
-    </model>
-
-    <!-- BLOCK 2: Residential buildings (NW quadrant) -->
-    <model name="apartment_1">
-      <pose>-80 60 0 0 0 0</pose>
-      <static>true</static>
-      <link name="building">
-        <collision name="collision">
-          <geometry>
-            <box>
-              <size>10 8 7</size>
-            </box>
-          </geometry>
-        </collision>
-        <visual name="walls">
-          <geometry>
-            <box>
-              <size>10 8 7</size>
-            </box>
-          </geometry>
-          <material>
-            <ambient>0.82 0.78 0.7 1</ambient>
-            <diffuse>0.87 0.83 0.75 1</diffuse>
-          </material>
-        </visual>
-        <visual name="roof_red">
-          <pose>0 0 7.1 0 0 0</pose>
-          <geometry>
-            <box>
-              <size>10.5 8.5 0.2</size>
-            </box>
-          </geometry>
-          <material>
-            <ambient>0.65 0.45 0.35 1</ambient>
-            <diffuse>0.7 0.5 0.4 1</diffuse>
-          </material>
-        </visual>
-      </link>
-    </model>
-
     <model name="apartment_2">
-      <pose>-60 60 0 0 0 0</pose>
+      <pose>-30 -30 0 0 0 0</pose>
       <static>true</static>
-      <link name="building">
-        <collision name="collision">
-          <geometry>
-            <box>
-              <size>10 8 7</size>
-            </box>
-          </geometry>
-        </collision>
-        <visual name="walls">
-          <geometry>
-            <box>
-              <size>10 8 7</size>
-            </box>
-          </geometry>
-          <material>
-            <ambient>0.84 0.8 0.72 1</ambient>
-            <diffuse>0.89 0.85 0.77 1</diffuse>
-          </material>
-        </visual>
-      </link>
+      <include>
+        <uri>chapulina_apartment</uri>
+      </include>
     </model>
-
-    <model name="house_dodoma_1">
-      <pose>-100 50 0 0 0 0</pose>
-      <static>true</static>
-      <link name="house">
-        <collision name="collision">
-          <geometry>
-            <box>
-              <size>8 7 4</size>
-            </box>
-          </geometry>
-        </collision>
-        <visual name="walls">
-          <geometry>
-            <box>
-              <size>8 7 3.5</size>
-            </box>
-          </geometry>
-          <material>
-            <ambient>0.9 0.85 0.75 1</ambient>
-            <diffuse>0.95 0.9 0.8 1</diffuse>
-          </material>
-        </visual>
-        <visual name="roof">
-          <pose>0 0 3.6 0 0 0</pose>
-          <geometry>
-            <box>
-              <size>8.5 7.5 0.2</size>
-            </box>
-          </geometry>
-          <material>
-            <ambient>0.6 0.5 0.4 1</ambient>
-            <diffuse>0.65 0.55 0.45 1</diffuse>
-          </material>
-        </visual>
-      </link>
-    </model>
-
-    <model name="house_dodoma_2">
-      <pose>-100 35 0 0 0 0</pose>
-      <static>true</static>
-      <link name="house">
-        <collision name="collision">
-          <geometry>
-            <box>
-              <size>8 7 4</size>
-            </box>
-          </geometry>
-        </collision>
-        <visual name="walls">
-          <geometry>
-            <box>
-              <size>8 7 3.5</size>
-            </box>
-          </geometry>
-          <material>
-            <ambient>0.88 0.83 0.73 1</ambient>
-            <diffuse>0.93 0.88 0.78 1</diffuse>
-          </material>
-        </visual>
-        <visual name="roof">
-          <pose>0 0 3.6 0 0 0</pose>
-          <geometry>
-            <box>
-              <size>8.5 7.5 0.2</size>
-            </box>
-          </geometry>
-          <material>
-            <ambient>0.58 0.48 0.38 1</ambient>
-            <diffuse>0.63 0.53 0.43 1</diffuse>
-          </material>
-        </visual>
-      </link>
-    </model>
-
-    <model name="house_dodoma_3">
-      <pose>-80 35 0 0 0 0</pose>
-      <static>true</static>
-      <link name="house">
-        <collision name="collision">
-          <geometry>
-            <box>
-              <size>8 7 4</size>
-            </box>
-          </geometry>
-        </collision>
-        <visual name="walls">
-          <geometry>
-            <box>
-              <size>8 7 3.5</size>
-            </box>
-          </geometry>
-          <material>
-            <ambient>0.86 0.81 0.71 1</ambient>
-            <diffuse>0.91 0.86 0.76 1</diffuse>
-          </material>
-        </visual>
-      </link>
-    </model>
-
-    <!-- BLOCK 3: More residential (SE quadrant) -->
-    <model name="residential_1">
-      <pose>50 -80 0 0 0 0</pose>
-      <static>true</static>
-      <link name="house">
-        <collision name="collision">
-          <geometry>
-            <box>
-              <size>9 8 4.5</size>
-            </box>
-          </geometry>
-        </collision>
-        <visual name="walls">
-          <geometry>
-            <box>
-              <size>9 8 4</size>
-            </box>
-          </geometry>
-          <material>
-            <ambient>0.83 0.79 0.69 1</ambient>
-            <diffuse>0.88 0.84 0.74 1</diffuse>
-          </material>
-        </visual>
-        <visual name="roof">
-          <pose>0 0 4.1 0 0 0</pose>
-          <geometry>
-            <box>
-              <size>9.5 8.5 0.2</size>
-            </box>
-          </geometry>
-          <material>
-            <ambient>0.62 0.52 0.42 1</ambient>
-            <diffuse>0.67 0.57 0.47 1</diffuse>
-          </material>
-        </visual>
-      </link>
-    </model>
-
-    <model name="residential_2">
-      <pose>65 -80 0 0 0 0</pose>
-      <static>true</static>
-      <link name="house">
-        <collision name="collision">
-          <geometry>
-            <box>
-              <size>9 8 4.5</size>
-            </box>
-          </geometry>
-        </collision>
-        <visual name="walls">
-          <geometry>
-            <box>
-              <size>9 8 4</size>
-            </box>
-          </geometry>
-          <material>
-            <ambient>0.85 0.81 0.71 1</ambient>
-            <diffuse>0.9 0.86 0.76 1</diffuse>
-          </material>
-        </visual>
-      </link>
-    </model>
-
-    <model name="residential_3">
-      <pose>80 -80 0 0 0 0</pose>
-      <static>true</static>
-      <link name="house">
-        <collision name="collision">
-          <geometry>
-            <box>
-              <size>9 8 4.5</size>
-            </box>
-          </geometry>
-        </collision>
-        <visual name="walls">
-          <geometry>
-            <box>
-              <size>9 8 4</size>
-            </box>
-          </geometry>
-          <material>
-            <ambient>0.87 0.83 0.73 1</ambient>
-            <diffuse>0.92 0.88 0.78 1</diffuse>
-          </material>
-        </visual>
-      </link>
-    </model>
-
-    <!-- BLOCK 4: Government buildings (near Bunge) -->
-    <model name="govt_building_1">
-      <pose>80 80 0 0 0 0</pose>
-      <static>true</static>
-      <link name="building">
-        <collision name="collision">
-          <geometry>
-            <box>
-              <size>18 15 8</size>
-            </box>
-          </geometry>
-        </collision>
-        <visual name="walls">
-          <geometry>
-            <box>
-              <size>18 15 8</size>
-            </box>
-          </geometry>
-          <material>
-            <ambient>0.78 0.76 0.72 1</ambient>
-            <diffuse>0.83 0.81 0.77 1</diffuse>
-          </material>
-        </visual>
-      </link>
-    </model>
-
-    <!-- ============================================================ -->
-    <!-- PARLIAMENT BUILDING (BUNGE) - Detailed landmark              -->
-    <!-- ============================================================ -->
     <model name="bunge_tanzania">
-      <pose>120 90 0 0 0 0</pose>
+      <pose>0 40 0 0 0 0</pose>
       <static>true</static>
-      <link name="main">
-        <collision name="collision">
-          <geometry>
-            <box>
-              <size>40 30 12</size>
-            </box>
-          </geometry>
-        </collision>
-        <visual name="walls">
-          <geometry>
-            <box>
-              <size>40 30 12</size>
-            </box>
-          </geometry>
-          <material>
-            <ambient>0.82 0.8 0.75 1</ambient>
-            <diffuse>0.87 0.85 0.8 1</diffuse>
-          </material>
-        </visual>
-        <visual name="columns">
-          <pose>0 15 6 0 0 0</pose>
-          <geometry>
-            <box>
-              <size>38 0.5 10</size>
-            </box>
-          </geometry>
-          <material>
-            <ambient>0.9 0.88 0.83 1</ambient>
-            <diffuse>0.95 0.93 0.88 1</diffuse>
-          </material>
-        </visual>
-        <visual name="dome">
-          <pose>0 0 12 0 0 0</pose>
-          <geometry>
-            <sphere>
-              <radius>8</radius>
-            </sphere>
-          </geometry>
-          <material>
-            <ambient>0.7 0.6 0.4 1</ambient>
-            <diffuse>0.75 0.65 0.45 1</diffuse>
-          </material>
-        </visual>
-        <visual name="flag_pole">
-          <pose>0 0 22 0 0 0</pose>
-          <geometry>
-            <cylinder>
-              <radius>0.12</radius>
-              <length>5</length>
-            </cylinder>
-          </geometry>
-          <material>
-            <ambient>0.85 0.85 0.85 1</ambient>
-            <diffuse>0.9 0.9 0.9 1</diffuse>
-          </material>
-        </visual>
-      </link>
+      <include>
+        <uri>post_office</uri>
+      </include>
     </model>
-
-    <!-- ============================================================ -->
-    <!-- STREET LIGHTS - Along main roads                             -->
-    <!-- ============================================================ -->
-    <model name="streetlight_1">
-      <pose>-50 5 0 0 0 0</pose>
+    <model name="central_hospital">
+      <pose>0 -80 0 0 0 0</pose>
       <static>true</static>
-      <link name="pole">
-        <visual name="pole_vis">
-          <geometry>
-            <cylinder>
-              <radius>0.1</radius>
-              <length>5</length>
-            </cylinder>
-          </geometry>
-          <material>
-            <ambient>0.35 0.35 0.35 1</ambient>
-            <diffuse>0.4 0.4 0.4 1</diffuse>
-          </material>
-        </visual>
-        <collision name="collision">
-          <geometry>
-            <cylinder>
-              <radius>0.1</radius>
-              <length>5</length>
-            </cylinder>
-          </geometry>
-        </collision>
-      </link>
-      <link name="arm">
-        <pose>0.6 0 5 0 0 0</pose>
-        <visual name="arm_vis">
-          <geometry>
-            <box>
-              <size>0.8 0.08 0.08</size>
-            </box>
-          </geometry>
-          <material>
-            <ambient>0.35 0.35 0.35 1</ambient>
-            <diffuse>0.4 0.4 0.4 1</diffuse>
-          </material>
-        </visual>
-      </link>
-      <link name="lamp">
-        <pose>1 0 5 0 0 0</pose>
-        <visual name="lamp_vis">
-          <geometry>
-            <sphere>
-              <radius>0.2</radius>
-            </sphere>
-          </geometry>
-          <material>
-            <ambient>1 1 0.9 1</ambient>
-            <diffuse>1 1 0.95 1</diffuse>
-            <emissive>1 1 0.7 1</emissive>
-          </material>
-        </visual>
-      </link>
+      <include>
+        <uri>hospital</uri>
+      </include>
     </model>
-
-    <!-- More street lights along India Road -->
-    <model name="streetlight_2">
-      <pose>50 5 0 0 0 0</pose>
+    <model name="bank_building">
+      <pose>55 -55 0 0 0 0</pose>
       <static>true</static>
-      <link name="pole">
-        <visual name="pole_vis">
-          <geometry>
-            <cylinder>
-              <radius>0.1</radius>
-              <length>5</length>
-            </cylinder>
-          </geometry>
-          <material>
-            <ambient>0.35 0.35 0.35 1</ambient>
-            <diffuse>0.4 0.4 0.4 1</diffuse>
-          </material>
-        </visual>
-      </link>
-      <link name="lamp">
-        <pose>0 0 5.2 0 0 0</pose>
-        <visual name="lamp_vis">
-          <geometry>
-            <sphere>
-              <radius>0.2</radius>
-            </sphere>
-          </geometry>
-          <material>
-            <ambient>1 1 0.9 1</ambient>
-            <diffuse>1 1 0.95 1</diffuse>
-            <emissive>1 1 0.7 1</emissive>
-          </material>
-        </visual>
-      </link>
+      <include>
+        <uri>office_building</uri>
+      </include>
     </model>
-
-    <model name="streetlight_3">
-      <pose>-50 -5 0 0 0 0</pose>
+    <model name="shop_center">
+      <pose>55 55 0 0 0 0</pose>
       <static>true</static>
-      <link name="pole">
-        <visual name="pole_vis">
-          <geometry>
-            <cylinder>
-              <radius>0.1</radius>
-              <length>5</length>
-            </cylinder>
-          </geometry>
-          <material>
-            <ambient>0.35 0.35 0.35 1</ambient>
-            <diffuse>0.4 0.4 0.4 1</diffuse>
-          </material>
-        </visual>
-      </link>
-      <link name="lamp">
-        <pose>0 0 5.2 0 0 0</pose>
-        <visual name="lamp_vis">
-          <geometry>
-            <sphere>
-              <radius>0.2</radius>
-            </sphere>
-          </geometry>
-          <material>
-            <ambient>1 1 0.9 1</ambient>
-            <diffuse>1 1 0.95 1</diffuse>
-            <emissive>1 1 0.7 1</emissive>
-          </material>
-        </visual>
-      </link>
+      <include>
+        <uri>apartment</uri>
+      </include>
     </model>
-
-    <model name="streetlight_4">
-      <pose>50 -5 0 0 0 0</pose>
+    <model name="mall_complex">
+      <pose>-55 -55 0 0 0 0</pose>
       <static>true</static>
-      <link name="pole">
-        <visual name="pole_vis">
-          <geometry>
-            <cylinder>
-              <radius>0.1</radius>
-              <length>5</length>
-            </cylinder>
-          </geometry>
-          <material>
-            <ambient>0.35 0.35 0.35 1</ambient>
-            <diffuse>0.4 0.4 0.4 1</diffuse>
-          </material>
-        </visual>
-      </link>
-      <link name="lamp">
-        <pose>0 0 5.2 0 0 0</pose>
-        <visual name="lamp_vis">
-          <geometry>
-            <sphere>
-              <radius>0.2</radius>
-            </sphere>
-          </geometry>
-          <material>
-            <ambient>1 1 0.9 1</ambient>
-            <diffuse>1 1 0.95 1</diffuse>
-            <emissive>1 1 0.7 1</emissive>
-          </material>
-        </visual>
-      </link>
+      <include>
+        <uri>office_building</uri>
+      </include>
     </model>
-
-    <!-- ============================================================ -->
-    <!-- TREES - Acacia and Baobab (Dodoma characteristic)            -->
-    <!-- ============================================================ -->
-    
-    <!-- Acacia trees along streets -->
-    <model name="acacia_street_1">
-      <pose>-40 25 0 0 0 0</pose>
+    <model name="house_dodoma_1">
+      <pose>-55 0 0 0 0 0</pose>
       <static>true</static>
-      <link name="trunk">
-        <visual name="trunk_vis">
-          <geometry>
-            <cylinder>
-              <radius>0.3</radius>
-              <length>2.5</length>
-            </cylinder>
-          </geometry>
-          <material>
-            <ambient>0.4 0.35 0.3 1</ambient>
-            <diffuse>0.45 0.4 0.35 1</diffuse>
-          </material>
-        </visual>
-      </link>
-      <link name="canopy">
-        <pose>0 0 2.2 0 0 0</pose>
-        <visual name="canopy_vis">
-          <geometry>
-            <sphere>
-              <radius>1.8</radius>
-            </sphere>
-          </geometry>
-          <material>
-            <ambient>0.2 0.45 0.15 1</ambient>
-            <diffuse>0.25 0.55 0.2 1</diffuse>
-          </material>
-        </visual>
-      </link>
+      <include>
+        <uri>apartment</uri>
+      </include>
     </model>
-
-    <model name="acacia_street_2">
-      <pose>40 25 0 0 0 0</pose>
+    <model name="house_dodoma_2">
+      <pose>0 -55 0 0 0 0</pose>
       <static>true</static>
-      <link name="trunk">
-        <visual name="trunk_vis">
-          <geometry>
-            <cylinder>
-              <radius>0.3</radius>
-              <length>2.5</length>
-            </cylinder>
-          </geometry>
-          <material>
-            <ambient>0.4 0.35 0.3 1</ambient>
-            <diffuse>0.45 0.4 0.35 1</diffuse>
-          </material>
-        </visual>
-      </link>
-      <link name="canopy">
-        <pose>0 0 2.2 0 0 0</pose>
-        <visual name="canopy_vis">
-          <geometry>
-            <sphere>
-              <radius>1.8</radius>
-            </sphere>
-          </geometry>
-          <material>
-            <ambient>0.2 0.45 0.15 1</ambient>
-            <diffuse>0.25 0.55 0.2 1</diffuse>
-          </material>
-        </visual>
-      </link>
+      <include>
+        <uri>apartment</uri>
+      </include>
     </model>
-
-    <model name="acacia_street_3">
-      <pose>-40 -25 0 0 0 0</pose>
+    <model name="residential_1">
+      <pose>55 0 0 0 0 0</pose>
       <static>true</static>
-      <link name="trunk">
-        <visual name="trunk_vis">
-          <geometry>
-            <cylinder>
-              <radius>0.3</radius>
-              <length>2.5</length>
-            </cylinder>
-          </geometry>
-          <material>
-            <ambient>0.4 0.35 0.3 1</ambient>
-            <diffuse>0.45 0.4 0.35 1</diffuse>
-          </material>
-        </visual>
-      </link>
-      <link name="canopy">
-        <pose>0 0 2.2 0 0 0</pose>
-        <visual name="canopy_vis">
-          <geometry>
-            <sphere>
-              <radius>1.8</radius>
-            </sphere>
-          </geometry>
-          <material>
-            <ambient>0.2 0.45 0.15 1</ambient>
-            <diffuse>0.25 0.55 0.2 1</diffuse>
-          </material>
-        </visual>
-      </link>
+      <include>
+        <uri>chapulina_apartment</uri>
+      </include>
     </model>
-
-    <model name="acacia_street_4">
-      <pose>40 -25 0 0 0 0</pose>
+    <model name="residential_2">
+      <pose>0 55 0 0 0 0</pose>
       <static>true</static>
-      <link name="trunk">
-        <visual name="trunk_vis">
-          <geometry>
-            <cylinder>
-              <radius>0.3</radius>
-              <length>2.5</length>
-            </cylinder>
-          </geometry>
-          <material>
-            <ambient>0.4 0.35 0.3 1</ambient>
-            <diffuse>0.45 0.4 0.35 1</diffuse>
-          </material>
-        </visual>
-      </link>
-      <link name="canopy">
-        <pose>0 0 2.2 0 0 0</pose>
-        <visual name="canopy_vis">
-          <geometry>
-            <sphere>
-              <radius>1.8</radius>
-            </sphere>
-          </geometry>
-          <material>
-            <ambient>0.2 0.45 0.15 1</ambient>
-            <diffuse>0.25 0.55 0.2 1</diffuse>
-          </material>
-        </visual>
-      </link>
+      <include>
+        <uri>chapulina_apartment</uri>
+      </include>
     </model>
-
-    <!-- More scattered acacia trees -->
-    <model name="acacia_scatter_1">
-      <pose>-150 100 0 0 0 0</pose>
+    <model name="govt_building_1">
+      <pose>-55 55 0 0 0 0</pose>
       <static>true</static>
-      <link name="trunk">
-        <visual name="trunk_vis">
-          <geometry>
-            <cylinder>
-              <radius>0.4</radius>
-              <length>3</length>
-            </cylinder>
-          </geometry>
-          <material>
-            <ambient>0.4 0.35 0.3 1</ambient>
-            <diffuse>0.45 0.4 0.35 1</diffuse>
-          </material>
-        </visual>
-      </link>
-      <link name="canopy">
-        <pose>0 0 2.7 0 0 0</pose>
-        <visual name="canopy_vis">
-          <geometry>
-            <sphere>
-              <radius>2.2</radius>
-            </sphere>
-          </geometry>
-          <material>
-            <ambient>0.18 0.42 0.12 1</ambient>
-            <diffuse>0.22 0.52 0.17 1</diffuse>
-          </material>
-        </visual>
-      </link>
+      <include>
+        <uri>post_office</uri>
+      </include>
     </model>
-
-    <model name="acacia_scatter_2">
-      <pose>150 -100 0 0 0 0</pose>
+    <model name="street_tree_1">
+      <pose>-67.0 -45 0 0 0 0</pose>
       <static>true</static>
-      <link name="trunk">
-        <visual name="trunk_vis">
-          <geometry>
-            <cylinder>
-              <radius>0.4</radius>
-              <length>3</length>
-            </cylinder>
-          </geometry>
-          <material>
-            <ambient>0.4 0.35 0.3 1</ambient>
-            <diffuse>0.45 0.4 0.35 1</diffuse>
-          </material>
-        </visual>
-      </link>
-      <link name="canopy">
-        <pose>0 0 2.7 0 0 0</pose>
-        <visual name="canopy_vis">
-          <geometry>
-            <sphere>
-              <radius>2.2</radius>
-            </sphere>
-          </geometry>
-          <material>
-            <ambient>0.18 0.42 0.12 1</ambient>
-            <diffuse>0.22 0.52 0.17 1</diffuse>
-          </material>
-        </visual>
-      </link>
+      <include>
+        <uri>oak_tree</uri>
+      </include>
     </model>
-
-    <!-- ============================================================ -->
-    <!-- SPEED BUMPS - For drone obstacle avoidance testing           -->
-    <!-- ============================================================ -->
-    <model name="speedbump_1">
-      <pose>60 0 0.18 0 0 0</pose>
+    <model name="street_tree_2">
+      <pose>-27.0 -45 0 0 0 0</pose>
       <static>true</static>
-      <link name="bump">
-        <visual name="bump_vis">
-          <geometry>
-            <box>
-              <size>3 0.5 0.05</size>
-            </box>
-          </geometry>
-          <material>
-            <ambient>0.2 0.2 0.2 1</ambient>
-            <diffuse>0.25 0.25 0.25 1</diffuse>
-          </material>
-        </visual>
-        <collision name="collision">
-          <geometry>
-            <box>
-              <size>3 0.5 0.05</size>
-            </box>
-          </geometry>
-        </collision>
-      </link>
+      <include>
+        <uri>oak_tree</uri>
+      </include>
     </model>
-
-    <model name="speedbump_2">
-      <pose>-60 0 0.18 0 0 0</pose>
+    <model name="street_tree_3">
+      <pose>13.0 -45 0 0 0 0</pose>
       <static>true</static>
-      <link name="bump">
-        <visual name="bump_vis">
-          <geometry>
-            <box>
-              <size>3 0.5 0.05</size>
-            </box>
-          </geometry>
-          <material>
-            <ambient>0.2 0.2 0.2 1</ambient>
-            <diffuse>0.25 0.25 0.25 1</diffuse>
-          </material>
-        </visual>
-        <collision name="collision">
-          <geometry>
-            <box>
-              <size>3 0.5 0.05</size>
-            </box>
-          </geometry>
-        </collision>
-      </link>
+      <include>
+        <uri>pine_tree</uri>
+      </include>
     </model>
-
-    <!-- ============================================================ -->
-    <!-- THE GAZEBO - Your main test structure                        -->
-    <!-- ============================================================ -->
-    <model name="test_gazebo_main">
-      <pose>0 150 0 0 0 0</pose>
+    <model name="street_tree_4">
+      <pose>53.0 -45 0 0 0 0</pose>
       <static>true</static>
-      <link name="base_platform">
-        <collision name="collision">
-          <geometry>
-            <cylinder>
-              <radius>4.5</radius>
-              <length>0.2</length>
-            </cylinder>
-          </geometry>
-        </collision>
-        <visual name="platform">
-          <geometry>
-            <cylinder>
-              <radius>4.5</radius>
-              <length>0.15</length>
-            </cylinder>
-          </geometry>
-          <material>
-            <ambient>0.65 0.6 0.55 1</ambient>
-            <diffuse>0.7 0.65 0.6 1</diffuse>
-          </material>
-        </visual>
-        <!-- Gazebo pillars (obstacles for drone) -->
-        <visual name="pillar_nw">
-          <pose>-3.5 -3.5 1.5 0 0 0</pose>
-          <geometry>
-            <cylinder>
-              <radius>0.12</radius>
-              <length>3</length>
-            </cylinder>
-          </geometry>
-          <material>
-            <ambient>0.75 0.7 0.65 1</ambient>
-            <diffuse>0.8 0.75 0.7 1</diffuse>
-          </material>
-        </visual>
-        <visual name="pillar_ne">
-          <pose>3.5 -3.5 1.5 0 0 0</pose>
-          <geometry>
-            <cylinder>
-              <radius>0.12</radius>
-              <length>3</length>
-            </cylinder>
-          </geometry>
-          <material>
-            <ambient>0.75 0.7 0.65 1</ambient>
-            <diffuse>0.8 0.75 0.7 1</diffuse>
-          </material>
-        </visual>
-        <visual name="pillar_sw">
-          <pose>-3.5 3.5 1.5 0 0 0</pose>
-          <geometry>
-            <cylinder>
-              <radius>0.12</radius>
-              <length>3</length>
-            </cylinder>
-          </geometry>
-          <material>
-            <ambient>0.75 0.7 0.65 1</ambient>
-            <diffuse>0.8 0.75 0.7 1</diffuse>
-          </material>
-        </visual>
-        <visual name="pillar_se">
-          <pose>3.5 3.5 1.5 0 0 0</pose>
-          <geometry>
-            <cylinder>
-              <radius>0.12</radius>
-              <length>3</length>
-            </cylinder>
-          </geometry>
-          <material>
-            <ambient>0.75 0.7 0.65 1</ambient>
-            <diffuse>0.8 0.75 0.7 1</diffuse>
-          </material>
-        </visual>
-        <!-- Roof -->
-        <visual name="roof">
-          <pose>0 0 3.1 0 0 0</pose>
-          <geometry>
-            <cylinder>
-              <radius>4.2</radius>
-              <length>0.1</length>
-            </cylinder>
-          </geometry>
-          <material>
-            <ambient>0.55 0.5 0.45 1</ambient>
-            <diffuse>0.6 0.55 0.5 1</diffuse>
-          </material>
-        </visual>
-        <visual name="roof_top">
-          <pose>0 0 3.2 0 0 0</pose>
-          <geometry>
-            <sphere>
-              <radius>0.3</radius>
-            </sphere>
-          </geometry>
-          <material>
-            <ambient>0.8 0.7 0.3 1</ambient>
-            <diffuse>0.85 0.75 0.35 1</diffuse>
-          </material>
-        </visual>
-      </link>
+      <include>
+        <uri>oak_tree</uri>
+      </include>
     </model>
-
-    <!-- ============================================================ -->
-    <!-- ADDITIONAL SMALL OBSTACLES - Realistic urban features         -->
-    <!-- ============================================================ -->
-    
-    <!-- Bushes and shrubs -->
-    <model name="bush_1">
-      <pose>10 10 0 0 0 0</pose>
+    <model name="street_tree_5">
+      <pose>-45 -57.0 0 0 0 0</pose>
       <static>true</static>
-      <link name="shrub">
-        <visual name="visual">
-          <geometry>
-            <sphere>
-              <radius>0.5</radius>
-            </sphere>
-          </geometry>
-          <material>
-            <ambient>0.2 0.4 0.15 1</ambient>
-            <diffuse>0.25 0.5 0.2 1</diffuse>
-          </material>
-        </visual>
-        <collision name="collision">
-          <geometry>
-            <sphere>
-              <radius>0.5</radius>
-            </sphere>
-          </geometry>
-        </collision>
-      </link>
+      <include>
+        <uri>oak_tree</uri>
+      </include>
     </model>
-
-    <model name="bush_2">
-      <pose>-10 -10 0 0 0 0</pose>
+    <model name="street_tree_6">
+      <pose>-45 -17.0 0 0 0 0</pose>
       <static>true</static>
-      <link name="shrub">
-        <visual name="visual">
-          <geometry>
-            <sphere>
-              <radius>0.5</radius>
-            </sphere>
-          </geometry>
-          <material>
-            <ambient>0.2 0.4 0.15 1</ambient>
-            <diffuse>0.25 0.5 0.2 1</diffuse>
-          </material>
-        </visual>
-      </link>
+      <include>
+        <uri>oak_tree</uri>
+      </include>
     </model>
-
-    <model name="bush_3">
-      <pose>70 90 0 0 0 0</pose>
+    <model name="street_tree_7">
+      <pose>-45 23.0 0 0 0 0</pose>
       <static>true</static>
-      <link name="shrub">
-        <visual name="visual">
-          <geometry>
-            <sphere>
-              <radius>0.6</radius>
-            </sphere>
-          </geometry>
-          <material>
-            <ambient>0.18 0.38 0.12 1</ambient>
-            <diffuse>0.22 0.48 0.17 1</diffuse>
-          </material>
-        </visual>
-      </link>
+      <include>
+        <uri>oak_tree</uri>
+      </include>
     </model>
-
-    <!-- ============================================================ -->
-    <!-- NOTES:                                                        -->
-    <!-- - The drone (x500) is spawned automatically by PX4          -->
-    <!-- - Environment now has realistic road network with names      -->
-    <!-- - Buildings are arranged in city blocks                      -->
-    <!-- - Dodoma characteristic features: roundabout, acacia trees   -->
-    <!-- - Bunge parliament building is included as landmark          -->
-    <!-- - Street lights, speed bumps, and bushes for obstacle testing-->
-    <!-- ============================================================ -->
+    <model name="street_tree_8">
+      <pose>-45 63.0 0 0 0 0</pose>
+      <static>true</static>
+      <include>
+        <uri>oak_tree</uri>
+      </include>
+    </model>
+    <model name="street_tree_9">
+      <pose>-57.0 -25 0 0 0 0</pose>
+      <static>true</static>
+      <include>
+        <uri>pine_tree</uri>
+      </include>
+    </model>
+    <model name="street_tree_10">
+      <pose>-37.0 -25 0 0 0 0</pose>
+      <static>true</static>
+      <include>
+        <uri>oak_tree</uri>
+      </include>
+    </model>
+    <model name="street_tree_11">
+      <pose>-17.0 -25 0 0 0 0</pose>
+      <static>true</static>
+      <include>
+        <uri>oak_tree</uri>
+      </include>
+    </model>
+    <model name="street_tree_12">
+      <pose>3.0 -25 0 0 0 0</pose>
+      <static>true</static>
+      <include>
+        <uri>oak_tree</uri>
+      </include>
+    </model>
+    <model name="street_tree_13">
+      <pose>23.0 -25 0 0 0 0</pose>
+      <static>true</static>
+      <include>
+        <uri>oak_tree</uri>
+      </include>
+    </model>
+    <model name="street_tree_14">
+      <pose>43.0 -25 0 0 0 0</pose>
+      <static>true</static>
+      <include>
+        <uri>oak_tree</uri>
+      </include>
+    </model>
+    <model name="street_tree_15">
+      <pose>63.0 -25 0 0 0 0</pose>
+      <static>true</static>
+      <include>
+        <uri>oak_tree</uri>
+      </include>
+    </model>
+    <model name="person_1">
+      <pose>18 18 0 0 0 0</pose>
+      <static>true</static>
+      <include>
+        <uri>person</uri>
+      </include>
+    </model>
+    <model name="person_2">
+      <pose>22 -18 0 0 0 0</pose>
+      <static>true</static>
+      <include>
+        <uri>person</uri>
+      </include>
+    </model>
+    <model name="person_3">
+      <pose>-18 22 0 0 0 0</pose>
+      <static>true</static>
+      <include>
+        <uri>person</uri>
+      </include>
+    </model>
+    <model name="person_4">
+      <pose>-22 -20 0 0 0 0</pose>
+      <static>true</static>
+      <include>
+        <uri>person</uri>
+      </include>
+    </model>
+    <model name="person_5">
+      <pose>35 35 0 0 0 0</pose>
+      <static>true</static>
+      <include>
+        <uri>person</uri>
+      </include>
+    </model>
+    <model name="person_6">
+      <pose>35 -35 0 0 0 0</pose>
+      <static>true</static>
+      <include>
+        <uri>person</uri>
+      </include>
+    </model>
+    <model name="person_7">
+      <pose>-35 35 0 0 0 0</pose>
+      <static>true</static>
+      <include>
+        <uri>person</uri>
+      </include>
+    </model>
+    <model name="person_8">
+      <pose>-35 -35 0 0 0 0</pose>
+      <static>true</static>
+      <include>
+        <uri>person</uri>
+      </include>
+    </model>
+    <model name="street_car_1">
+      <pose>30 -48 0 0 0 0</pose>
+      <static>true</static>
+      <include>
+        <uri>prius_hybrid</uri>
+      </include>
+    </model>
+    <model name="street_car_2">
+      <pose>30 -42 0 0 0 0</pose>
+      <static>true</static>
+      <include>
+        <uri>prius_hybrid</uri>
+      </include>
+    </model>
+    <model name="street_car_3">
+      <pose>-30 -48 0 0 0 0</pose>
+      <static>true</static>
+      <include>
+        <uri>prius_hybrid</uri>
+      </include>
+    </model>
+    <model name="street_car_4">
+      <pose>48 -30 0 0 0 1.57</pose>
+      <static>true</static>
+      <include>
+        <uri>prius_hybrid</uri>
+      </include>
+    </model>
+    <model name="street_car_5">
+      <pose>48 30 0 0 0 1.57</pose>
+      <static>true</static>
+      <include>
+        <uri>prius_hybrid</uri>
+      </include>
+    </model>
+    <model name="street_car_6">
+      <pose>-48 -30 0 0 0 1.57</pose>
+      <static>true</static>
+      <include>
+        <uri>prius_hybrid</uri>
+      </include>
+    </model>
+    <model name="street_car_7">
+      <pose>30 48 0 0 0 0</pose>
+      <static>true</static>
+      <include>
+        <uri>prius_hybrid</uri>
+      </include>
+    </model>
+    <model name="street_car_8">
+      <pose>-30 48 0 0 0 0</pose>
+      <static>true</static>
+      <include>
+        <uri>prius_hybrid</uri>
+      </include>
+    </model>
 
   </world>
 </sdf>

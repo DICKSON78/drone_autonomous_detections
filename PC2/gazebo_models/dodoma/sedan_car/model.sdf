@@ -1,0 +1,115 @@
+<?xml version="1.0"?>
+<sdf version="1.9">
+  <model name="sedan_car">
+    <static>true</static>
+    <link name="body">
+      <collision name="col">
+        <geometry><box><size>2 4 0.6</size></box></geometry>
+      </collision>
+      <!-- Main body -->
+      <visual name="body_vis">
+        <geometry><box><size>2 4 0.6</size></box></geometry>
+        <material>
+          <ambient>0.15 0.15 0.5 1</ambient>
+          <diffuse>0.2 0.2 0.55 1</diffuse>
+          <specular>0.5 0.5 0.5 1</specular>
+        </material>
+      </visual>
+      <!-- Cabin/roof -->
+      <visual name="cabin">
+        <pose>0 -0.3 0.5 0 0 0</pose>
+        <geometry><box><size>1.8 2.2 0.35</size></box></geometry>
+        <material>
+          <ambient>0.3 0.35 0.4 1</ambient>
+          <diffuse>0.35 0.4 0.45 1</diffuse>
+          <specular>0.4 0.4 0.4 1</specular>
+        </material>
+      </visual>
+      <!-- Windows -->
+      <visual name="windshield">
+        <pose>0 -2.15 0.5 0 0 0</pose>
+        <geometry><box><size>1.6 0.08 0.3</size></box></geometry>
+        <material>
+          <ambient>0.4 0.5 0.7 0.6</ambient>
+          <diffuse>0.45 0.55 0.75 0.6</diffuse>
+          <specular>0.5 0.5 0.5 1</specular>
+        </material>
+      </visual>
+      <!-- 4 wheels -->
+      <visual name="wheel_fl">
+        <pose>-1.15 1.3 0.12 0 0 0</pose>
+        <geometry><cylinder><radius>0.25</radius><length>0.2</length></cylinder></geometry>
+        <material>
+          <ambient>0.08 0.08 0.08 1</ambient>
+          <diffuse>0.12 0.12 0.12 1</diffuse>
+          <specular>0.05 0.05 0.05 1</specular>
+        </material>
+      </visual>
+      <visual name="wheel_fr">
+        <pose>1.15 1.3 0.12 0 0 0</pose>
+        <geometry><cylinder><radius>0.25</radius><length>0.2</length></cylinder></geometry>
+        <material>
+          <ambient>0.08 0.08 0.08 1</ambient>
+          <diffuse>0.12 0.12 0.12 1</diffuse>
+          <specular>0.05 0.05 0.05 1</specular>
+        </material>
+      </visual>
+      <visual name="wheel_rl">
+        <pose>-1.15 -1.3 0.12 0 0 0</pose>
+        <geometry><cylinder><radius>0.25</radius><length>0.2</length></cylinder></geometry>
+        <material>
+          <ambient>0.08 0.08 0.08 1</ambient>
+          <diffuse>0.12 0.12 0.12 1</diffuse>
+          <specular>0.05 0.05 0.05 1</specular>
+        </material>
+      </visual>
+      <visual name="wheel_rr">
+        <pose>1.15 -1.3 0.12 0 0 0</pose>
+        <geometry><cylinder><radius>0.25</radius><length>0.2</length></cylinder></geometry>
+        <material>
+          <ambient>0.08 0.08 0.08 1</ambient>
+          <diffuse>0.12 0.12 0.12 1</diffuse>
+          <specular>0.05 0.05 0.05 1</specular>
+        </material>
+      </visual>
+      <!-- Headlights -->
+      <visual name="headlight_l">
+        <pose>-0.6 -2.05 0.15 0 0 0</pose>
+        <geometry><box><size>0.3 0.1 0.12</size></box></geometry>
+        <material>
+          <ambient>1 0.9 0.6 1</ambient>
+          <diffuse>1 0.95 0.7 1</diffuse>
+          <emissive>0.3 0.25 0.1 1</emissive>
+        </material>
+      </visual>
+      <visual name="headlight_r">
+        <pose>0.6 -2.05 0.15 0 0 0</pose>
+        <geometry><box><size>0.3 0.1 0.12</size></box></geometry>
+        <material>
+          <ambient>1 0.9 0.6 1</ambient>
+          <diffuse>1 0.95 0.7 1</diffuse>
+          <emissive>0.3 0.25 0.1 1</emissive>
+        </material>
+      </visual>
+      <!-- Tail lights -->
+      <visual name="taillight_l">
+        <pose>-0.6 2.05 0.15 0 0 0</pose>
+        <geometry><box><size>0.3 0.1 0.1</size></box></geometry>
+        <material>
+          <ambient>0.6 0.1 0.1 1</ambient>
+          <diffuse>0.7 0.15 0.15 1</diffuse>
+          <emissive>0.2 0.05 0.05 1</emissive>
+        </material>
+      </visual>
+      <visual name="taillight_r">
+        <pose>0.6 2.05 0.15 0 0 0</pose>
+        <geometry><box><size>0.3 0.1 0.1</size></box></geometry>
+        <material>
+          <ambient>0.6 0.1 0.1 1</ambient>
+          <diffuse>0.7 0.15 0.15 1</diffuse>
+          <emissive>0.2 0.05 0.05 1</emissive>
+        </material>
+      </visual>
+    </link>
+  </model>
+</sdf>

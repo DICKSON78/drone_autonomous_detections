@@ -1,0 +1,62 @@
+<?xml version="1.0"?>
+<sdf version="1.9">
+  <model name="electrical_pole">
+    <static>true</static>
+    <link name="main">
+      <collision name="col">
+        <pose>0 0 4 0 0 0</pose>
+        <geometry><cylinder><radius>0.15</radius><length>8</length></cylinder></geometry>
+      </collision>
+      <!-- Pole -->
+      <visual name="pole">
+        <pose>0 0 4 0 0 0</pose>
+        <geometry><cylinder><radius>0.15</radius><length>8</length></cylinder></geometry>
+        <material>
+          <ambient>0.5 0.5 0.5 1</ambient>
+          <diffuse>0.55 0.55 0.55 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
+        </material>
+      </visual>
+      <!-- Crossarm 1 (top, along X) -->
+      <visual name="crossarm_x">
+        <pose>0 0 7.5 0 0 0</pose>
+        <geometry><box><size>2 0.08 0.08</size></box></geometry>
+        <material>
+          <ambient>0.3 0.3 0.3 1</ambient>
+          <diffuse>0.35 0.35 0.35 1</diffuse>
+        </material>
+      </visual>
+      <!-- Crossarm 2 (middle, along Y) -->
+      <visual name="crossarm_y">
+        <pose>0 0 7 0 0 0</pose>
+        <geometry><box><size>0.08 2 0.08</size></box></geometry>
+        <material>
+          <ambient>0.3 0.3 0.3 1</ambient>
+          <diffuse>0.35 0.35 0.35 1</diffuse>
+        </material>
+      </visual>
+      <!-- Insulators on crossarm 1 -->
+      <visual name="insulator_x1">
+        <pose>-1 0 7.55 0 0 0</pose>
+        <geometry><cylinder><radius>0.04</radius><length>0.06</length></cylinder></geometry>
+        <material><ambient>0.8 0.8 0.8 1</ambient><diffuse>0.85 0.85 0.85 1</diffuse></material>
+      </visual>
+      <visual name="insulator_x2">
+        <pose>1 0 7.55 0 0 0</pose>
+        <geometry><cylinder><radius>0.04</radius><length>0.06</length></cylinder></geometry>
+        <material><ambient>0.8 0.8 0.8 1</ambient><diffuse>0.85 0.85 0.85 1</diffuse></material>
+      </visual>
+      <!-- Insulators on crossarm 2 -->
+      <visual name="insulator_y1">
+        <pose>0 -1 7.05 0 0 0</pose>
+        <geometry><cylinder><radius>0.04</radius><length>0.06</length></cylinder></geometry>
+        <material><ambient>0.8 0.8 0.8 1</ambient><diffuse>0.85 0.85 0.85 1</diffuse></material>
+      </visual>
+      <visual name="insulator_y2">
+        <pose>0 1 7.05 0 0 0</pose>
+        <geometry><cylinder><radius>0.04</radius><length>0.06</length></cylinder></geometry>
+        <material><ambient>0.8 0.8 0.8 1</ambient><diffuse>0.85 0.85 0.85 1</diffuse></material>
+      </visual>
+    </link>
+  </model>
+</sdf>

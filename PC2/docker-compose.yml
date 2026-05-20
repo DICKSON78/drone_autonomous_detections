@@ -34,22 +34,25 @@ services:
       - XAUTHORITY=/tmp/.docker.xauth
       # Set HEADLESS=1 for no GUI, remove/comment for X11 GUI
       - HEADLESS=1
-    # Uncomment to override image entrypoint with our wrapper (ensures world+models load):
-    # entrypoint: ["/scripts/gz_entrypoint.sh"]
-    # command: ["px4"]
+      # Pre-set parameters for SITL (no GPS = must arm w/o GPS)
+      - PX4_PARAM_COM_ARM_WO_GPS=1
+      # Disable GCS failsafe so drone doesn't auto-descend when GCS heartbeat is missed
+      - PX4_PARAM_FS_GCS_ENABLE=0
+      # Disable arming checks for easier debugging
+      - PX4_PARAM_ARMING_CHECK=0
     volumes:
       - ./px4_config:/px4_config
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
       - /tmp/.docker.xauth:/tmp/.docker.xauth:rw
-      - ./gazebo_worlds:/gazebo_worlds
-      - ./gazebo_models:/gazebo_models
-      # Mount custom world into PX4's standard world directory so PX4 finds it
+      - ./gazebo_worlds:/gazebo_worlds:ro
+      - ./gazebo_models:/gazebo_models:ro
+      # Mount world into PX4's standard world directory so PX4 finds it
       - ./gazebo_worlds/dodoma/dodoma_tanzania.sdf:/opt/px4-gazebo/share/gz/worlds/dodoma_tanzania.sdf
-      # Custom entrypoint wrapper (available for troubleshooting)
-      - ./scripts/gz_entrypoint.sh:/scripts/gz_entrypoint.sh
     networks:
       - fyp-network
     restart: unless-stopped
+    mem_limit: 3g
+    memswap_limit: 4g
     # Add GPU support if available (requires nvidia-docker2)
     # deploy:
     #   resources:

@@ -7,8 +7,10 @@ set -e
 # Ensure custom world is in PX4's standard world path
 WORLD_SRC="/gazebo_worlds/dodoma/dodoma_tanzania.sdf"
 WORLD_DST="/opt/px4-gazebo/share/gz/worlds/dodoma_tanzania.sdf"
-if [ -f "$WORLD_SRC" ] && [ ! -f "$WORLD_DST" ]; then
-    cp "$WORLD_SRC" "$WORLD_DST" 2>/dev/null || ln -sf "$WORLD_SRC" "$WORLD_DST" 2>/dev/null || true
+if [ -f "$WORLD_SRC" ]; then
+    # Remove stale copy/symlink and always link to the latest host file
+    rm -f "$WORLD_DST" 2>/dev/null || true
+    ln -sf "$WORLD_SRC" "$WORLD_DST" 2>/dev/null || cp "$WORLD_SRC" "$WORLD_DST" 2>/dev/null || true
 fi
 
 # Ensure custom models are in the resource path

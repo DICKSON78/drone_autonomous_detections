@@ -1,43 +1,16 @@
 version: '3.8'
 
 services:
-  # InfluxDB Database
-  influxdb:
-    image: influxdb:2.7
-    container_name: influxdb
-    ports:
-      - "8086:8086"
-    environment:
-      - DOCKER_INFLUXDB_INIT_MODE=setup
-      - DOCKER_INFLUXDB_INIT_USERNAME=admin
-      - DOCKER_INFLUXDB_INIT_PASSWORD=admin123
-      - DOCKER_INFLUXDB_INIT_ORG=drone-project
-      - DOCKER_INFLUXDB_INIT_BUCKET=drone_telemetry
-      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=drone-telemetry-token
-    volumes:
-      - influxdb_data:/var/lib/influxdb2
-    networks:
-      - fyp-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8086/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
   # Grafana Service
   grafana:
-    image: grafana/grafana:10.2.0
+    image: grafana/grafana:latest
     container_name: grafana
     ports:
       - "3000:3000"
-    depends_on:
-      influxdb:
-        condition: service_healthy
     environment:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=admin123
-      - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-piechart-panel,grafana-worldmap-panel
+      # - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-piechart-panel,grafana-worldmap-panel
       - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
       - GF_SECURITY_ALLOW_EMBEDDING=true
       - GF_AUTH_ANONYMOUS_ENABLED=false
@@ -47,7 +20,6 @@ services:
       - ./grafana/provisioning:/etc/grafana/provisioning
       - ./grafana/grafana.ini:/etc/grafana/grafana.ini
       - ./grafana/dashboards:/var/lib/grafana/dashboards
-    
     networks:
       - fyp-network
     restart: unless-stopped
@@ -57,93 +29,32 @@ services:
       timeout: 5s
       retries: 5
 
-  # Telemetry Collector (Python)
-  telemetry-collector:
-    build:
-      context: ./src/telemetry-collector
-    container_name: telemetry-collector
+  # Prometheus - metrics collection
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
     ports:
-      - "8004:8004"
-    depends_on:
-      influxdb:
-        condition: service_healthy
-    environment:
-      - INFLUXDB_URL=http://influxdb:8086
-      - INFLUXDB_TOKEN=drone-telemetry-token
-      - INFLUXDB_ORG=drone-project
-      - INFLUXDB_BUCKET=drone_telemetry
-      - KAFKA_BROKERS=kafka:9092
+      - "9090:9090"
     volumes:
-      - ./config:/app/config
-      - ./logs:/app/logs
+      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
     networks:
       - fyp-network
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
 
-  # API Gateway (Node.js Express)
-  api-gateway:
-    build:
-      context: ./src/api-gateway
-    container_name: api-gateway
+  # Node Exporter - system metrics
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: node-exporter
     ports:
-      - "3001:3001"
-    depends_on:
-      influxdb:
-        condition: service_healthy
-      telemetry-collector:
-        condition: service_healthy
-      postgres:
-        condition: service_healthy
-    environment:
-      - NODE_ENV=production
-      - PORT=3001
-      - INFLUXDB_URL=http://influxdb:8086
-      - INFLUXDB_TOKEN=drone-telemetry-token
-      - INFLUXDB_ORG=drone-project
-      - INFLUXDB_BUCKET=drone_telemetry
-      - KAFKA_BROKERS=kafka:9092
-      - TELEMETRY_COLLECTOR_URL=http://telemetry-collector:8004
-      - DATABASE_URL=postgresql://fyp_user:fyp_pass@postgres:5432/fyp_db
-    volumes:
-      - ./logs:/app/logs
-      - ./config:/app/config
+      - "9100:9100"
     networks:
       - fyp-network
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3001/api/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-
-  # PostgreSQL - Relational Database for Mission History
-  postgres:
-    image: postgres:15
-    container_name: postgres
-    environment:
-      - POSTGRES_DB=fyp_db
-      - POSTGRES_USER=fyp_user
-      - POSTGRES_PASSWORD=fyp_pass
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - fyp-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U fyp_user -d fyp_db"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
 volumes:
-  influxdb_data:
   grafana_data:
-  postgres_data:
+  prometheus_data:
 
 networks:
   fyp-network:

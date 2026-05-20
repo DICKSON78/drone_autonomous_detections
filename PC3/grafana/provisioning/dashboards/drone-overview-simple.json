@@ -1,165 +1,178 @@
 {
   "id": null,
-  "title": "Drone System Overview",
-  "tags": [
-    "drone",
-    "overview",
-    "telemetry"
-  ],
+  "title": "Radar & Environment View",
+  "tags": ["drone", "radar", "environment", "dodoma"],
+  "style": "dark",
   "timezone": "browser",
+  "editable": true,
   "schemaVersion": 38,
-  "version": 1,
-  "refresh": "5s",
+  "version": 2,
+  "refresh": "2s",
   "time": {
-    "from": "now-1h",
+    "from": "now-5m",
     "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": ["2s", "5s", "10s", "30s", "1m"]
   },
   "panels": [
     {
       "id": 1,
-      "title": "Flight Status",
-      "type": "stat",
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 0
-      },
+      "title": "Dodoma City - Drone Simulator View",
+      "type": "geomap",
+      "gridPos": { "h": 14, "w": 16, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus" },
       "targets": [
-        {
-          "refId": "A",
-          "expr": "from(bucket: \"drone_telemetry\")\n  |> range($range)\n  |> filter(fn: (r) => r._measurement == \"flight_telemetry\")\n  |> last()\n  |> yield(key: r._field, value: r._value)",
-          "datasource": {
-            "type": "influxdb",
-            "uid": "InfluxDB"
-          }
-        }
+        { "refId": "lat", "expr": "drone_gps{coord=\"lat\"}", "legendFormat": "Latitude" },
+        { "refId": "lon", "expr": "drone_gps{coord=\"lon\"}", "legendFormat": "Longitude" },
+        { "refId": "alt", "expr": "drone_altitude_m", "legendFormat": "Altitude (m)" },
+        { "refId": "hdg", "expr": "drone_heading_deg", "legendFormat": "Heading (°)" }
       ],
       "fieldConfig": {
-        "defaults": {
-          "thresholds": {
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "yellow",
-                "value": 50
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
+        "defaults": {},
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "Latitude" }, "properties": [ { "id": "decimals", "value": 6 } ] },
+          { "matcher": { "id": "byName", "options": "Longitude" }, "properties": [ { "id": "decimals", "value": 6 } ] },
+          { "matcher": { "id": "byName", "options": "Altitude (m)" }, "properties": [ { "id": "unit", "value": "lengthm" }, { "id": "decimals", "value": 1 } ] },
+          { "matcher": { "id": "byName", "options": "Heading (°)" }, "properties": [ { "id": "unit", "value": "degree" }, { "id": "decimals", "value": 0 } ] }
+        ]
+      },
+      "options": {
+        "basemap": { "config": {}, "name": "OpenStreetMap", "type": "default" },
+        "controls": { "mouseWheelZoom": true, "showAttribution": true, "showZoom": true, "showScale": false },
+        "view": { "lat": -6.163, "lon": 35.7516, "zoom": 16 },
+        "layers": [
+          {
+            "type": "markers",
+            "name": "Drone Position",
+            "location": { "mode": "coords", "latitudeField": "latitude", "longitudeField": "longitude" },
+            "marker": { "color": "#FF0000", "size": 20, "icon": "arrow" },
+            "tooltip": true,
+            "label": { "mode": "fixed", "content": "Drone" }
           }
-        }
+        ]
       }
     },
+
     {
       "id": 2,
-      "title": "Battery Level",
+      "title": "Live Telemetry Feed",
       "type": "stat",
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 0
-      },
+      "gridPos": { "h": 14, "w": 8, "x": 16, "y": 0 },
+      "datasource": { "type": "prometheus" },
       "targets": [
-        {
-          "refId": "B",
-          "expr": "from(bucket: \"drone_telemetry\")\n  |> range($range)\n  |> filter(fn: (r) => r._measurement == \"system_metrics\")\n  |> filter(fn: (r) => r._field == \"battery_percentage\")\n  |> last()\n  |> yield(key: r._field, value: r._value)",
-          "datasource": {
-            "type": "influxdb",
-            "uid": "InfluxDB"
-          }
-        }
+        { "refId": "A", "expr": "drone_connected", "legendFormat": "Status: {{ if eq (.Value | printf \"%.0f\") \"1\" }}ONLINE{{ else }}OFFLINE{{ end }}" },
+        { "refId": "B", "expr": "drone_armed", "legendFormat": "Arm: {{ if eq (.Value | printf \"%.0f\") \"1\" }}ARMED{{ else }}DISARMED{{ end }}" },
+        { "refId": "C", "expr": "drone_flight_mode", "legendFormat": "Mode: {{ if eq (.Value | printf \"%.0f\") \"0\" }}UNKNOWN{{ else if eq (.Value | printf \"%.0f\") \"1\" }}MANUAL{{ else if eq (.Value | printf \"%.0f\") \"2\" }}ALTCTL{{ else if eq (.Value | printf \"%.0f\") \"3\" }}POSCTL{{ else if eq (.Value | printf \"%.0f\") \"4\" }}AUTO{{ else if eq (.Value | printf \"%.0f\") \"9\" }}RTL{{ else if eq (.Value | printf \"%.0f\") \"10\" }}LAND{{ else if eq (.Value | printf \"%.0f\") \"11\" }}TAKEOFF{{ else }}MODE-{{ .Value }}{{ end }}" },
+        { "refId": "D", "expr": "drone_altitude_m", "legendFormat": "Altitude: {{ .Value | printf \"%.1f\" }} m" },
+        { "refId": "E", "expr": "drone_battery_pct_clamped", "legendFormat": "Battery: {{ .Value | printf \"%.0f\" }}%" },
+        { "refId": "F", "expr": "drone_heading_deg", "legendFormat": "Heading: {{ .Value | printf \"%.0f\" }}°" },
+        { "refId": "G", "expr": "drone_gps_satellites", "legendFormat": "Satellites: {{ .Value | printf \"%.0f\" }}" },
+        { "refId": "H", "expr": "drone_gps_fix_type", "legendFormat": "GPS Fix: {{ if eq (.Value | printf \"%.0f\") \"0\" }}NO FIX{{ else if eq (.Value | printf \"%.0f\") \"1\" }}NO GPS{{ else if eq (.Value | printf \"%.0f\") \"2\" }}2D{{ else }}3D{{ end }}" },
+        { "refId": "I", "expr": "drone_latitude", "legendFormat": "Lat: {{ .Value | printf \"%.6f\" }}" },
+        { "refId": "J", "expr": "drone_longitude", "legendFormat": "Lon: {{ .Value | printf \"%.6f\" }}" }
       ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percent",
-          "thresholds": {
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "yellow",
-                "value": 20
-              },
-              {
-                "color": "red",
-                "value": 10
-              }
-            ]
-          }
-        }
-      }
+      "fieldConfig": { "defaults": { "color": { "mode": "none" }, "custom": { "fontSize": "16px" } } },
+      "options": { "colorMode": "none", "graphMode": "none", "textMode": "auto", "reduceOptions": { "values": true, "calcs": [] }, "orientation": "vertical" }
     },
+
     {
       "id": 3,
-      "title": "Object Detections",
-      "type": "stat",
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 8
-      },
-      "targets": [
-        {
-          "refId": "C",
-          "expr": "from(bucket: \"drone_telemetry\")\n  |> range($range)\n  |> filter(fn: (r) => r._measurement == \"object_detections\")\n  |> count()\n  |> yield(key: \"detection_count\", value: r._value)",
-          "datasource": {
-            "type": "influxdb",
-            "uid": "InfluxDB"
-          }
+      "title": "Altitude Trail",
+      "type": "timeseries",
+      "gridPos": { "h": 5, "w": 12, "x": 0, "y": 14 },
+      "datasource": { "type": "prometheus" },
+      "targets": [{
+        "refId": "A",
+        "expr": "drone_altitude_m",
+        "legendFormat": "Altitude (m)"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "lengthm",
+          "custom": { "lineInterpolation": "smooth", "showPoints": "never", "lineWidth": 2, "fillOpacity": 20 },
+          "thresholds": { "steps": [ { "color": "green", "value": null }, { "color": "yellow", "value": 50 }, { "color": "red", "value": 100 } ] }
         }
-      ]
+      },
+      "options": { "legend": { "calcs": ["min", "max", "mean", "last"], "displayMode": "table", "placement": "bottom" } }
     },
     {
       "id": 4,
-      "title": "System Performance",
-      "type": "stat",
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 8
-      },
-      "targets": [
-        {
-          "refId": "D",
-          "expr": "from(bucket: \"drone_telemetry\")\n  |> range($range)\n  |> filter(fn: (r) => r._measurement == \"system_metrics\")\n  |> filter(fn: (r) => r._field == \"cpu_usage\")\n  |> last()\n  |> yield(key: r._field, value: r._value)",
-          "datasource": {
-            "type": "influxdb",
-            "uid": "InfluxDB"
-          }
+      "title": "Heading Trail",
+      "type": "timeseries",
+      "gridPos": { "h": 5, "w": 12, "x": 12, "y": 14 },
+      "datasource": { "type": "prometheus" },
+      "targets": [{
+        "refId": "A",
+        "expr": "drone_heading_deg",
+        "legendFormat": "Heading (°)"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "degree",
+          "custom": { "lineInterpolation": "smooth", "showPoints": "never", "lineWidth": 2, "fillOpacity": 20 }
         }
+      },
+      "options": { "legend": { "calcs": ["min", "max", "mean", "last"], "displayMode": "table", "placement": "bottom" } }
+    },
+
+    {
+      "id": 5,
+      "title": "Battery Drain",
+      "type": "timeseries",
+      "gridPos": { "h": 5, "w": 8, "x": 0, "y": 19 },
+      "datasource": { "type": "prometheus" },
+      "targets": [{
+        "refId": "A",
+        "expr": "drone_battery_pct_clamped",
+        "legendFormat": "Battery %"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent", "min": 0, "max": 100,
+          "custom": { "lineInterpolation": "smooth", "showPoints": "never", "lineWidth": 2, "fillOpacity": 20 },
+          "thresholds": { "steps": [ { "color": "green", "value": null }, { "color": "yellow", "value": 30 }, { "color": "red", "value": 15 } ] }
+        }
+      },
+      "options": { "legend": { "calcs": ["min", "max", "mean", "last"], "displayMode": "table", "placement": "bottom" } }
+    },
+    {
+      "id": 6,
+      "title": "Connection & Arm Status",
+      "type": "timeseries",
+      "gridPos": { "h": 5, "w": 8, "x": 8, "y": 19 },
+      "datasource": { "type": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "drone_connected", "legendFormat": "Connected" },
+        { "refId": "B", "expr": "drone_armed", "legendFormat": "Armed" }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "percent",
-          "thresholds": {
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "yellow",
-                "value": 70
-              },
-              {
-                "color": "red",
-                "value": 85
-              }
-            ]
-          }
+          "min": 0, "max": 1,
+          "custom": { "lineInterpolation": "stepAfter", "showPoints": true, "lineWidth": 2, "fillOpacity": 20 },
+          "color": { "mode": "palette-classic" }
         }
-      }
+      },
+      "options": { "legend": { "calcs": ["min", "max", "mean", "last"], "displayMode": "table", "placement": "bottom" } }
+    },
+    {
+      "id": 7,
+      "title": "System Performance",
+      "type": "timeseries",
+      "gridPos": { "h": 5, "w": 8, "x": 16, "y": 19 },
+      "datasource": { "type": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "100 - (avg by(instance) (rate(node_cpu_seconds_total{mode=\"idle\"}[1m])) * 100)", "legendFormat": "CPU %" },
+        { "refId": "B", "expr": "100 * (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes))", "legendFormat": "Memory %" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent", "min": 0, "max": 100,
+          "custom": { "lineInterpolation": "smooth", "showPoints": "never", "lineWidth": 2, "fillOpacity": 15 },
+          "thresholds": { "steps": [ { "color": "green", "value": null }, { "color": "yellow", "value": 60 }, { "color": "red", "value": 85 } ] }
+        }
+      },
+      "options": { "legend": { "calcs": ["min", "max", "mean", "last"], "displayMode": "table", "placement": "bottom" } }
     }
   ]
 }

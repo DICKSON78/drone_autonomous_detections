@@ -1,0 +1,1044 @@
+<?xml version="1.0" ?>
+<!--
+  =============================================================
+  PUBG-STYLE DRONE WORLD — Gazebo Harmonic (gz-sim 8+)
+  Kwa ajili ya Object Detection ya Drone (UAV)
+  Mazingira ya kweli: PBR textures, real models, wind physics
+  =============================================================
+  JINSI YA KUANZISHA:
+    gz sim worlds/pubg_reality.sdf
+
+  MODELS ZINAZOHITAJIKA (download moja kwa moja):
+    gz fuel download -u https://fuel.gazebosim.org/1.0/OpenRobotics/models/Pine%20Tree
+    gz fuel download -u https://fuel.gazebosim.org/1.0/OpenRobotics/models/Oak%20Tree
+    gz fuel download -u https://fuel.gazebosim.org/1.0/OpenRobotics/models/Construction%20Cone
+    gz fuel download -u https://fuel.gazebosim.org/1.0/OpenRobotics/models/Lamp%20Post
+  =============================================================
+-->
+<sdf version="1.10">
+  <world name="pubg_drone_reality">
+
+    <!-- =====================================================
+         PLUGINS ZA GAZEBO HARMONIC
+    ====================================================== -->
+    <plugin filename="gz-sim-physics-system"
+            name="gz::sim::systems::Physics"/>
+    <plugin filename="gz-sim-user-commands-system"
+            name="gz::sim::systems::UserCommands"/>
+    <plugin filename="gz-sim-scene-broadcaster-system"
+            name="gz::sim::systems::SceneBroadcaster"/>
+    <plugin filename="gz-sim-sensors-system"
+            name="gz::sim::systems::Sensors">
+      <render_engine>ogre2</render_engine>
+    </plugin>
+    <plugin filename="gz-sim-wind-effects-system"
+            name="gz::sim::systems::WindEffects">
+      <force_approximation_scaling_factor>1</force_approximation_scaling_factor>
+      <horizontal>
+        <magnitude>
+          <time_for_rise>10</time_for_rise>
+          <sin>
+            <amplitude_percent>0.05</amplitude_percent>
+            <period>60</period>
+          </sin>
+          <noise type="gaussian">
+            <mean>0</mean>
+            <stddev>0.1</stddev>
+          </noise>
+        </magnitude>
+        <direction_deg>
+          <time_for_rise>30</time_for_rise>
+          <sin>
+            <amplitude>5</amplitude>
+            <period>20</period>
+          </sin>
+          <noise type="gaussian">
+            <mean>0</mean>
+            <stddev>0.5</stddev>
+          </noise>
+        </direction_deg>
+      </horizontal>
+      <vertical>
+        <noise type="gaussian">
+          <mean>0</mean>
+          <stddev>0.01</stddev>
+        </noise>
+      </vertical>
+    </plugin>
+
+    <!-- =====================================================
+         PHYSICS
+    ====================================================== -->
+    <physics name="1ms" type="ignored">
+      <max_step_size>0.001</max_step_size>
+      <real_time_factor>1.0</real_time_factor>
+      <real_time_update_rate>1000</real_time_update_rate>
+    </physics>
+
+    <!-- =====================================================
+         MWANGAZA WA KWELI (Realistic Lighting)
+    ====================================================== -->
+
+    <!-- Jua kuu — directional na shadows -->
+    <light name="sun_directional" type="directional">
+      <pose>0 0 500 0 0.4 0.8</pose>
+      <cast_shadows>true</cast_shadows>
+      <intensity>1.0</intensity>
+      <direction>-0.5 0.3 -0.8</direction>
+      <diffuse>1.0 0.95 0.85 1</diffuse>
+      <specular>0.5 0.48 0.42 1</specular>
+      <attenuation>
+        <range>5000</range>
+        <linear>0.0</linear>
+        <constant>1.0</constant>
+        <quadratic>0.0</quadratic>
+      </attenuation>
+    </light>
+
+    <!-- Mwangaza wa anga (sky ambient) -->
+    <light name="sky_ambient" type="directional">
+      <pose>0 0 100 0 -1.5708 0</pose>
+      <cast_shadows>false</cast_shadows>
+      <intensity>0.3</intensity>
+      <direction>0 0 -1</direction>
+      <diffuse>0.5 0.65 0.9 1</diffuse>
+      <specular>0.0 0.0 0.0 1</specular>
+    </light>
+
+    <!-- =====================================================
+         SCENE — OGRE2 PBR
+    ====================================================== -->
+    <scene>
+      <ambient>0.3 0.32 0.35 1</ambient>
+      <background>0.53 0.75 0.92 1</background>
+      <sky>
+        <clouds>
+          <speed>12</speed>
+        </clouds>
+      </sky>
+      <grid>false</grid>
+      <origin_visual>false</origin_visual>
+    </scene>
+
+    <!-- =====================================================
+         ARDHI YA KWELI — PBR Terrain (400x400m)
+    ====================================================== -->
+    <model name="terrain_ground">
+      <static>true</static>
+      <pose>0 0 0 0 0 0</pose>
+      <link name="link">
+        <collision name="col">
+          <geometry>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>600 600</size>
+            </plane>
+          </geometry>
+          <surface>
+            <friction>
+              <ode>
+                <mu>0.8</mu>
+                <mu2>0.8</mu2>
+              </ode>
+            </friction>
+            <contact>
+              <ode>
+                <kp>1e6</kp>
+                <kd>100</kd>
+              </ode>
+            </contact>
+          </surface>
+        </collision>
+        <visual name="vis">
+          <geometry>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>600 600</size>
+            </plane>
+          </geometry>
+          <material>
+            <ambient>0.35 0.38 0.22 1</ambient>
+            <diffuse>0.38 0.42 0.24 1</diffuse>
+            <specular>0.03 0.03 0.02 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Grass%20Plane/tip/files/materials/textures/grass_color.jpg</albedo_map>
+                <normal_map>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Grass%20Plane/tip/files/materials/textures/grass_normal.jpg</normal_map>
+                <roughness_map>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Grass%20Plane/tip/files/materials/textures/grass_roughness.jpg</roughness_map>
+                <metalness>0.0</metalness>
+                <roughness>0.9</roughness>
+              </metal>
+            </pbr>
+          </material>
+          <plugin name="tile_uv" filename="gz-sim-shader-param-system">
+          </plugin>
+        </visual>
+      </link>
+    </model>
+
+    <!-- =====================================================
+         BARABARA ZA KWELI (PBR Asphalt Roads)
+    ====================================================== -->
+
+    <!-- Barabara kuu — Mashariki/Magharibi -->
+    <model name="road_EW">
+      <static>true</static>
+      <pose>0 0 0.015 0 0 0</pose>
+      <link name="link">
+        <collision name="col">
+          <geometry><box><size>250 9 0.03</size></box></geometry>
+        </collision>
+        <visual name="vis">
+          <pose>0 0 0 0 0 0</pose>
+          <geometry><box><size>250 9 0.03</size></box></geometry>
+          <material>
+            <ambient>0.15 0.15 0.15 1</ambient>
+            <diffuse>0.18 0.18 0.18 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <metalness>0.0</metalness>
+                <roughness>0.95</roughness>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Mstari wa kati wa njia (Center line) -->
+    <model name="road_centerline_EW">
+      <static>true</static>
+      <pose>0 0 0.032 0 0 0</pose>
+      <link name="link">
+        <visual name="vis">
+          <geometry><box><size>245 0.25 0.005</size></box></geometry>
+          <material>
+            <ambient>0.85 0.78 0.1 1</ambient>
+            <diffuse>0.9 0.82 0.12 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Barabara ya pili — Kaskazini/Kusini -->
+    <model name="road_NS">
+      <static>true</static>
+      <pose>0 0 0.015 0 0 1.5708</pose>
+      <link name="link">
+        <collision name="col">
+          <geometry><box><size>250 9 0.03</size></box></geometry>
+        </collision>
+        <visual name="vis">
+          <geometry><box><size>250 9 0.03</size></box></geometry>
+          <material>
+            <ambient>0.15 0.15 0.15 1</ambient>
+            <diffuse>0.18 0.18 0.18 1</diffuse>
+            <specular>0.05 0.05 0.05 1</specular>
+            <pbr>
+              <metal>
+                <metalness>0.0</metalness>
+                <roughness>0.95</roughness>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- =====================================================
+         MITI — Kutoka Gazebo Fuel (Real 3D Models)
+    ====================================================== -->
+
+    <!-- Pine Trees - Miti ya Msunobari -->
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Pine%20Tree</uri>
+      <name>pine_tree_1</name>
+      <pose>18 25 0 0 0 0.3</pose>
+    </include>
+
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Pine%20Tree</uri>
+      <name>pine_tree_2</name>
+      <pose>-28 18 0 0 0 1.1</pose>
+    </include>
+
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Pine%20Tree</uri>
+      <name>pine_tree_3</name>
+      <pose>45 -15 0 0 0 2.4</pose>
+    </include>
+
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Pine%20Tree</uri>
+      <name>pine_tree_4</name>
+      <pose>-55 -35 0 0 0 0.7</pose>
+    </include>
+
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Pine%20Tree</uri>
+      <name>pine_tree_5</name>
+      <pose>65 42 0 0 0 1.8</pose>
+    </include>
+
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Pine%20Tree</uri>
+      <name>pine_tree_6</name>
+      <pose>-70 55 0 0 0 0.5</pose>
+    </include>
+
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Pine%20Tree</uri>
+      <name>pine_tree_7</name>
+      <pose>30 -65 0 0 0 2.1</pose>
+    </include>
+
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Pine%20Tree</uri>
+      <name>pine_tree_8</name>
+      <pose>-40 70 0 0 0 0.9</pose>
+    </include>
+
+    <!-- =====================================================
+         MAJENGO YA KWELI (Realistic Buildings with PBR)
+    ====================================================== -->
+
+    <!-- === JENGO 1: Apartment Block Kubwa === -->
+    <model name="apartment_block_A">
+      <static>true</static>
+      <pose>60 35 0 0 0 0.3</pose>
+      <link name="foundation">
+        <collision name="col">
+          <geometry><box><size>22 16 0.4</size></box></geometry>
+        </collision>
+        <visual name="vis">
+          <pose>0 0 0.2 0 0 0</pose>
+          <geometry><box><size>22 16 0.4</size></box></geometry>
+          <material>
+            <ambient>0.3 0.3 0.3 1</ambient>
+            <diffuse>0.35 0.35 0.35 1</diffuse>
+            <pbr><metal><metalness>0.0</metalness><roughness>0.9</roughness></metal></pbr>
+          </material>
+        </visual>
+      </link>
+      <!-- Ghorofa ya 1 -->
+      <link name="floor_1">
+        <collision name="col">
+          <pose>0 0 3 0 0 0</pose>
+          <geometry><box><size>22 16 6</size></box></geometry>
+        </collision>
+        <visual name="vis">
+          <pose>0 0 3 0 0 0</pose>
+          <geometry><box><size>22 16 6</size></box></geometry>
+          <material>
+            <ambient>0.78 0.72 0.62 1</ambient>
+            <diffuse>0.82 0.76 0.66 1</diffuse>
+            <specular>0.08 0.08 0.07 1</specular>
+            <pbr>
+              <metal>
+                <metalness>0.0</metalness>
+                <roughness>0.85</roughness>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+      </link>
+      <!-- Ghorofa ya 2 -->
+      <link name="floor_2">
+        <collision name="col">
+          <pose>0 0 9 0 0 0</pose>
+          <geometry><box><size>22 16 6</size></box></geometry>
+        </collision>
+        <visual name="vis">
+          <pose>0 0 9 0 0 0</pose>
+          <geometry><box><size>22 16 6</size></box></geometry>
+          <material>
+            <ambient>0.74 0.68 0.58 1</ambient>
+            <diffuse>0.78 0.72 0.62 1</diffuse>
+            <specular>0.08 0.08 0.07 1</specular>
+            <pbr>
+              <metal>
+                <metalness>0.0</metalness>
+                <roughness>0.85</roughness>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+      </link>
+      <!-- Ghorofa ya 3 -->
+      <link name="floor_3">
+        <collision name="col">
+          <pose>0 0 15 0 0 0</pose>
+          <geometry><box><size>22 16 6</size></box></geometry>
+        </collision>
+        <visual name="vis">
+          <pose>0 0 15 0 0 0</pose>
+          <geometry><box><size>22 16 6</size></box></geometry>
+          <material>
+            <ambient>0.70 0.64 0.54 1</ambient>
+            <diffuse>0.74 0.68 0.58 1</diffuse>
+            <specular>0.08 0.08 0.07 1</specular>
+            <pbr>
+              <metal>
+                <metalness>0.0</metalness>
+                <roughness>0.85</roughness>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+      </link>
+      <!-- Dari ya juu (rooftop) -->
+      <link name="rooftop">
+        <visual name="vis">
+          <pose>0 0 18.2 0 0 0</pose>
+          <geometry><box><size>22.4 16.4 0.4</size></box></geometry>
+          <material>
+            <ambient>0.35 0.33 0.3 1</ambient>
+            <diffuse>0.4 0.38 0.35 1</diffuse>
+            <pbr><metal><metalness>0.05</metalness><roughness>0.9</roughness></metal></pbr>
+          </material>
+        </visual>
+        <collision name="col">
+          <pose>0 0 18.2 0 0 0</pose>
+          <geometry><box><size>22.4 16.4 0.4</size></box></geometry>
+        </collision>
+      </link>
+      <!-- Madirisha (window frames) - safu ya 1 -->
+      <link name="windows_f1_front">
+        <visual name="vis">
+          <pose>0 8.02 3 0 0 0</pose>
+          <geometry><box><size>18 0.1 4.5</size></box></geometry>
+          <material>
+            <ambient>0.15 0.25 0.45 0.7</ambient>
+            <diffuse>0.2 0.35 0.6 0.7</diffuse>
+            <specular>0.5 0.5 0.5 1</specular>
+            <pbr><metal><metalness>0.0</metalness><roughness>0.05</roughness></metal></pbr>
+          </material>
+        </visual>
+      </link>
+      <!-- Mlango mkuu -->
+      <link name="door_main">
+        <visual name="vis">
+          <pose>0 8.03 1.5 0 0 0</pose>
+          <geometry><box><size>2.2 0.08 3</size></box></geometry>
+          <material>
+            <ambient>0.3 0.2 0.1 1</ambient>
+            <diffuse>0.35 0.25 0.15 1</diffuse>
+            <pbr><metal><metalness>0.1</metalness><roughness>0.6</roughness></metal></pbr>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- === JENGO 2: Industrial Warehouse === -->
+    <model name="warehouse_industrial">
+      <static>true</static>
+      <pose>-65 -25 0 0 0 0</pose>
+      <link name="base">
+        <collision name="col">
+          <geometry><box><size>35 22 0.3</size></box></geometry>
+        </collision>
+        <visual name="vis">
+          <pose>0 0 0.15 0 0 0</pose>
+          <geometry><box><size>35 22 0.3</size></box></geometry>
+          <material>
+            <ambient>0.25 0.25 0.25 1</ambient>
+            <diffuse>0.3 0.3 0.3 1</diffuse>
+          </material>
+        </visual>
+      </link>
+      <link name="walls">
+        <collision name="col">
+          <pose>0 0 5 0 0 0</pose>
+          <geometry><box><size>35 22 10</size></box></geometry>
+        </collision>
+        <visual name="vis">
+          <pose>0 0 5 0 0 0</pose>
+          <geometry><box><size>35 22 10</size></box></geometry>
+          <material>
+            <ambient>0.5 0.5 0.48 1</ambient>
+            <diffuse>0.55 0.55 0.53 1</diffuse>
+            <specular>0.1 0.1 0.1 1</specular>
+            <pbr>
+              <metal>
+                <metalness>0.3</metalness>
+                <roughness>0.7</roughness>
+              </metal>
+            </pbr>
+          </material>
+        </visual>
+      </link>
+      <!-- Paa la arch -->
+      <link name="roof_arch">
+        <collision name="col">
+          <pose>0 0 10.6 0 0 0</pose>
+          <geometry><box><size>35.4 22.4 1.2</size></box></geometry>
+        </collision>
+        <visual name="vis">
+          <pose>0 0 10.6 0 0 0</pose>
+          <geometry><box><size>35.4 22.4 1.2</size></box></geometry>
+          <material>
+            <ambient>0.38 0.35 0.32 1</ambient>
+            <diffuse>0.42 0.39 0.36 1</diffuse>
+            <pbr><metal><metalness>0.5</metalness><roughness>0.6</roughness></metal></pbr>
+          </material>
+        </visual>
+      </link>
+      <!-- Mlango mkubwa wa ghala -->
+      <link name="warehouse_door">
+        <visual name="vis">
+          <pose>0 11.02 4 0 0 0</pose>
+          <geometry><box><size>8 0.1 8</size></box></geometry>
+          <material>
+            <ambient>0.35 0.33 0.3 1</ambient>
+            <diffuse>0.4 0.38 0.35 1</diffuse>
+            <pbr><metal><metalness>0.6</metalness><roughness>0.5</roughness></metal></pbr>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- === JENGO 3: Small House na Veranda === -->
+    <model name="house_veranda">
+      <static>true</static>
+      <pose>-32 55 0 0 0 0.5</pose>
+      <link name="base">
+        <collision name="col">
+          <geometry><box><size>12 9 0.3</size></box></geometry>
+        </collision>
+        <visual name="vis">
+          <pose>0 0 0.15 0 0 0</pose>
+          <geometry><box><size>12 9 0.3</size></box></geometry>
+          <material><ambient>0.3 0.28 0.25 1</ambient><diffuse>0.35 0.32 0.28 1</diffuse></material>
+        </visual>
+      </link>
+      <link name="walls">
+        <collision name="col">
+          <pose>0 0 2.9 0 0 0</pose>
+          <geometry><box><size>12 9 5.5</size></box></geometry>
+        </collision>
+        <visual name="vis">
+          <pose>0 0 2.9 0 0 0</pose>
+          <geometry><box><size>12 9 5.5</size></box></geometry>
+          <material>
+            <ambient>0.88 0.82 0.68 1</ambient>
+            <diffuse>0.92 0.86 0.72 1</diffuse>
+            <specular>0.04 0.04 0.03 1</specular>
+            <pbr><metal><metalness>0.0</metalness><roughness>0.88</roughness></metal></pbr>
+          </material>
+        </visual>
+      </link>
+      <!-- Paa la nyumba (slanted) - approximated with boxes -->
+      <link name="roof_left">
+        <collision name="col">
+          <pose>-3.5 0 6.5 0 0.5 0</pose>
+          <geometry><box><size>7 9.5 0.25</size></box></geometry>
+        </collision>
+        <visual name="vis">
+          <pose>-3.5 0 6.5 0 0.5 0</pose>
+          <geometry><box><size>7 9.5 0.25</size></box></geometry>
+          <material>
+            <ambient>0.52 0.22 0.15 1</ambient>
+            <diffuse>0.58 0.26 0.18 1</diffuse>
+            <pbr><metal><metalness>0.0</metalness><roughness>0.9</roughness></metal></pbr>
+          </material>
+        </visual>
+      </link>
+      <link name="roof_right">
+        <collision name="col">
+          <pose>3.5 0 6.5 0 -0.5 0</pose>
+          <geometry><box><size>7 9.5 0.25</size></box></geometry>
+        </collision>
+        <visual name="vis">
+          <pose>3.5 0 6.5 0 -0.5 0</pose>
+          <geometry><box><size>7 9.5 0.25</size></box></geometry>
+          <material>
+            <ambient>0.52 0.22 0.15 1</ambient>
+            <diffuse>0.58 0.26 0.18 1</diffuse>
+            <pbr><metal><metalness>0.0</metalness><roughness>0.9</roughness></metal></pbr>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- =====================================================
+         MINARA YA KWELI (Realistic Towers)
+    ====================================================== -->
+
+    <!-- === MNARA WA MAWASILIANO (Cell Tower) === -->
+    <model name="cell_tower_main">
+      <static>true</static>
+      <pose>35 -75 0 0 0 0</pose>
+      <link name="base_platform">
+        <collision name="col">
+          <pose>0 0 0.3 0 0 0</pose>
+          <geometry><box><size>4 4 0.6</size></box></geometry>
+        </collision>
+        <visual name="vis">
+          <pose>0 0 0.3 0 0 0</pose>
+          <geometry><box><size>4 4 0.6</size></box></geometry>
+          <material>
+            <ambient>0.35 0.35 0.35 1</ambient>
+            <diffuse>0.4 0.4 0.4 1</diffuse>
+            <pbr><metal><metalness>0.3</metalness><roughness>0.7</roughness></metal></pbr>
+          </material>
+        </visual>
+      </link>
+      <!-- Nguzo kuu -->
+      <link name="main_pole">
+        <collision name="col">
+          <pose>0 0 20 0 0 0</pose>
+          <geometry><cylinder><radius>0.35</radius><length>40</length></cylinder></geometry>
+        </collision>
+        <visual name="vis">
+          <pose>0 0 20 0 0 0</pose>
+          <geometry><cylinder><radius>0.35</radius><length>40</length></cylinder></geometry>
+          <material>
+            <ambient>0.6 0.6 0.6 1</ambient>
+            <diffuse>0.65 0.65 0.65 1</diffuse>
+            <specular>0.3 0.3 0.3 1</specular>
+            <pbr><metal><metalness>0.7</metalness><roughness>0.3</roughness></metal></pbr>
+          </material>
+        </visual>
+      </link>
+      <!-- Antenna panel 1 -->
+      <link name="antenna_1">
+        <collision name="col">
+          <pose>0.6 0 38 0 0 0</pose>
+          <geometry><box><size>0.15 0.3 2.5</size></box></geometry>
+        </collision>
+        <visual name="vis">
+          <pose>0.6 0 38 0 0 0</pose>
+          <geometry><box><size>0.15 0.3 2.5</size></box></geometry>
+          <material>
+            <ambient>0.55 0.55 0.55 1</ambient>
+            <diffuse>0.6 0.6 0.6 1</diffuse>
+            <pbr><metal><metalness>0.6</metalness><roughness>0.4</roughness></metal></pbr>
+          </material>
+        </visual>
+      </link>
+      <link name="antenna_2">
+        <collision name="col">
+          <pose>-0.3 0.52 38 0 0 2.094</pose>
+          <geometry><box><size>0.15 0.3 2.5</size></box></geometry>
+        </collision>
+        <visual name="vis">
+          <pose>-0.3 0.52 38 0 0 2.094</pose>
+          <geometry><box><size>0.15 0.3 2.5</size></box></geometry>
+          <material>
+            <ambient>0.55 0.55 0.55 1</ambient>
+            <diffuse>0.6 0.6 0.6 1</diffuse>
+            <pbr><metal><metalness>0.6</metalness><roughness>0.4</roughness></metal></pbr>
+          </material>
+        </visual>
+      </link>
+      <link name="antenna_3">
+        <collision name="col">
+          <pose>-0.3 -0.52 38 0 0 -2.094</pose>
+          <geometry><box><size>0.15 0.3 2.5</size></box></geometry>
+        </collision>
+        <visual name="vis">
+          <pose>-0.3 -0.52 38 0 0 -2.094</pose>
+          <geometry><box><size>0.15 0.3 2.5</size></box></geometry>
+          <material>
+            <ambient>0.55 0.55 0.55 1</ambient>
+            <diffuse>0.6 0.6 0.6 1</diffuse>
+            <pbr><metal><metalness>0.6</metalness><roughness>0.4</roughness></metal></pbr>
+          </material>
+        </visual>
+      </link>
+      <!-- Taa ya juu (red warning light) -->
+      <link name="warning_light">
+        <visual name="vis">
+          <pose>0 0 41.2 0 0 0</pose>
+          <geometry><sphere><radius>0.15</radius></sphere></geometry>
+          <material>
+            <ambient>1.0 0.1 0.1 1</ambient>
+            <diffuse>1.0 0.1 0.1 1</diffuse>
+            <emissive>0.8 0.0 0.0 1</emissive>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- === MNARA WA ULINZI (Watch Tower) === -->
+    <model name="watch_tower">
+      <static>true</static>
+      <pose>-55 -65 0 0 0 0</pose>
+      <!-- Miguu 4 -->
+      <link name="leg_NE">
+        <collision name="col"><pose>1.8 1.8 9 0 0 0</pose><geometry><cylinder><radius>0.18</radius><length>18</length></cylinder></geometry></collision>
+        <visual name="vis"><pose>1.8 1.8 9 0 0 0</pose><geometry><cylinder><radius>0.18</radius><length>18</length></cylinder></geometry>
+          <material><ambient>0.42 0.35 0.25 1</ambient><diffuse>0.48 0.4 0.3 1</diffuse><pbr><metal><metalness>0.1</metalness><roughness>0.8</roughness></metal></pbr></material>
+        </visual>
+      </link>
+      <link name="leg_NW">
+        <collision name="col"><pose>-1.8 1.8 9 0 0 0</pose><geometry><cylinder><radius>0.18</radius><length>18</length></cylinder></geometry></collision>
+        <visual name="vis"><pose>-1.8 1.8 9 0 0 0</pose><geometry><cylinder><radius>0.18</radius><length>18</length></cylinder></geometry>
+          <material><ambient>0.42 0.35 0.25 1</ambient><diffuse>0.48 0.4 0.3 1</diffuse><pbr><metal><metalness>0.1</metalness><roughness>0.8</roughness></metal></pbr></material>
+        </visual>
+      </link>
+      <link name="leg_SE">
+        <collision name="col"><pose>1.8 -1.8 9 0 0 0</pose><geometry><cylinder><radius>0.18</radius><length>18</length></cylinder></geometry></collision>
+        <visual name="vis"><pose>1.8 -1.8 9 0 0 0</pose><geometry><cylinder><radius>0.18</radius><length>18</length></cylinder></geometry>
+          <material><ambient>0.42 0.35 0.25 1</ambient><diffuse>0.48 0.4 0.3 1</diffuse><pbr><metal><metalness>0.1</metalness><roughness>0.8</roughness></metal></pbr></material>
+        </visual>
+      </link>
+      <link name="leg_SW">
+        <collision name="col"><pose>-1.8 -1.8 9 0 0 0</pose><geometry><cylinder><radius>0.18</radius><length>18</length></cylinder></geometry></collision>
+        <visual name="vis"><pose>-1.8 -1.8 9 0 0 0</pose><geometry><cylinder><radius>0.18</radius><length>18</length></cylinder></geometry>
+          <material><ambient>0.42 0.35 0.25 1</ambient><diffuse>0.48 0.4 0.3 1</diffuse><pbr><metal><metalness>0.1</metalness><roughness>0.8</roughness></metal></pbr></material>
+        </visual>
+      </link>
+      <!-- Nguzo za kati (cross braces) -->
+      <link name="brace_1">
+        <visual name="vis"><pose>0 0 6 0 0 0.785</pose><geometry><box><size>5.1 0.12 0.12</size></box></geometry>
+          <material><ambient>0.38 0.3 0.22 1</ambient><diffuse>0.42 0.34 0.26 1</diffuse></material>
+        </visual>
+      </link>
+      <link name="brace_2">
+        <visual name="vis"><pose>0 0 12 0 0 0.785</pose><geometry><box><size>5.1 0.12 0.12</size></box></geometry>
+          <material><ambient>0.38 0.3 0.22 1</ambient><diffuse>0.42 0.34 0.26 1</diffuse></material>
+        </visual>
+      </link>
+      <!-- Platform -->
+      <link name="platform">
+        <collision name="col"><pose>0 0 18.2 0 0 0</pose><geometry><box><size>6 6 0.3</size></box></geometry></collision>
+        <visual name="vis"><pose>0 0 18.2 0 0 0</pose><geometry><box><size>6 6 0.3</size></box></geometry>
+          <material><ambient>0.38 0.3 0.22 1</ambient><diffuse>0.42 0.34 0.26 1</diffuse><pbr><metal><metalness>0.1</metalness><roughness>0.8</roughness></metal></pbr></material>
+        </visual>
+      </link>
+      <!-- Cabin ya ulinzi -->
+      <link name="cabin">
+        <collision name="col"><pose>0 0 21 0 0 0</pose><geometry><box><size>4.5 4.5 5</size></box></geometry></collision>
+        <visual name="vis"><pose>0 0 21 0 0 0</pose><geometry><box><size>4.5 4.5 5</size></box></geometry>
+          <material><ambient>0.45 0.38 0.28 1</ambient><diffuse>0.5 0.42 0.32 1</diffuse><pbr><metal><metalness>0.05</metalness><roughness>0.85</roughness></metal></pbr></material>
+        </visual>
+      </link>
+      <!-- Dirisha la cabin -->
+      <link name="cabin_window">
+        <visual name="vis"><pose>0 2.26 21.5 0 0 0</pose><geometry><box><size>2.5 0.05 1.8</size></box></geometry>
+          <material><ambient>0.15 0.3 0.5 0.6</ambient><diffuse>0.2 0.4 0.65 0.6</diffuse><specular>0.6 0.6 0.6 1</specular><pbr><metal><metalness>0.0</metalness><roughness>0.05</roughness></metal></pbr></material>
+        </visual>
+      </link>
+      <!-- Paa la cabin -->
+      <link name="cabin_roof">
+        <collision name="col"><pose>0 0 23.7 0 0 0</pose><geometry><box><size>5.2 5.2 0.3</size></box></geometry></collision>
+        <visual name="vis"><pose>0 0 23.7 0 0 0</pose><geometry><box><size>5.2 5.2 0.3</size></box></geometry>
+          <material><ambient>0.28 0.22 0.16 1</ambient><diffuse>0.32 0.26 0.2 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- =====================================================
+         NGUZO ZA UMEME (Realistic Power Poles + Wires)
+    ====================================================== -->
+
+    <!-- Nguzo 1 -->
+    <model name="ppole_1">
+      <static>true</static>
+      <pose>-30 4.5 0 0 0 0</pose>
+      <link name="pole">
+        <collision name="col"><pose>0 0 5.5 0 0 0</pose><geometry><cylinder><radius>0.13</radius><length>11</length></cylinder></geometry></collision>
+        <visual name="vis"><pose>0 0 5.5 0 0 0</pose><geometry><cylinder><radius>0.13</radius><length>11</length></cylinder></geometry>
+          <material><ambient>0.42 0.32 0.2 1</ambient><diffuse>0.48 0.36 0.24 1</diffuse><pbr><metal><metalness>0.05</metalness><roughness>0.9</roughness></metal></pbr></material>
+        </visual>
+      </link>
+      <link name="crossarm">
+        <collision name="col"><pose>0 0 10.2 0 1.5708 0</pose><geometry><box><size>0.1 4.5 0.12</size></box></geometry></collision>
+        <visual name="vis"><pose>0 0 10.2 0 1.5708 0</pose><geometry><box><size>0.1 4.5 0.12</size></box></geometry>
+          <material><ambient>0.42 0.32 0.2 1</ambient><diffuse>0.48 0.36 0.24 1</diffuse></material>
+        </visual>
+      </link>
+      <link name="ins_L"><visual name="vis"><pose>-2.2 0 10.0 0 0 0</pose><geometry><cylinder><radius>0.1</radius><length>0.25</length></cylinder></geometry><material><ambient>0.85 0.85 0.82 1</ambient><diffuse>0.9 0.9 0.88 1</diffuse></material></visual></link>
+      <link name="ins_R"><visual name="vis"><pose>2.2 0 10.0 0 0 0</pose><geometry><cylinder><radius>0.1</radius><length>0.25</length></cylinder></geometry><material><ambient>0.85 0.85 0.82 1</ambient><diffuse>0.9 0.9 0.88 1</diffuse></material></visual></link>
+    </model>
+
+    <!-- Nguzo 2 -->
+    <model name="ppole_2">
+      <static>true</static>
+      <pose>-10 4.5 0 0 0 0</pose>
+      <link name="pole">
+        <collision name="col"><pose>0 0 5.5 0 0 0</pose><geometry><cylinder><radius>0.13</radius><length>11</length></cylinder></geometry></collision>
+        <visual name="vis"><pose>0 0 5.5 0 0 0</pose><geometry><cylinder><radius>0.13</radius><length>11</length></cylinder></geometry>
+          <material><ambient>0.42 0.32 0.2 1</ambient><diffuse>0.48 0.36 0.24 1</diffuse><pbr><metal><metalness>0.05</metalness><roughness>0.9</roughness></metal></pbr></material>
+        </visual>
+      </link>
+      <link name="crossarm">
+        <collision name="col"><pose>0 0 10.2 0 1.5708 0</pose><geometry><box><size>0.1 4.5 0.12</size></box></geometry></collision>
+        <visual name="vis"><pose>0 0 10.2 0 1.5708 0</pose><geometry><box><size>0.1 4.5 0.12</size></box></geometry>
+          <material><ambient>0.42 0.32 0.2 1</ambient><diffuse>0.48 0.36 0.24 1</diffuse></material>
+        </visual>
+      </link>
+      <link name="ins_L"><visual name="vis"><pose>-2.2 0 10.0 0 0 0</pose><geometry><cylinder><radius>0.1</radius><length>0.25</length></cylinder></geometry><material><ambient>0.85 0.85 0.82 1</ambient><diffuse>0.9 0.9 0.88 1</diffuse></material></visual></link>
+      <link name="ins_R"><visual name="vis"><pose>2.2 0 10.0 0 0 0</pose><geometry><cylinder><radius>0.1</radius><length>0.25</length></cylinder></geometry><material><ambient>0.85 0.85 0.82 1</ambient><diffuse>0.9 0.9 0.88 1</diffuse></material></visual></link>
+    </model>
+
+    <!-- Nguzo 3 -->
+    <model name="ppole_3">
+      <static>true</static>
+      <pose>10 4.5 0 0 0 0</pose>
+      <link name="pole">
+        <collision name="col"><pose>0 0 5.5 0 0 0</pose><geometry><cylinder><radius>0.13</radius><length>11</length></cylinder></geometry></collision>
+        <visual name="vis"><pose>0 0 5.5 0 0 0</pose><geometry><cylinder><radius>0.13</radius><length>11</length></cylinder></geometry>
+          <material><ambient>0.42 0.32 0.2 1</ambient><diffuse>0.48 0.36 0.24 1</diffuse><pbr><metal><metalness>0.05</metalness><roughness>0.9</roughness></metal></pbr></material>
+        </visual>
+      </link>
+      <link name="crossarm">
+        <collision name="col"><pose>0 0 10.2 0 1.5708 0</pose><geometry><box><size>0.1 4.5 0.12</size></box></geometry></collision>
+        <visual name="vis"><pose>0 0 10.2 0 1.5708 0</pose><geometry><box><size>0.1 4.5 0.12</size></box></geometry>
+          <material><ambient>0.42 0.32 0.2 1</ambient><diffuse>0.48 0.36 0.24 1</diffuse></material>
+        </visual>
+      </link>
+      <link name="ins_L"><visual name="vis"><pose>-2.2 0 10.0 0 0 0</pose><geometry><cylinder><radius>0.1</radius><length>0.25</length></cylinder></geometry><material><ambient>0.85 0.85 0.82 1</ambient><diffuse>0.9 0.9 0.88 1</diffuse></material></visual></link>
+      <link name="ins_R"><visual name="vis"><pose>2.2 0 10.0 0 0 0</pose><geometry><cylinder><radius>0.1</radius><length>0.25</length></cylinder></geometry><material><ambient>0.85 0.85 0.82 1</ambient><diffuse>0.9 0.9 0.88 1</diffuse></material></visual></link>
+    </model>
+
+    <!-- Nguzo 4 -->
+    <model name="ppole_4">
+      <static>true</static>
+      <pose>30 4.5 0 0 0 0</pose>
+      <link name="pole">
+        <collision name="col"><pose>0 0 5.5 0 0 0</pose><geometry><cylinder><radius>0.13</radius><length>11</length></cylinder></geometry></collision>
+        <visual name="vis"><pose>0 0 5.5 0 0 0</pose><geometry><cylinder><radius>0.13</radius><length>11</length></cylinder></geometry>
+          <material><ambient>0.42 0.32 0.2 1</ambient><diffuse>0.48 0.36 0.24 1</diffuse><pbr><metal><metalness>0.05</metalness><roughness>0.9</roughness></metal></pbr></material>
+        </visual>
+      </link>
+      <link name="crossarm">
+        <collision name="col"><pose>0 0 10.2 0 1.5708 0</pose><geometry><box><size>0.1 4.5 0.12</size></box></geometry></collision>
+        <visual name="vis"><pose>0 0 10.2 0 1.5708 0</pose><geometry><box><size>0.1 4.5 0.12</size></box></geometry>
+          <material><ambient>0.42 0.32 0.2 1</ambient><diffuse>0.48 0.36 0.24 1</diffuse></material>
+        </visual>
+      </link>
+      <link name="ins_L"><visual name="vis"><pose>-2.2 0 10.0 0 0 0</pose><geometry><cylinder><radius>0.1</radius><length>0.25</length></cylinder></geometry><material><ambient>0.85 0.85 0.82 1</ambient><diffuse>0.9 0.9 0.88 1</diffuse></material></visual></link>
+      <link name="ins_R"><visual name="vis"><pose>2.2 0 10.0 0 0 0</pose><geometry><cylinder><radius>0.1</radius><length>0.25</length></cylinder></geometry><material><ambient>0.85 0.85 0.82 1</ambient><diffuse>0.9 0.9 0.88 1</diffuse></material></visual></link>
+    </model>
+
+    <!-- Nyaya za umeme (Power wires - cables) -->
+    <model name="wire_L_1_2">
+      <static>true</static>
+      <pose>-20 2.3 9.85 0 0 0</pose>
+      <link name="l">
+        <visual name="vis">
+          <geometry><cylinder><radius>0.025</radius><length>20</length></cylinder></geometry>
+          <material><ambient>0.12 0.12 0.12 1</ambient><diffuse>0.15 0.15 0.15 1</diffuse><pbr><metal><metalness>0.8</metalness><roughness>0.4</roughness></metal></pbr></material>
+        </visual>
+      </link>
+    </model>
+    <model name="wire_R_1_2">
+      <static>true</static>
+      <pose>-20 6.7 9.85 0 0 0</pose>
+      <link name="l">
+        <visual name="vis">
+          <geometry><cylinder><radius>0.025</radius><length>20</length></cylinder></geometry>
+          <material><ambient>0.12 0.12 0.12 1</ambient><diffuse>0.15 0.15 0.15 1</diffuse><pbr><metal><metalness>0.8</metalness><roughness>0.4</roughness></metal></pbr></material>
+        </visual>
+      </link>
+    </model>
+    <model name="wire_L_2_3">
+      <static>true</static>
+      <pose>0 2.3 9.85 0 0 0</pose>
+      <link name="l">
+        <visual name="vis">
+          <geometry><cylinder><radius>0.025</radius><length>20</length></cylinder></geometry>
+          <material><ambient>0.12 0.12 0.12 1</ambient><diffuse>0.15 0.15 0.15 1</diffuse><pbr><metal><metalness>0.8</metalness><roughness>0.4</roughness></metal></pbr></material>
+        </visual>
+      </link>
+    </model>
+    <model name="wire_R_2_3">
+      <static>true</static>
+      <pose>0 6.7 9.85 0 0 0</pose>
+      <link name="l">
+        <visual name="vis">
+          <geometry><cylinder><radius>0.025</radius><length>20</length></cylinder></geometry>
+          <material><ambient>0.12 0.12 0.12 1</ambient><diffuse>0.15 0.15 0.15 1</diffuse><pbr><metal><metalness>0.8</metalness><roughness>0.4</roughness></metal></pbr></material>
+        </visual>
+      </link>
+    </model>
+    <model name="wire_L_3_4">
+      <static>true</static>
+      <pose>20 2.3 9.85 0 0 0</pose>
+      <link name="l">
+        <visual name="vis">
+          <geometry><cylinder><radius>0.025</radius><length>20</length></cylinder></geometry>
+          <material><ambient>0.12 0.12 0.12 1</ambient><diffuse>0.15 0.15 0.15 1</diffuse><pbr><metal><metalness>0.8</metalness><roughness>0.4</roughness></metal></pbr></material>
+        </visual>
+      </link>
+    </model>
+    <model name="wire_R_3_4">
+      <static>true</static>
+      <pose>20 6.7 9.85 0 0 0</pose>
+      <link name="l">
+        <visual name="vis">
+          <geometry><cylinder><radius>0.025</radius><length>20</length></cylinder></geometry>
+          <material><ambient>0.12 0.12 0.12 1</ambient><diffuse>0.15 0.15 0.15 1</diffuse><pbr><metal><metalness>0.8</metalness><roughness>0.4</roughness></metal></pbr></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- =====================================================
+         MAGARI YA KWELI (Realistic Vehicles)
+    ====================================================== -->
+
+    <!-- Pickup Truck -->
+    <model name="pickup_truck">
+      <static>true</static>
+      <pose>42 -10 0.48 0 0 0.25</pose>
+      <!-- Body -->
+      <link name="body">
+        <collision name="col"><pose>0 0 0.72 0 0 0</pose><geometry><box><size>4.8 2.0 1.0</size></box></geometry></collision>
+        <visual name="vis"><pose>0 0 0.72 0 0 0</pose><geometry><box><size>4.8 2.0 1.0</size></box></geometry>
+          <material><ambient>0.22 0.32 0.18 1</ambient><diffuse>0.28 0.4 0.22 1</diffuse><specular>0.2 0.2 0.2 1</specular><pbr><metal><metalness>0.3</metalness><roughness>0.5</roughness></metal></pbr></material>
+        </visual>
+      </link>
+      <!-- Cabin -->
+      <link name="cabin">
+        <collision name="col"><pose>0.4 0 1.58 0 0 0</pose><geometry><box><size>2.4 1.85 0.95</size></box></geometry></collision>
+        <visual name="vis"><pose>0.4 0 1.58 0 0 0</pose><geometry><box><size>2.4 1.85 0.95</size></box></geometry>
+          <material><ambient>0.22 0.32 0.18 1</ambient><diffuse>0.28 0.4 0.22 1</diffuse><specular>0.2 0.2 0.2 1</specular><pbr><metal><metalness>0.3</metalness><roughness>0.5</roughness></metal></pbr></material>
+        </visual>
+      </link>
+      <!-- Windshield -->
+      <link name="windshield">
+        <visual name="vis"><pose>1.55 0 1.62 0 -0.3 0</pose><geometry><box><size>0.05 1.7 0.8</size></box></geometry>
+          <material><ambient>0.3 0.45 0.6 0.5</ambient><diffuse>0.35 0.5 0.65 0.5</diffuse><specular>0.7 0.7 0.7 1</specular><pbr><metal><metalness>0.0</metalness><roughness>0.05</roughness></metal></pbr></material>
+        </visual>
+      </link>
+      <!-- Wheels (4) -->
+      <link name="wheel_FL"><visual name="vis"><pose>1.5 1.1 0.38 1.5708 0 0</pose><geometry><cylinder><radius>0.38</radius><length>0.22</length></cylinder></geometry><material><ambient>0.12 0.12 0.12 1</ambient><diffuse>0.15 0.15 0.15 1</diffuse><pbr><metal><metalness>0.05</metalness><roughness>0.95</roughness></metal></pbr></material></visual></link>
+      <link name="wheel_FR"><visual name="vis"><pose>1.5 -1.1 0.38 1.5708 0 0</pose><geometry><cylinder><radius>0.38</radius><length>0.22</length></cylinder></geometry><material><ambient>0.12 0.12 0.12 1</ambient><diffuse>0.15 0.15 0.15 1</diffuse><pbr><metal><metalness>0.05</metalness><roughness>0.95</roughness></metal></pbr></material></visual></link>
+      <link name="wheel_RL"><visual name="vis"><pose>-1.5 1.1 0.38 1.5708 0 0</pose><geometry><cylinder><radius>0.38</radius><length>0.22</length></cylinder></geometry><material><ambient>0.12 0.12 0.12 1</ambient><diffuse>0.15 0.15 0.15 1</diffuse><pbr><metal><metalness>0.05</metalness><roughness>0.95</roughness></metal></pbr></material></visual></link>
+      <link name="wheel_RR"><visual name="vis"><pose>-1.5 -1.1 0.38 1.5708 0 0</pose><geometry><cylinder><radius>0.38</radius><length>0.22</length></cylinder></geometry><material><ambient>0.12 0.12 0.12 1</ambient><diffuse>0.15 0.15 0.15 1</diffuse><pbr><metal><metalness>0.05</metalness><roughness>0.95</roughness></metal></pbr></material></visual></link>
+    </model>
+
+    <!-- Sedan Nyekundu -->
+    <model name="sedan_red">
+      <static>true</static>
+      <pose>-18 -10 0.38 0 0 3.14</pose>
+      <link name="body"><collision name="col"><pose>0 0 0.55 0 0 0</pose><geometry><box><size>4.2 1.8 0.85</size></box></geometry></collision><visual name="vis"><pose>0 0 0.55 0 0 0</pose><geometry><box><size>4.2 1.8 0.85</size></box></geometry><material><ambient>0.7 0.08 0.06 1</ambient><diffuse>0.8 0.1 0.08 1</diffuse><specular>0.5 0.5 0.5 1</specular><pbr><metal><metalness>0.4</metalness><roughness>0.3</roughness></metal></pbr></material></visual></link>
+      <link name="cabin"><collision name="col"><pose>-0.2 0 1.3 0 0 0</pose><geometry><box><size>2.0 1.6 0.75</size></box></geometry></collision><visual name="vis"><pose>-0.2 0 1.3 0 0 0</pose><geometry><box><size>2.0 1.6 0.75</size></box></geometry><material><ambient>0.65 0.07 0.05 1</ambient><diffuse>0.75 0.09 0.07 1</diffuse><specular>0.5 0.5 0.5 1</specular><pbr><metal><metalness>0.4</metalness><roughness>0.3</roughness></metal></pbr></material></visual></link>
+      <link name="wFL"><visual name="vis"><pose>1.2 1.0 0.32 1.5708 0 0</pose><geometry><cylinder><radius>0.32</radius><length>0.2</length></cylinder></geometry><material><ambient>0.1 0.1 0.1 1</ambient><diffuse>0.12 0.12 0.12 1</diffuse></material></visual></link>
+      <link name="wFR"><visual name="vis"><pose>1.2 -1.0 0.32 1.5708 0 0</pose><geometry><cylinder><radius>0.32</radius><length>0.2</length></cylinder></geometry><material><ambient>0.1 0.1 0.1 1</ambient><diffuse>0.12 0.12 0.12 1</diffuse></material></visual></link>
+      <link name="wRL"><visual name="vis"><pose>-1.2 1.0 0.32 1.5708 0 0</pose><geometry><cylinder><radius>0.32</radius><length>0.2</length></cylinder></geometry><material><ambient>0.1 0.1 0.1 1</ambient><diffuse>0.12 0.12 0.12 1</diffuse></material></visual></link>
+      <link name="wRR"><visual name="vis"><pose>-1.2 -1.0 0.32 1.5708 0 0</pose><geometry><cylinder><radius>0.32</radius><length>0.2</length></cylinder></geometry><material><ambient>0.1 0.1 0.1 1</ambient><diffuse>0.12 0.12 0.12 1</diffuse></material></visual></link>
+    </model>
+
+    <!-- =====================================================
+         UZIO WA CHUMA (Metal Chain-link Fence)
+    ====================================================== -->
+    <model name="compound_fence">
+      <static>true</static>
+      <pose>60 15 0 0 0 0</pose>
+      <!-- Posts -->
+      <link name="post_1"><visual name="vis"><pose>0 0 1.0 0 0 0</pose><geometry><cylinder><radius>0.06</radius><length>2.0</length></cylinder></geometry><material><ambient>0.5 0.5 0.5 1</ambient><diffuse>0.55 0.55 0.55 1</diffuse><pbr><metal><metalness>0.8</metalness><roughness>0.4</roughness></metal></pbr></material></visual><collision name="col"><pose>0 0 1.0 0 0 0</pose><geometry><cylinder><radius>0.06</radius><length>2.0</length></cylinder></geometry></collision></link>
+      <link name="post_2"><visual name="vis"><pose>3 0 1.0 0 0 0</pose><geometry><cylinder><radius>0.06</radius><length>2.0</length></cylinder></geometry><material><ambient>0.5 0.5 0.5 1</ambient><diffuse>0.55 0.55 0.55 1</diffuse><pbr><metal><metalness>0.8</metalness><roughness>0.4</roughness></metal></pbr></material></visual><collision name="col"><pose>3 0 1.0 0 0 0</pose><geometry><cylinder><radius>0.06</radius><length>2.0</length></cylinder></geometry></collision></link>
+      <link name="post_3"><visual name="vis"><pose>6 0 1.0 0 0 0</pose><geometry><cylinder><radius>0.06</radius><length>2.0</length></cylinder></geometry><material><ambient>0.5 0.5 0.5 1</ambient><diffuse>0.55 0.55 0.55 1</diffuse><pbr><metal><metalness>0.8</metalness><roughness>0.4</roughness></metal></pbr></material></visual><collision name="col"><pose>6 0 1.0 0 0 0</pose><geometry><cylinder><radius>0.06</radius><length>2.0</length></cylinder></geometry></collision></link>
+      <link name="post_4"><visual name="vis"><pose>9 0 1.0 0 0 0</pose><geometry><cylinder><radius>0.06</radius><length>2.0</length></cylinder></geometry><material><ambient>0.5 0.5 0.5 1</ambient><diffuse>0.55 0.55 0.55 1</diffuse><pbr><metal><metalness>0.8</metalness><roughness>0.4</roughness></metal></pbr></material></visual><collision name="col"><pose>9 0 1.0 0 0 0</pose><geometry><cylinder><radius>0.06</radius><length>2.0</length></cylinder></geometry></collision></link>
+      <!-- Rails -->
+      <link name="rail_top"><visual name="vis"><pose>4.5 0 1.92 0 0 0</pose><geometry><box><size>9.3 0.05 0.06</size></box></geometry><material><ambient>0.5 0.5 0.5 1</ambient><diffuse>0.55 0.55 0.55 1</diffuse><pbr><metal><metalness>0.8</metalness><roughness>0.4</roughness></metal></pbr></material></visual></link>
+      <link name="rail_mid"><visual name="vis"><pose>4.5 0 1.0 0 0 0</pose><geometry><box><size>9.3 0.05 0.06</size></box></geometry><material><ambient>0.5 0.5 0.5 1</ambient><diffuse>0.55 0.55 0.55 1</diffuse><pbr><metal><metalness>0.8</metalness><roughness>0.4</roughness></metal></pbr></material></visual></link>
+      <link name="rail_bot"><visual name="vis"><pose>4.5 0 0.12 0 0 0</pose><geometry><box><size>9.3 0.05 0.06</size></box></geometry><material><ambient>0.5 0.5 0.5 1</ambient><diffuse>0.55 0.55 0.55 1</diffuse><pbr><metal><metalness>0.8</metalness><roughness>0.4</roughness></metal></pbr></material></visual></link>
+      <!-- Mesh panel (approximated) -->
+      <link name="mesh_panel"><collision name="col"><pose>4.5 0 0.95 0 0 0</pose><geometry><box><size>9.2 0.04 1.8</size></box></geometry></collision><visual name="vis"><pose>4.5 0 0.95 0 0 0</pose><geometry><box><size>9.2 0.04 1.8</size></box></geometry><material><ambient>0.55 0.55 0.5 0.6</ambient><diffuse>0.6 0.6 0.55 0.6</diffuse><pbr><metal><metalness>0.7</metalness><roughness>0.5</roughness></metal></pbr></material></visual></link>
+    </model>
+
+    <!-- =====================================================
+         MIAMBA YA KWELI (Realistic Boulders)
+    ====================================================== -->
+    <model name="boulder_1">
+      <static>true</static>
+      <pose>28 -28 0 0 0 0.8</pose>
+      <link name="l">
+        <collision name="col"><geometry><sphere><radius>1.4</radius></sphere></geometry></collision>
+        <visual name="vis"><geometry><sphere><radius>1.4</radius></sphere></geometry>
+          <material><ambient>0.42 0.40 0.36 1</ambient><diffuse>0.48 0.46 0.42 1</diffuse><specular>0.08 0.08 0.07 1</specular><pbr><metal><metalness>0.02</metalness><roughness>0.95</roughness></metal></pbr></material>
+        </visual>
+      </link>
+    </model>
+    <model name="boulder_2">
+      <static>true</static>
+      <pose>-38 42 0.2 0.15 0.1 1.4</pose>
+      <link name="l">
+        <collision name="col"><geometry><sphere><radius>0.95</radius></sphere></geometry></collision>
+        <visual name="vis"><geometry><sphere><radius>0.95</radius></sphere></geometry>
+          <material><ambient>0.45 0.43 0.39 1</ambient><diffuse>0.5 0.48 0.44 1</diffuse><pbr><metal><metalness>0.02</metalness><roughness>0.95</roughness></metal></pbr></material>
+        </visual>
+      </link>
+    </model>
+    <model name="boulder_3">
+      <static>true</static>
+      <pose>75 22 0 0 0 2.2</pose>
+      <link name="l">
+        <collision name="col"><geometry><sphere><radius>1.8</radius></sphere></geometry></collision>
+        <visual name="vis"><geometry><sphere><radius>1.8</radius></sphere></geometry>
+          <material><ambient>0.40 0.38 0.34 1</ambient><diffuse>0.46 0.44 0.4 1</diffuse><pbr><metal><metalness>0.02</metalness><roughness>0.95</roughness></metal></pbr></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- =====================================================
+         VIZUIZI VYA BARABARA (Road Barriers / Jersey barriers)
+    ====================================================== -->
+    <model name="barrier_1">
+      <static>true</static>
+      <pose>-15 5.5 0.4 0 0 0</pose>
+      <link name="l">
+        <collision name="col"><geometry><box><size>2.4 0.6 0.8</size></box></geometry></collision>
+        <visual name="vis"><pose>0 0 0 0 0 0</pose><geometry><box><size>2.4 0.6 0.8</size></box></geometry>
+          <material><ambient>0.82 0.82 0.82 1</ambient><diffuse>0.88 0.88 0.88 1</diffuse><pbr><metal><metalness>0.0</metalness><roughness>0.85</roughness></metal></pbr></material>
+        </visual>
+      </link>
+    </model>
+    <model name="barrier_2">
+      <static>true</static>
+      <pose>-12.5 5.5 0.4 0 0 0</pose>
+      <link name="l">
+        <collision name="col"><geometry><box><size>2.4 0.6 0.8</size></box></geometry></collision>
+        <visual name="vis"><geometry><box><size>2.4 0.6 0.8</size></box></geometry>
+          <material><ambient>0.82 0.82 0.82 1</ambient><diffuse>0.88 0.88 0.88 1</diffuse><pbr><metal><metalness>0.0</metalness><roughness>0.85</roughness></metal></pbr></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- =====================================================
+         DRONE SPAWN POINT (Eneo salama la kuanzishia)
+    ====================================================== -->
+    <model name="spawn_pad">
+      <static>true</static>
+      <pose>0 0 0.01 0 0 0</pose>
+      <link name="link">
+        <visual name="vis">
+          <geometry><cylinder><radius>1.5</radius><length>0.02</length></cylinder></geometry>
+          <material>
+            <ambient>0.9 0.7 0.0 0.9</ambient>
+            <diffuse>1.0 0.8 0.0 0.9</diffuse>
+            <emissive>0.3 0.25 0.0 1</emissive>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- =====================================================
+         GUI / CAMERA SETTINGS
+    ====================================================== -->
+    <gui fullscreen="0">
+      <plugin filename="GzScene3D" name="3D View">
+        <gz-gui>
+          <title>3D View</title>
+          <property type="bool" key="showTitleBar">false</property>
+          <property type="string" key="state">docked</property>
+        </gz-gui>
+        <engine>ogre2</engine>
+        <scene>scene</scene>
+        <ambient_light>0.3 0.32 0.35</ambient_light>
+        <background_color>0.53 0.75 0.92</background_color>
+        <camera_pose>-10 -30 25 0 0.6 0.8</camera_pose>
+        <camera_clip>
+          <near>0.25</near>
+          <far>2000</far>
+        </camera_clip>
+      </plugin>
+    </gui>
+
+  </world>
+</sdf>

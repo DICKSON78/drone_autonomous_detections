@@ -11,11 +11,11 @@ datasources:
     database: drone-telemetry
     user: admin
     password: admin123
-    isDefault: true
+    isDefault: false
     jsonData:
       version: Flux
-      organization: drone-org
-      defaultBucket: drone-telemetry
+      organization: drone-project
+      defaultBucket: drone_telemetry
       httpMode: POST
     secureJsonData: {}
     editable: true
