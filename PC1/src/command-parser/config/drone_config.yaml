@@ -1,0 +1,51 @@
+# Drone System Configuration
+
+drone:
+  model: "gz_x500"
+  simulator: "gz"
+  home_location:
+    lat: -6.1630
+    lon: 35.7516
+    alt: 1120
+
+flight:
+  default_altitude: 10.0        # meters
+  max_altitude: 120.0           # meters
+  default_speed: 5.0            # m/s
+  max_speed: 15.0               # m/s
+  takeoff_altitude: 10.0        # meters
+  landing_radius: 0.5           # meters (acceptance radius)
+  rtl_altitude: 30.0            # meters
+
+safety:
+  geofence_radius: 500          # meters from home
+  battery_low_pct: 20
+  battery_critical_pct: 10
+  gcs_failsafe_timeout: 10      # seconds
+
+mavlink:
+  gcs_port: 14550               # host port (maps to container 18570)
+  sdk_port: 14540               # host port (maps to container 14580)
+  system_id: 1
+  component_id: 1
+
+kafka:
+  bootstrap_servers: "kafka:9092"
+  consumer_group: "drone-system"
+  auto_offset_reset: "latest"
+
+nlp:
+  model: "en_core_web_sm"
+  confidence_threshold: 0.3
+  default_intent: "goto"
+
+# Known GPS locations in Dodoma, Tanzania
+locations:
+  home:             { lat: -6.1630, lon: 35.7516 }
+  bunge_parliament: { lat: -6.1750, lon: 35.7420 }
+  central_hospital: { lat: -6.1700, lon: 35.7380 }
+  university:       { lat: -6.1580, lon: 35.7600 }
+  market:           { lat: -6.1650, lon: 35.7450 }
+  airport:          { lat: -6.1780, lon: 35.7550 }
+  forest:           { lat: -6.1650, lon: 35.7550 }
+  river:            { lat: -6.1620, lon: 35.7500 }

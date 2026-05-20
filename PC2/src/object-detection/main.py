@@ -15,10 +15,10 @@ import time
 import uvicorn
 import os
 
-from .yolo_handler import YOLOHandler
-from .unsupervised_handler import UnsupervisedHandler
-from .camera_sim import CameraSimulator
-from .image_processor import ImageProcessor
+from yolo_handler import YOLOHandler
+from unsupervised_handler import UnsupervisedHandler
+from camera_sim import CameraSimulator
+from image_processor import ImageProcessor
 
 app = FastAPI(title="PC2 - Object Detection Service")
 

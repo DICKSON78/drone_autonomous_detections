@@ -317,6 +317,6 @@ class MetricsHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         pass
 
-server = HTTPServer(('0.0.0.0', 8005), MetricsHandler)
-print("drone_exporter: listening on :8005/metrics, :8005/obstacles, :8005/radar")
+server = HTTPServer(('0.0.0.0', 8007), MetricsHandler)
+print("drone_exporter: listening on :8007/metrics, :8007/obstacles, :8007/radar")
 server.serve_forever()

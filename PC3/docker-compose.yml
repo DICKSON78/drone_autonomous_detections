@@ -52,9 +52,87 @@ services:
       - fyp-network
     restart: unless-stopped
 
+  # InfluxDB - time-series database for telemetry storage
+  influxdb:
+    image: influxdb:2.7
+    container_name: influxdb
+    ports:
+      - "8086:8086"
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=admin
+      - DOCKER_INFLUXDB_INIT_PASSWORD=admin123
+      - DOCKER_INFLUXDB_INIT_ORG=drone-project
+      - DOCKER_INFLUXDB_INIT_BUCKET=drone_telemetry
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=drone-telemetry-token
+      - DOCKER_INFLUXDB_INIT_RETENTION=30d
+    volumes:
+      - influxdb_data:/var/lib/influxdb2
+      - ./influxdb:/docker-entrypoint-initdb.d
+    networks:
+      - fyp-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "influx", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Telemetry Collector - bridges MAVLink/Kafka to InfluxDB + Prometheus
+  telemetry-collector:
+    build: ./src/telemetry-collector
+    container_name: telemetry-collector
+    ports:
+      - "8004:8004"
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - INFLUXDB_URL=http://influxdb:8086
+      - INFLUXDB_TOKEN=drone-telemetry-token
+      - INFLUXDB_ORG=drone-project
+      - INFLUXDB_BUCKET=drone_telemetry
+      - MAVLINK_HOST=gazebo-px4
+      - MAVLINK_PORT=14550
+    depends_on:
+      influxdb:
+        condition: service_healthy
+    networks:
+      - fyp-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # API Gateway - Express bridge for Kafka ↔ Grafana ↔ Web
+  api-gateway:
+    build: ./src/api-gateway
+    container_name: api-gateway
+    ports:
+      - "8008:8008"
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - INFLUXDB_URL=http://influxdb:8086
+      - INFLUXDB_TOKEN=drone-telemetry-token
+      - INFLUXDB_ORG=drone-project
+      - INFLUXDB_BUCKET=drone_telemetry
+      - PORT=8008
+    depends_on:
+      influxdb:
+        condition: service_healthy
+    networks:
+      - fyp-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8008/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
 volumes:
   grafana_data:
   prometheus_data:
+  influxdb_data:
 
 networks:
   fyp-network:

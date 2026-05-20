@@ -13,7 +13,7 @@ import json
 import os
 from typing import List, Dict
 
-from .rl_handler import RLHandler
+from rl_handler import RLHandler
 
 app = FastAPI(title="PC2 - RL Navigation Service")
 

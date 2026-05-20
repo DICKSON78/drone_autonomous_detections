@@ -1,0 +1,47 @@
+# Kafka Topic Configuration
+# Defines all topics used across the drone system
+
+topics:
+  # PC1 — Command & Control
+  - name: drone.commands.flight
+    partitions: 3
+    replication_factor: 1
+    description: "Parsed flight commands from NLP parser"
+
+  - name: drone.commands.parsed
+    partitions: 3
+    replication_factor: 1
+    description: "Raw commands after NLP processing"
+
+  - name: drone.status.flight
+    partitions: 3
+    replication_factor: 1
+    description: "Flight execution status updates"
+
+  # PC2 — Vision & Navigation
+  - name: drone.detections
+    partitions: 3
+    replication_factor: 1
+    description: "YOLO object detection results"
+
+  - name: drone.navigation.decisions
+    partitions: 3
+    replication_factor: 1
+    description: "RL-based obstacle avoidance decisions"
+
+  # PC3 — Telemetry
+  - name: drone.telemetry.gps
+    partitions: 3
+    replication_factor: 1
+    description: "GPS position telemetry"
+
+  - name: drone.telemetry.full
+    partitions: 3
+    replication_factor: 1
+    description: "Full telemetry (GPS + battery + attitude)"
+
+  # PC4 — Feedback
+  - name: drone.feedback.events
+    partitions: 3
+    replication_factor: 1
+    description: "TTS and audio feedback events"

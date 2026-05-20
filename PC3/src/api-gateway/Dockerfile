@@ -1,21 +1,12 @@
-FROM node:20-alpine
+FROM node:18-slim
 
 WORKDIR /app
 
-# Install dependencies first (cache layer)
-COPY package.json package-lock.json* ./
-RUN npm ci --only=production
+COPY package.json ./
+RUN npm install --production
 
-# Copy source
-COPY . .
+COPY app.js ./
 
-# Create log directory
-RUN mkdir -p logs
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
-  CMD wget -qO- http://localhost:3001/api/health || exit 1
-
-EXPOSE 3001
+EXPOSE 8008
 
 CMD ["node", "app.js"]

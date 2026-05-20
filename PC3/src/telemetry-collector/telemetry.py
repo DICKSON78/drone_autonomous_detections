@@ -1,402 +1,185 @@
 """
-PC3 Telemetry Collector Service
-================================
-FastAPI microservice that:
-  1. Subscribes to Kafka topics (drone.telemetry.*)
-  2. Processes and validates telemetry data
-  3. Writes to InfluxDB time-series database
-  4. Exposes REST endpoints for direct telemetry ingestion
-  5. Bridges to Node.js API Gateway via HTTP
-
-Runs on port 8004
+Telemetry Collector — bridges MAVLink telemetry to InfluxDB and exposes REST API.
+Consumes drone telemetry via MAVLink UDP, writes to InfluxDB, serves /health and /metrics.
 """
 
-import asyncio
-import json
-import logging
-import os
-import time
+import os, sys, time, json, threading, socket, struct
 from datetime import datetime, timezone
-from typing import Dict, List, Optional, Any
+from http.server import HTTPServer, BaseHTTPRequestHandler
 
-import uvicorn
-import yaml
-from fastapi import FastAPI, HTTPException, BackgroundTasks
-from fastapi.middleware.cors import CORSMiddleware
-from influxdb_client import InfluxDBClient, Point, WritePrecision
-from influxdb_client.client.write_api import SYNCHRONOUS
-from kafka import KafkaConsumer, KafkaProducer
-from pydantic import BaseModel, Field
+sys.path.insert(0, '/home/dickson/FYP/drone_autonomous/PC2/scripts')
+from mavlink_lite import DroneConnection
 
-# ─── Logging ──────────────────────────────────────────────────────────────────
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s - %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
-logger = logging.getLogger("telemetry-collector")
+try:
+    from influxdb_client import InfluxDBClient, Point, WritePrecision
+    INFLUX_AVAILABLE = True
+except ImportError:
+    INFLUX_AVAILABLE = False
 
-# ─── Config ───────────────────────────────────────────────────────────────────
-CONFIG = {
-    "influxdb": {
-        "url":    os.getenv("INFLUXDB_URL",    "http://localhost:8086"),
-        "token":  os.getenv("INFLUXDB_TOKEN",  "drone-telemetry-token"),
-        "org":    os.getenv("INFLUXDB_ORG",    "drone-project"),
-        "bucket": os.getenv("INFLUXDB_BUCKET", "drone_telemetry"),
-    },
-    "kafka": {
-        "bootstrap_servers": os.getenv("KAFKA_BROKERS", "localhost:9092"),
-        "group_id": "pc3-telemetry-collector",
-    },
+# ── Configuration ──
+INFLUXDB_URL = os.getenv('INFLUXDB_URL', 'http://influxdb:8086')
+INFLUXDB_TOKEN = os.getenv('INFLUXDB_TOKEN', 'drone-telemetry-token')
+INFLUXDB_ORG = os.getenv('INFLUXDB_ORG', 'drone-project')
+INFLUXDB_BUCKET = os.getenv('INFLUXDB_BUCKET', 'drone_telemetry')
+MAVLINK_HOST = os.getenv('MAVLINK_HOST', '127.0.0.1')
+MAVLINK_PORT = int(os.getenv('MAVLINK_PORT', '14550'))
+PORT = int(os.getenv('PORT', '8004'))
+
+# ── State ──
+telemetry_cache = {
+    "connected": False, "armed": False, "mode": "UNKNOWN",
+    "lat": 0.0, "lon": 0.0, "alt": 0.0, "battery": 0.0,
+    "heading": 0.0, "speed": 0.0, "satellites": 0, "fix_type": 0,
+    "roll": 0.0, "pitch": 0.0, "yaw": 0.0,
+    "vel_x": 0.0, "vel_y": 0.0, "vel_z": 0.0,
+    "timestamp": None
 }
+metrics_count = {"gps_points": 0, "battery_points": 0, "attitude_points": 0}
 
-# ─── InfluxDB client ──────────────────────────────────────────────────────────
-influx_client = InfluxDBClient(
-    url=CONFIG["influxdb"]["url"],
-    token=CONFIG["influxdb"]["token"],
-    org=CONFIG["influxdb"]["org"],
-)
-write_api = influx_client.write_api(write_options=SYNCHRONOUS)
-query_api = influx_client.query_api()
-
-# ─── Global state ─────────────────────────────────────────────────────────────
-consumers: Dict[str, KafkaConsumer] = {}
-stats = {
-    "messages_processed": 0,
-    "messages_failed": 0,
-    "started_at": datetime.now(timezone.utc).isoformat(),
-}
-
-# ─── FastAPI app ──────────────────────────────────────────────────────────────
-app = FastAPI(
-    title="PC3 Telemetry Collector",
-    description="Collects drone telemetry from Kafka and writes to InfluxDB",
-    version="1.0.0",
-)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# ─── Pydantic Models ──────────────────────────────────────────────────────────
-class TelemetryIngest(BaseModel):
-    drone_id: str
-    data_type: str = Field(..., pattern="^(gps|battery|attitude|flight|detections|navigation|system)$")
-    data: Dict[str, Any]
-    timestamp: Optional[float] = None
-
-
-class HealthStatus(BaseModel):
-    status: str
-    service: str
-    timestamp: str
-    influxdb_connected: bool
-    kafka_topics: List[str]
-    stats: Dict
-
-
-# ─── Kafka consumer helpers ───────────────────────────────────────────────────
-def create_consumer(topic: str, group_suffix: str = "") -> Optional[KafkaConsumer]:
+# ── InfluxDB Client ──
+influx_client = None
+write_api = None
+if INFLUX_AVAILABLE:
     try:
-        consumer = KafkaConsumer(
-            topic,
-            bootstrap_servers=CONFIG["kafka"]["bootstrap_servers"],
-            group_id=f"{CONFIG['kafka']['group_id']}{group_suffix}",
-            auto_offset_reset="latest",
-            value_deserializer=lambda m: json.loads(m.decode("utf-8")),
-            consumer_timeout_ms=1000,
-            enable_auto_commit=True,
-        )
-        logger.info(f"Created consumer for topic: {topic}")
-        return consumer
+        influx_client = InfluxDBClient(url=INFLUXDB_URL, token=INFLUXDB_TOKEN, org=INFLUXDB_ORG)
+        write_api = influx_client.write_api()
+        print(f"[telemetry] InfluxDB connected: {INFLUXDB_URL}")
     except Exception as e:
-        logger.error(f"Failed to create consumer for {topic}: {e}")
-        return None
+        print(f"[telemetry] InfluxDB unavailable: {e}")
 
 
-# ─── InfluxDB write helpers ───────────────────────────────────────────────────
-def write(point: Point):
-    try:
-        write_api.write(bucket=CONFIG["influxdb"]["bucket"], record=point)
-    except Exception as e:
-        logger.error(f"InfluxDB write error: {e}")
-        stats["messages_failed"] += 1
-
-
-# ─── Data processors ──────────────────────────────────────────────────────────
-def process_gps(data: Dict):
-    point = (
-        Point("gps_telemetry")
-        .tag("drone_id",  data.get("drone_id", "drone_001"))
-        .tag("source_pc", "PC1")
-        .field("latitude",  float(data.get("latitude",  data.get("lat",  0))))
-        .field("longitude", float(data.get("longitude", data.get("lon",  0))))
-        .field("altitude",  float(data.get("altitude",  data.get("alt",  0))))
-        .field("speed",     float(data.get("speed", 0)))
-        .time(datetime.now(timezone.utc))
-    )
-    write(point)
-
-
-def process_battery(data: Dict):
-    point = (
-        Point("battery_telemetry")
-        .tag("drone_id",  data.get("drone_id", "drone_001"))
-        .tag("source_pc", "PC1")
-        .field("percentage",  float(data.get("percentage",   data.get("remaining_percent", 0))))
-        .field("voltage",     float(data.get("voltage_v",    data.get("voltage",    0))))
-        .field("current",     float(data.get("current_battery", data.get("current", 0))))
-        .field("temperature", float(data.get("temperature_degc", data.get("temperature", 0))))
-        .time(datetime.now(timezone.utc))
-    )
-    write(point)
-
-
-def process_attitude(data: Dict):
-    point = (
-        Point("attitude_telemetry")
-        .tag("drone_id",  data.get("drone_id", "drone_001"))
-        .tag("source_pc", "PC1")
-        .field("roll_deg",  float(data.get("roll_deg",  0)))
-        .field("pitch_deg", float(data.get("pitch_deg", 0)))
-        .field("yaw_deg",   float(data.get("yaw_deg",   0)))
-        .time(datetime.now(timezone.utc))
-    )
-    write(point)
-
-
-def process_flight(data: Dict):
-    point = (
-        Point("flight_status")
-        .tag("drone_id",    data.get("drone_id", "drone_001"))
-        .tag("source_pc",   "PC1")
-        .tag("is_armed",    str(data.get("is_armed",   False)))
-        .tag("is_flying",   str(data.get("is_flying",  False)))
-        .tag("flight_mode", data.get("flight_mode", "unknown"))
-        .field("altitude_m", float(data.get("altitude", 0)))
-        .field("speed_ms",   float(data.get("speed",    0)))
-        .time(datetime.now(timezone.utc))
-    )
-    write(point)
-
-
-def process_detections(data: Dict):
-    detections = data.get("detections", [])
-    for det in detections:
-        bbox = det.get("bbox", [0, 0, 0, 0])
-        point = (
-            Point("object_detections")
-            .tag("drone_id",    data.get("drone_id", "drone_001"))
-            .tag("source_pc",   "PC2")
-            .tag("object_class", det.get("class_name", det.get("label", "unknown")))
-            .field("confidence",  float(det.get("confidence", 0)))
-            .field("bbox_x",      float(bbox[0] if len(bbox) > 0 else 0))
-            .field("bbox_y",      float(bbox[1] if len(bbox) > 1 else 0))
-            .field("bbox_width",  float(bbox[2] if len(bbox) > 2 else 0))
-            .field("bbox_height", float(bbox[3] if len(bbox) > 3 else 0))
-            .time(datetime.now(timezone.utc))
-        )
-        write(point)
-
-
-def process_velocity(data: Dict):
-    point = (
-        Point("velocity_telemetry")
-        .tag("drone_id",  data.get("drone_id", "drone_001"))
-        .tag("source_pc", "PC1")
-        .field("north", float(data.get("north", 0)))
-        .field("east",  float(data.get("east",  0)))
-        .field("down",  float(data.get("down",  0)))
-        .field("speed", float(data.get("speed", 0)))
-        .time(datetime.now(timezone.utc))
-    )
-    write(point)
-
-
-def process_navigation(data: Dict):
-    point = (
-        Point("navigation_telemetry")
-        .tag("drone_id",   data.get("drone_id", "drone_001"))
-        .tag("source_pc",  "PC2")
-        .tag("next_action", data.get("next_action", "unknown"))
-        .field("confidence",     float(data.get("confidence",     0)))
-        .field("estimated_time", float(data.get("estimated_time", 0)))
-        .field("path_length",    float(len(data.get("path", []))))
-        .time(datetime.now(timezone.utc))
-    )
-    write(point)
-
-
-def process_system(data: Dict):
-    drone_state = data.get("drone_state", {})
-    point = (
-        Point("system_metrics")
-        .tag("drone_id",  data.get("drone_id", "drone_001"))
-        .tag("source_pc", "PC1")
-        .field("battery_percentage", float(drone_state.get("battery", 0)))
-        .field("cpu_usage",    float(data.get("cpu_usage",    0)))
-        .field("memory_usage", float(data.get("memory_usage", 0)))
-        .field("disk_usage",   float(data.get("disk_usage",   0)))
-        .time(datetime.now(timezone.utc))
-    )
-    write(point)
-
-
-TOPIC_PROCESSORS = {
-    "drone.telemetry.gps":        process_gps,
-    "drone.telemetry.battery":    process_battery,
-    "drone.telemetry.attitude":   process_attitude,
-    "drone.telemetry.velocity":   process_velocity,
-    "drone.telemetry.flight":     process_flight,
-    "drone.detections.objects":   process_detections,
-    "drone.navigation.decisions": process_navigation,
-    "drone.alerts.critical":      process_system,
-    "drone.status.system":        process_system,
-    "drone.status.flight":        lambda d: logger.info(f"[STATUS] {d}"),
-}
-
-
-# ─── Kafka consumer loop ──────────────────────────────────────────────────────
-async def consume_topic(topic: str, processor):
-    consumer = create_consumer(topic)
-    if not consumer:
+def write_to_influx(measurement, fields, tags=None):
+    """Write a data point to InfluxDB."""
+    if not write_api:
         return
-    consumers[topic] = consumer
-    logger.info(f"Started consuming: {topic}")
-
-    loop = asyncio.get_event_loop()
-
     try:
-        while True:
-            messages = await loop.run_in_executor(
-                None, lambda: consumer.poll(timeout_ms=1000)
-            )
-            for tp, records in messages.items():
-                for record in records:
-                    try:
-                        await loop.run_in_executor(None, processor, record.value)
-                        stats["messages_processed"] += 1
-                    except Exception as e:
-                        logger.error(f"[{topic}] Processing error: {e}")
-                        stats["messages_failed"] += 1
-            await asyncio.sleep(0.05)
-    except asyncio.CancelledError:
-        logger.info(f"Consumer cancelled: {topic}")
+        point = Point(measurement)
+        for k, v in fields.items():
+            if isinstance(v, float):
+                point = point.field(k, v)
+            elif isinstance(v, (int, bool)):
+                point = point.field(k, int(v))
+            elif isinstance(v, str):
+                point = point.field(k, v)
+        if tags:
+            for k, v in tags.items():
+                point = point.tag(k, str(v))
+        point = point.time(datetime.now(timezone.utc), WritePrecision.NS)
+        write_api.write(bucket=INFLUXDB_BUCKET, record=point)
     except Exception as e:
-        logger.error(f"Consumer error [{topic}]: {e}")
-    finally:
-        consumer.close()
-        consumers.pop(topic, None)
+        print(f"[telemetry] InfluxDB write error: {e}")
 
 
-async def start_all_consumers():
-    tasks = [
-        asyncio.create_task(consume_topic(topic, processor))
-        for topic, processor in TOPIC_PROCESSORS.items()
-    ]
-    await asyncio.gather(*tasks, return_exceptions=True)
+def mavlink_loop():
+    """Background thread: connect to MAVLink and update telemetry cache."""
+    global telemetry_cache
+    while True:
+        try:
+            conn = DroneConnection(udp_target=(MAVLINK_HOST, MAVLINK_PORT))
+            conn.connect()
+            print(f"[telemetry] MAVLink connected to {MAVLINK_HOST}:{MAVLINK_PORT}")
+            while True:
+                t = conn.get_telemetry()
+                telemetry_cache["connected"] = t.get("connected", False)
+                telemetry_cache["armed"] = t.get("armed", False)
+                telemetry_cache["mode"] = t.get("mode", "UNKNOWN")
+                telemetry_cache["lat"] = t.get("lat", 0.0)
+                telemetry_cache["lon"] = t.get("lon", 0.0)
+                telemetry_cache["alt"] = t.get("alt", 0.0)
+                telemetry_cache["battery"] = t.get("battery", 0.0)
+                telemetry_cache["heading"] = t.get("heading", 0.0)
+                telemetry_cache["satellites"] = t.get("satellites", 0)
+                telemetry_cache["fix_type"] = t.get("fix_type", 0)
+                telemetry_cache["timestamp"] = datetime.now(timezone.utc).isoformat()
+
+                # Write to InfluxDB
+                if t.get("connected"):
+                    gps_fields = {"latitude": t.get("lat", 0), "longitude": t.get("lon", 0),
+                                  "altitude": t.get("alt", 0), "fix_type": t.get("fix_type", 0),
+                                  "satellites": t.get("satellites", 0)}
+                    write_to_influx("gps_telemetry", gps_fields, {"drone_id": "x500_0"})
+                    metrics_count["gps_points"] += 1
+
+                    batt_fields = {"battery_pct": t.get("battery", 0)}
+                    write_to_influx("battery_telemetry", batt_fields, {"drone_id": "x500_0"})
+                    metrics_count["battery_points"] += 1
+
+                time.sleep(1)
+        except Exception as e:
+            print(f"[telemetry] MAVLink error: {e}, reconnecting in 3s...")
+            telemetry_cache["connected"] = False
+            time.sleep(3)
 
 
-# ─── REST Endpoints ───────────────────────────────────────────────────────────
-@app.post("/telemetry")
-async def ingest_telemetry(payload: TelemetryIngest):
-    """Accept telemetry via REST and write to InfluxDB."""
-    processor_map = {
-        "gps":        process_gps,
-        "battery":    process_battery,
-        "attitude":   process_attitude,
-        "velocity":   process_velocity,
-        "flight":     process_flight,
-        "detections": process_detections,
-        "navigation": process_navigation,
-        "system":     process_system,
-    }
-    processor = processor_map.get(payload.data_type)
-    if not processor:
-        raise HTTPException(status_code=400, detail=f"Unknown data_type: {payload.data_type}")
-
-    merged = {"drone_id": payload.drone_id, **payload.data}
-    processor(merged)
-    stats["messages_processed"] += 1
-    return {"status": "success", "drone_id": payload.drone_id, "data_type": payload.data_type}
+threading.Thread(target=mavlink_loop, daemon=True).start()
+time.sleep(1)
 
 
-@app.get("/health", response_model=HealthStatus)
-def health_check():
-    """Service health check."""
-    influxdb_ok = False
-    try:
-        influx_client.health()
-        influxdb_ok = True
-    except Exception:
+# ── HTTP Server ──
+class TelemetryHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        if self.path == '/health':
+            self._json(200, {"status": "ok", "service": "telemetry-collector",
+                             "influxdb": INFLUX_AVAILABLE, "connected": telemetry_cache["connected"]})
+        elif self.path == '/telemetry':
+            self._json(200, telemetry_cache)
+        elif self.path == '/metrics':
+            self._json(200, {"telemetry": telemetry_cache, "counters": metrics_count})
+        elif self.path == '/metrics/prometheus':
+            t = telemetry_cache
+            lines = [
+                f'drone_connected {1 if t["connected"] else 0}',
+                f'drone_armed {1 if t["armed"] else 0}',
+                f'drone_altitude_m {t["alt"]}',
+                f'drone_battery_pct {t["battery"]}',
+                f'drone_heading_deg {t["heading"]}',
+                f'drone_latitude {t["lat"]}',
+                f'drone_longitude {t["lon"]}',
+                f'drone_gps_satellites {t["satellites"]}',
+                f'drone_gps_points_total {metrics_count["gps_points"]}',
+                f'drone_battery_points_total {metrics_count["battery_points"]}',
+            ]
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/plain')
+            self.end_headers()
+            self.wfile.write('\n'.join(lines).encode())
+        elif self.path == '/status':
+            self._json(200, {
+                "service": "telemetry-collector",
+                "mavlink": {"host": MAVLINK_HOST, "port": MAVLINK_PORT},
+                "influxdb": {"url": INFLUXDB_URL, "bucket": INFLUXDB_BUCKET, "available": INFLUX_AVAILABLE},
+                "telemetry": telemetry_cache,
+                "counters": metrics_count
+            })
+        else:
+            self._json(404, {"error": "not found"})
+
+    def do_POST(self):
+        if self.path == '/ingest':
+            length = int(self.headers.get('Content-Length', 0))
+            body = self.rfile.read(length)
+            try:
+                data = json.loads(body)
+                measurement = data.pop("measurement", "manual_telemetry")
+                fields = {k: v for k, v in data.items() if isinstance(v, (int, float, str, bool))}
+                tags = data.get("tags", {"source": "api"})
+                write_to_influx(measurement, fields, tags)
+                self._json(200, {"status": "written", "measurement": measurement})
+            except Exception as e:
+                self._json(400, {"error": str(e)})
+        else:
+            self._json(404, {"error": "not found"})
+
+    def _json(self, code, data):
+        self.send_response(code)
+        self.send_header('Content-Type', 'application/json')
+        self.end_headers()
+        self.wfile.write(json.dumps(data).encode())
+
+    def log_message(self, format, *args):
         pass
 
-    return HealthStatus(
-        status="healthy" if influxdb_ok else "degraded",
-        service="telemetry-collector",
-        timestamp=datetime.now(timezone.utc).isoformat(),
-        influxdb_connected=influxdb_ok,
-        kafka_topics=list(consumers.keys()),
-        stats=stats,
-    )
 
-
-@app.get("/status")
-def get_status():
-    """Detailed service status."""
-    return {
-        "service":   "pc3-telemetry-collector",
-        "version":   "1.0.0",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "uptime":    stats["started_at"],
-        "consumers": list(consumers.keys()),
-        "stats":     stats,
-        "influxdb":  CONFIG["influxdb"],
-        "kafka":     CONFIG["kafka"],
-    }
-
-
-@app.get("/metrics")
-def get_metrics():
-    """Prometheus-style metrics."""
-    return {
-        "messages_processed_total": stats["messages_processed"],
-        "messages_failed_total":    stats["messages_failed"],
-        "active_consumers":         len(consumers),
-        "success_rate": (
-            round(stats["messages_processed"] /
-                  max(stats["messages_processed"] + stats["messages_failed"], 1) * 100, 2)
-        ),
-    }
-
-
-# ─── Startup / Shutdown ───────────────────────────────────────────────────────
-@app.on_event("startup")
-async def startup():
-    logger.info("=" * 50)
-    logger.info("PC3 TELEMETRY COLLECTOR STARTING")
-    logger.info("=" * 50)
-
-    try:
-        health = influx_client.health()
-        logger.info(f"InfluxDB status: {health.status}")
-    except Exception as e:
-        logger.error(f"InfluxDB connection failed: {e}")
-
-    asyncio.create_task(start_all_consumers())
-
-
-@app.on_event("shutdown")
-async def shutdown():
-    logger.info("Shutting down telemetry collector...")
-    for consumer in consumers.values():
-        consumer.close()
-    influx_client.close()
-    logger.info("Shutdown complete.")
-
-
-if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8004, log_level="info")
+server = HTTPServer(('0.0.0.0', PORT), TelemetryHandler)
+print(f"[telemetry] Listening on :{PORT}/health, :{PORT}/telemetry, :{PORT}/metrics")
+server.serve_forever()

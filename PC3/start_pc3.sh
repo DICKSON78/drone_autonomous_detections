@@ -77,7 +77,7 @@ for svc in grafana prometheus node-exporter; do
 done
 
 # ── 4. Start Drone Exporter (MAVLink → Prometheus metrics) ──
-log "Starting Drone MAVLink Exporter on port 8005..."
+log "Starting Drone MAVLink Exporter on port 8007..."
 
 # Kill any existing exporter
 pkill -f "drone_exporter.py" 2>/dev/null || true
@@ -119,8 +119,8 @@ echo -e "${CYAN}║${NC}  ──────────────────
 echo -e "${CYAN}║${NC}  Grafana              3000     http://localhost:3000   ${CYAN}║${NC}"
 echo -e "${CYAN}║${NC}  Prometheus           9090     http://localhost:9090   ${CYAN}║${NC}"
 echo -e "${CYAN}║${NC}  Node Exporter        9100     http://localhost:9100   ${CYAN}║${NC}"
-echo -e "${CYAN}║${NC}  Drone Exporter       8005     http://localhost:8005   ${CYAN}║${NC}"
-echo -e "${CYAN}║${NC}  Drone Radar (UI)     8005     http://localhost:8005/radar ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}  Drone Exporter       8007     http://localhost:8007   ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}  Drone Radar (UI)     8007     http://localhost:8007/radar ${CYAN}║${NC}"
 echo -e "${CYAN}║${NC}                                                      ${CYAN}║${NC}"
 echo -e "${CYAN}║${NC}  ${BOLD}Grafana Login:${NC} admin / admin123                       ${CYAN}║${NC}"
 echo -e "${CYAN}║${NC}                                                      ${CYAN}║${NC}"

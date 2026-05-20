@@ -1,0 +1,131 @@
+{
+  "annotations": { "list": [{ "builtIn": 1, "datasource": "-- Grafana --", "enable": true, "hide": true, "iconColor": "rgba(0,211,255,1)", "name": "Annotations & Alerts", "type": "dashboard" }] },
+  "editable": true,
+  "gnetId": null,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "title": "Drone Status",
+      "type": "stat",
+      "datasource": "Prometheus",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+      "targets": [{ "expr": "drone_connected", "legendFormat": "Connected", "refId": "A" }],
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "red", "value": 0 }, { "color": "green", "value": 1 }] }, "mappings": [{ "options": { "0": { "color": "red", "index": 0, "text": "OFFLINE" }, "1": { "color": "green", "index": 1, "text": "ONLINE" } }, "type": "value" }] }},
+      "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["last"], "fields": "", "values": false }, "textMode": "auto" }
+    },
+    {
+      "title": "Armed",
+      "type": "stat",
+      "datasource": "Prometheus",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+      "targets": [{ "expr": "drone_armed", "refId": "A" }],
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "yellow", "value": 0 }, { "color": "green", "value": 1 }] }, "mappings": [{ "options": { "0": { "text": "DISARMED" }, "1": { "text": "ARMED" } }, "type": "value" }]}},
+      "options": { "colorMode": "background", "graphMode": "none", "textMode": "auto" }
+    },
+    {
+      "title": "Flight Mode",
+      "type": "stat",
+      "datasource": "Prometheus",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+      "targets": [{ "expr": "drone_flight_mode", "refId": "A" }],
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "mappings": [{ "options": { "0": "UNKNOWN", "1": "MANUAL", "2": "ALTCTL", "3": "POSCTL", "4": "AUTO", "5": "ACRO", "6": "OFFBOARD" }, "type": "value" }]}},
+      "options": { "colorMode": "value", "graphMode": "none", "textMode": "auto" }
+    },
+    {
+      "title": "GPS Satellites",
+      "type": "stat",
+      "datasource": "Prometheus",
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
+      "targets": [{ "expr": "drone_gps_satellites", "refId": "A" }],
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "red", "value": 0 }, { "color": "yellow", "value": 4 }, { "color": "green", "value": 8 }] }}},
+      "options": { "colorMode": "value", "graphMode": "area", "textMode": "auto" }
+    },
+    {
+      "title": "Altitude",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+      "targets": [{ "expr": "drone_altitude_m", "legendFormat": "Altitude (m)", "refId": "A" }],
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "custom": { "lineWidth": 2, "fillOpacity": 10 }, "unit": "lengthm" }},
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "single" } }
+    },
+    {
+      "title": "Battery",
+      "type": "gauge",
+      "datasource": "Prometheus",
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 4 },
+      "targets": [{ "expr": "drone_battery_pct_clamped", "refId": "A" }],
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "red", "value": 0 }, { "color": "yellow", "value": 20 }, { "color": "green", "value": 50 }] }, "min": 0, "max": 100, "unit": "percent" }},
+      "options": { "reduceOptions": { "calcs": ["last"] }, "showThresholdLabels": false, "showThresholdMarkers": true }
+    },
+    {
+      "title": "Heading",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 4 },
+      "targets": [{ "expr": "drone_heading_deg", "legendFormat": "Heading (°)", "refId": "A" }],
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "custom": { "lineWidth": 2 }, "unit": "degree", "min": 0, "max": 360 }},
+      "options": { "legend": { "displayMode": "list" }, "tooltip": { "mode": "single" } }
+    },
+    {
+      "title": "GPS Position",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+      "targets": [
+        { "expr": "drone_latitude", "legendFormat": "Latitude", "refId": "A" },
+        { "expr": "drone_longitude", "legendFormat": "Longitude", "refId": "B" }
+      ],
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "custom": { "lineWidth": 2, "fillOpacity": 5 }}},
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } }
+    },
+    {
+      "title": "Obstacle Count",
+      "type": "stat",
+      "datasource": "Prometheus",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 12 },
+      "targets": [{ "expr": "drone_obstacle_count", "refId": "A" }],
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "green", "value": 0 }, { "color": "yellow", "value": 5 }, { "color": "red", "value": 15 }] }}},
+      "options": { "colorMode": "background", "graphMode": "none", "textMode": "auto" }
+    },
+    {
+      "title": "Nearest Obstacle Range",
+      "type": "gauge",
+      "datasource": "Prometheus",
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 12 },
+      "targets": [{ "expr": "drone_obstacle_nearest_range_m", "refId": "A" }],
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "steps": [{ "color": "red", "value": 0 }, { "color": "yellow", "value": 10 }, { "color": "green", "value": 50 }] }, "unit": "lengthm", "min": 0, "max": 200 }},
+      "options": { "reduceOptions": { "calcs": ["last"] } }
+    },
+    {
+      "title": "System CPU",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 20 },
+      "targets": [{ "expr": "100 - (avg by(instance) (rate(node_cpu_seconds_total{mode=\"idle\"}[1m])) * 100)", "legendFormat": "CPU %", "refId": "A" }],
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "custom": { "lineWidth": 2, "fillOpacity": 15 }, "unit": "percent", "max": 100 }},
+      "options": { "legend": { "displayMode": "list" }, "tooltip": { "mode": "single" } }
+    },
+    {
+      "title": "System Memory",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 20 },
+      "targets": [{ "expr": "(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100", "legendFormat": "Memory %", "refId": "A" }],
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "custom": { "lineWidth": 2, "fillOpacity": 15 }, "unit": "percent", "max": 100 }},
+      "options": { "legend": { "displayMode": "list" }, "tooltip": { "mode": "single" } }
+    }
+  ],
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["drone", "px4", "fyp"],
+  "templating": { "list": [] },
+  "time": { "from": "now-15m", "to": "now" },
+  "timepicker": { "refresh_intervals": ["5s", "10s", "30s", "1m"] },
+  "timezone": "",
+  "title": "Drone Telemetry Dashboard",
+  "uid": "drone-telemetry-001",
+  "version": 1
+}

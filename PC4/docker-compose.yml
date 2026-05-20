@@ -9,7 +9,7 @@ services:
     ports:
       - "8005:8005"
     environment:
-      - KAFKA_BOOTSTRAP_SERVERS=PC1:9092
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
       - TTS_RATE=150
       - TTS_VOLUME=1.0
       - TTS_VOICE_INDEX=0
@@ -21,7 +21,7 @@ services:
       - ./config:/app/config
       - ./logs:/app/logs
     networks:
-      - drone-network
+      - fyp-network
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8005/health"]
@@ -30,5 +30,6 @@ services:
       retries: 3
 
 networks:
-  drone-network:
-    driver: bridge
+  fyp-network:
+    name: fyp-network
+    external: true
