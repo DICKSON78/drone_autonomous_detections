@@ -1,0 +1,430 @@
+<?xml version="1.0"?>
+<sdf version="1.9">
+  <model name="iris_drone">
+    <static>false</static>
+
+    <!-- Main Body/Fuselage -->
+    <link name="base_link">
+      <pose>0 0 0.05 0 0 0</pose>
+      <inertial>
+        <mass>1.5</mass>
+        <inertia>
+          <ixx>0.021</ixx>
+          <iyy>0.021</iyy>
+          <izz>0.038</izz>
+          <ixy>0.0</ixy>
+          <ixz>0.0</ixz>
+          <iyz>0.0</iyz>
+        </inertia>
+      </inertial>
+
+      <!-- Main fuselage body -->
+      <visual name="fuselage">
+        <geometry>
+          <box>
+            <size>0.33 0.33 0.12</size>
+          </box>
+        </geometry>
+        <material>
+          <ambient>0.25 0.25 0.25 1</ambient>
+          <diffuse>0.35 0.35 0.35 1</diffuse>
+          <specular>0.5 0.5 0.5 1</specular>
+        </material>
+      </visual>
+
+      <!-- Main fuselage collision -->
+      <collision name="fuselage_collision">
+        <geometry>
+          <box>
+            <size>0.33 0.33 0.12</size>
+          </box>
+        </geometry>
+      </collision>
+
+      <!-- Front left arm (pitch/roll control) -->
+      <visual name="arm_fl">
+        <pose>0.165 0.165 0 0 0 0.785</pose>
+        <geometry>
+          <box>
+            <size>0.35 0.06 0.025</size>
+          </box>
+        </geometry>
+        <material>
+          <ambient>0.15 0.15 0.15 1</ambient>
+          <diffuse>0.25 0.25 0.25 1</diffuse>
+        </material>
+      </visual>
+
+      <!-- Front right arm -->
+      <visual name="arm_fr">
+        <pose>0.165 -0.165 0 0 0 -0.785</pose>
+        <geometry>
+          <box>
+            <size>0.35 0.06 0.025</size>
+          </box>
+        </geometry>
+        <material>
+          <ambient>0.15 0.15 0.15 1</ambient>
+          <diffuse>0.25 0.25 0.25 1</diffuse>
+        </material>
+      </visual>
+
+      <!-- Back left arm -->
+      <visual name="arm_bl">
+        <pose>-0.165 0.165 0 0 0 -0.785</pose>
+        <geometry>
+          <box>
+            <size>0.35 0.06 0.025</size>
+          </box>
+        </geometry>
+        <material>
+          <ambient>0.15 0.15 0.15 1</ambient>
+          <diffuse>0.25 0.25 0.25 1</diffuse>
+        </material>
+      </visual>
+
+      <!-- Back right arm -->
+      <visual name="arm_br">
+        <pose>-0.165 -0.165 0 0 0 0.785</pose>
+        <geometry>
+          <box>
+            <size>0.35 0.06 0.025</size>
+          </box>
+        </geometry>
+        <material>
+          <ambient>0.15 0.15 0.15 1</ambient>
+          <diffuse>0.25 0.25 0.25 1</diffuse>
+        </material>
+      </visual>
+
+      <!-- ============ ROTORS (4x BLDC Motors) ============ -->
+      <!-- Front left motor & propeller -->
+      <visual name="motor_fl">
+        <pose>0.33 0.33 0.02 0 0 0</pose>
+        <geometry>
+          <cylinder>
+            <radius>0.03</radius>
+            <length>0.025</length>
+          </cylinder>
+        </geometry>
+        <material>
+          <ambient>0.1 0.1 0.1 1</ambient>
+          <diffuse>0.15 0.15 0.15 1</diffuse>
+        </material>
+      </visual>
+
+      <visual name="prop_fl">
+        <pose>0.33 0.33 0.035 0 0 0</pose>
+        <geometry>
+          <cylinder>
+            <radius>0.125</radius>
+            <length>0.01</length>
+          </cylinder>
+        </geometry>
+        <material>
+          <ambient>0.85 0.2 0.2 0.8</ambient>
+          <diffuse>0.95 0.3 0.3 0.8</diffuse>
+        </material>
+      </visual>
+
+      <!-- Front right motor & propeller -->
+      <visual name="motor_fr">
+        <pose>0.33 -0.33 0.02 0 0 0</pose>
+        <geometry>
+          <cylinder>
+            <radius>0.03</radius>
+            <length>0.025</length>
+          </cylinder>
+        </geometry>
+        <material>
+          <ambient>0.1 0.1 0.1 1</ambient>
+          <diffuse>0.15 0.15 0.15 1</diffuse>
+        </material>
+      </visual>
+
+      <visual name="prop_fr">
+        <pose>0.33 -0.33 0.035 0 0 0</pose>
+        <geometry>
+          <cylinder>
+            <radius>0.125</radius>
+            <length>0.01</length>
+          </cylinder>
+        </geometry>
+        <material>
+          <ambient>0.2 0.8 0.2 0.8</ambient>
+          <diffuse>0.3 0.95 0.3 0.8</diffuse>
+        </material>
+      </visual>
+
+      <!-- Back left motor & propeller -->
+      <visual name="motor_bl">
+        <pose>-0.33 0.33 0.02 0 0 0</pose>
+        <geometry>
+          <cylinder>
+            <radius>0.03</radius>
+            <length>0.025</length>
+          </cylinder>
+        </geometry>
+        <material>
+          <ambient>0.1 0.1 0.1 1</ambient>
+          <diffuse>0.15 0.15 0.15 1</diffuse>
+        </material>
+      </visual>
+
+      <visual name="prop_bl">
+        <pose>-0.33 0.33 0.035 0 0 0</pose>
+        <geometry>
+          <cylinder>
+            <radius>0.125</radius>
+            <length>0.01</length>
+          </cylinder>
+        </geometry>
+        <material>
+          <ambient>0.85 0.2 0.2 0.8</ambient>
+          <diffuse>0.95 0.3 0.3 0.8</diffuse>
+        </material>
+      </visual>
+
+      <!-- Back right motor & propeller -->
+      <visual name="motor_br">
+        <pose>-0.33 -0.33 0.02 0 0 0</pose>
+        <geometry>
+          <cylinder>
+            <radius>0.03</radius>
+            <length>0.025</length>
+          </cylinder>
+        </geometry>
+        <material>
+          <ambient>0.1 0.1 0.1 1</ambient>
+          <diffuse>0.15 0.15 0.15 1</diffuse>
+        </material>
+      </visual>
+
+      <visual name="prop_br">
+        <pose>-0.33 -0.33 0.035 0 0 0</pose>
+        <geometry>
+          <cylinder>
+            <radius>0.125</radius>
+            <length>0.01</length>
+          </cylinder>
+        </geometry>
+        <material>
+          <ambient>0.2 0.8 0.2 0.8</ambient>
+          <diffuse>0.3 0.95 0.3 0.8</diffuse>
+        </material>
+      </visual>
+
+      <!-- ============ SENSORS ============ -->
+      <!-- Camera/Gimbal (front-facing, downward-tilted) -->
+      <visual name="camera_unit">
+        <pose>0 0 -0.08 0 0.3 0</pose>
+        <geometry>
+          <box>
+            <size>0.06 0.06 0.04</size>
+          </box>
+        </geometry>
+        <material>
+          <ambient>0.1 0.1 0.1 1</ambient>
+          <diffuse>0.15 0.15 0.15 1</diffuse>
+        </material>
+      </visual>
+
+      <!-- IMU (Inertial Measurement Unit) -->
+      <visual name="imu_unit">
+        <pose>0 0 0.01 0 0 0</pose>
+        <geometry>
+          <box>
+            <size>0.02 0.02 0.02</size>
+          </box>
+        </geometry>
+        <material>
+          <ambient>0.2 0.2 0.8 1</ambient>
+          <diffuse>0.3 0.3 0.9 1</diffuse>
+        </material>
+      </visual>
+
+      <!-- GPS/GNSS antenna -->
+      <visual name="gps_antenna">
+        <pose>0.12 0 0.07 0 0 0</pose>
+        <geometry>
+          <box>
+            <size>0.02 0.02 0.05</size>
+          </box>
+        </geometry>
+        <material>
+          <ambient>0.8 0.8 0.2 1</ambient>
+          <diffuse>0.9 0.9 0.3 1</diffuse>
+        </material>
+      </visual>
+
+      <!-- Barometer/Altimeter sensor -->
+      <visual name="barometer">
+        <pose>-0.12 0 0.05 0 0 0</pose>
+        <geometry>
+          <box>
+            <size>0.015 0.015 0.015</size>
+          </box>
+        </geometry>
+        <material>
+          <ambient>0.2 0.6 0.8 1</ambient>
+          <diffuse>0.3 0.7 0.9 1</diffuse>
+        </material>
+      </visual>
+
+      <!-- ============ STATUS LIGHTS ============ -->
+      <!-- Front LED (Red - indicator) -->
+      <visual name="led_front">
+        <pose>0.165 0 0.08 0 0 0</pose>
+        <geometry>
+          <sphere>
+            <radius>0.008</radius>
+          </sphere>
+        </geometry>
+        <material>
+          <ambient>1 0 0 1</ambient>
+          <diffuse>1 0 0 1</diffuse>
+          <emissive>1 0 0 0.8</emissive>
+        </material>
+      </visual>
+
+      <!-- Back LED (Green - indicator) -->
+      <visual name="led_back">
+        <pose>-0.165 0 0.08 0 0 0</pose>
+        <geometry>
+          <sphere>
+            <radius>0.008</radius>
+          </sphere>
+        </geometry>
+        <material>
+          <ambient>0 1 0 1</ambient>
+          <diffuse>0 1 0 1</diffuse>
+          <emissive>0 1 0 0.8</emissive>
+        </material>
+      </visual>
+
+      <!-- Battery indicator (Blue) -->
+      <visual name="battery_indicator">
+        <pose>0 0.165 0.08 0 0 0</pose>
+        <geometry>
+          <sphere>
+            <radius>0.008</radius>
+          </sphere>
+        </geometry>
+        <material>
+          <ambient>0 0.5 1 1</ambient>
+          <diffuse>0 0.7 1 1</diffuse>
+          <emissive>0 0.7 1 0.8</emissive>
+        </material>
+      </visual>
+
+      <!-- ============ BATTERY COMPARTMENT ============ -->
+      <visual name="battery_pack">
+        <pose>0 -0.12 -0.02 0 0 0</pose>
+        <geometry>
+          <box>
+            <size>0.15 0.08 0.04</size>
+          </box>
+        </geometry>
+        <material>
+          <ambient>0.3 0.3 0.3 1</ambient>
+          <diffuse>0.4 0.4 0.4 1</diffuse>
+        </material>
+      </visual>
+
+      <!-- Landing gear (optional, minimal) -->
+      <visual name="landing_gear">
+        <pose>0.1 0.1 -0.06 0 0 0</pose>
+        <geometry>
+          <cylinder>
+            <radius>0.01</radius>
+            <length>0.06</length>
+          </cylinder>
+        </geometry>
+        <material>
+          <ambient>0.15 0.15 0.15 1</ambient>
+          <diffuse>0.2 0.2 0.2 1</diffuse>
+        </material>
+      </visual>
+
+      <visual name="landing_gear_2">
+        <pose>-0.1 -0.1 -0.06 0 0 0</pose>
+        <geometry>
+          <cylinder>
+            <radius>0.01</radius>
+            <length>0.06</length>
+          </cylinder>
+        </geometry>
+        <material>
+          <ambient>0.15 0.15 0.15 1</ambient>
+          <diffuse>0.2 0.2 0.2 1</diffuse>
+        </material>
+      </visual>
+    </link>
+
+    <!-- ============ FLIGHT CONTROL SYSTEM ============ -->
+    <!-- Multicopter Plugin for Physics-based Flight -->
+    <plugin filename="gz-sim-multicopter-motor-model-system" name="gz::sim::systems::MulticopterMotorModel">
+      <robotNamespace></robotNamespace>
+      <jointName>rotor_0_joint</jointName>
+      <linkName>rotor_0</linkName>
+      <turningDirection>ccw</turningDirection>
+      <timeConstantUp>0.0125</timeConstantUp>
+      <timeConstantDown>0.025</timeConstantDown>
+      <maxRotVelocity>838</maxRotVelocity>
+      <motorConstant>8.54858e-06</motorConstant>
+      <momentConstant>0.016</momentConstant>
+      <commandSubTopic>gazebo/command/motor_speed</commandSubTopic>
+      <motorNumber>0</motorNumber>
+      <controlJointName>rotor_0_joint</controlJointName>
+      <motorSpeedPubTopic>motor_speed</motorSpeedPubTopic>
+    </plugin>
+
+    <plugin filename="gz-sim-multicopter-motor-model-system" name="gz::sim::systems::MulticopterMotorModel">
+      <robotNamespace></robotNamespace>
+      <jointName>rotor_1_joint</jointName>
+      <linkName>rotor_1</linkName>
+      <turningDirection>cw</turningDirection>
+      <timeConstantUp>0.0125</timeConstantUp>
+      <timeConstantDown>0.025</timeConstantDown>
+      <maxRotVelocity>838</maxRotVelocity>
+      <motorConstant>8.54858e-06</motorConstant>
+      <momentConstant>0.016</momentConstant>
+      <commandSubTopic>gazebo/command/motor_speed</commandSubTopic>
+      <motorNumber>1</motorNumber>
+      <controlJointName>rotor_1_joint</controlJointName>
+      <motorSpeedPubTopic>motor_speed</motorSpeedPubTopic>
+    </plugin>
+
+    <plugin filename="gz-sim-multicopter-motor-model-system" name="gz::sim::systems::MulticopterMotorModel">
+      <robotNamespace></robotNamespace>
+      <jointName>rotor_2_joint</jointName>
+      <linkName>rotor_2</linkName>
+      <turningDirection>ccw</turningDirection>
+      <timeConstantUp>0.0125</timeConstantUp>
+      <timeConstantDown>0.025</timeConstantDown>
+      <maxRotVelocity>838</maxRotVelocity>
+      <motorConstant>8.54858e-06</motorConstant>
+      <momentConstant>0.016</momentConstant>
+      <commandSubTopic>gazebo/command/motor_speed</commandSubTopic>
+      <motorNumber>2</motorNumber>
+      <controlJointName>rotor_2_joint</controlJointName>
+      <motorSpeedPubTopic>motor_speed</motorSpeedPubTopic>
+    </plugin>
+
+    <plugin filename="gz-sim-multicopter-motor-model-system" name="gz::sim::systems::MulticopterMotorModel">
+      <robotNamespace></robotNamespace>
+      <jointName>rotor_3_joint</jointName>
+      <linkName>rotor_3</linkName>
+      <turningDirection>cw</turningDirection>
+      <timeConstantUp>0.0125</timeConstantUp>
+      <timeConstantDown>0.025</timeConstantDown>
+      <maxRotVelocity>838</maxRotVelocity>
+      <motorConstant>8.54858e-06</motorConstant>
+      <momentConstant>0.016</momentConstant>
+      <commandSubTopic>gazebo/command/motor_speed</commandSubTopic>
+      <motorNumber>3</motorNumber>
+      <controlJointName>rotor_3_joint</controlJointName>
+      <motorSpeedPubTopic>motor_speed</motorSpeedPubTopic>
+    </plugin>
+  </model>
+</sdf>

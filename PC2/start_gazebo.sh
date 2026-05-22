@@ -16,9 +16,10 @@ docker network inspect fyp-network >/dev/null 2>&1 || docker network create fyp-
 
 # 1. Verify SDF
 log "Verifying world file..."
-WORLD_FILE="./gazebo_worlds/dodoma/dodoma_tanzania.sdf"
-[ ! -f "$WORLD_FILE" ] && echo -e "${RED}[ERROR]${NC} World file not found" && exit 1
-log "World file found ✓"
+WORLD_FILE="./gazebo_worlds/dodoma/dodoma_city.sdf"
+[ ! -f "$WORLD_FILE" ] && WORLD_FILE="./gazebo_worlds/dodoma/dodoma_tanzania.sdf"
+[ ! -f "$WORLD_FILE" ] && echo -e "${RED}[ERROR]${NC} No world file found" && exit 1
+log "World file found ✓ ($(basename $WORLD_FILE))"
 
 # 2. Prepare X11
 log "Preparing X11..."
@@ -79,7 +80,7 @@ else
         -p 14540:14580/udp \
         -p 14556:14556/udp \
         -e PX4_SIMULATOR=gz \
-        -e PX4_GZ_WORLD=dodoma_tanzania \
+        -e PX4_GZ_WORLD=dodoma_city \
         -e PX4_SIM_MODEL=gz_x500 \
         -e "GZ_SIM_RESOURCE_PATH=/gazebo_models/dodoma:/opt/px4-gazebo/share/gz/models:/opt/px4-gazebo/share/gz/worlds" \
         -e PX4_HOME_LAT=-6.1630 \
@@ -95,6 +96,7 @@ else
         -v "$SCRIPT_DIR/px4_config:/px4_config" \
         -v "$SCRIPT_DIR/gazebo_worlds:/gazebo_worlds:ro" \
         -v "$SCRIPT_DIR/gazebo_models:/gazebo_models:ro" \
+        -v "$SCRIPT_DIR/gazebo_worlds/dodoma/dodoma_city.sdf:/opt/px4-gazebo/share/gz/worlds/dodoma_city.sdf" \
         -v "$SCRIPT_DIR/gazebo_worlds/dodoma/dodoma_tanzania.sdf:/opt/px4-gazebo/share/gz/worlds/dodoma_tanzania.sdf" \
         -v /tmp/.X11-unix:/tmp/.X11-unix:rw \
         -v /tmp/.docker.xauth:/tmp/.docker.xauth:rw \
@@ -129,7 +131,8 @@ docker exec -d gazebo-px4 sh -c "DISPLAY=:0 gz sim -g --gui-config /tmp/gui_conf
 log "Waiting for drone to spawn..."
 for i in $(seq 1 30); do
     sleep 2
-    DRONE_OK=$(docker exec gazebo-px4 bash -c "gz topic -e -t /world/dodoma_tanzania/pose/info -d 1 2>/dev/null" 2>/dev/null | grep -c "x500_0" || true)
+    WORLD_NAME=$(basename "$WORLD_FILE" .sdf)
+DRONE_OK=$(docker exec gazebo-px4 bash -c "gz topic -e -t /world/${WORLD_NAME}/pose/info -d 1 2>/dev/null" 2>/dev/null | grep -c "x500_0" || true)
     if [ "$DRONE_OK" -gt 0 ]; then
         log "${GREEN}Drone x500_0 detected!${NC}"
         break
@@ -171,7 +174,46 @@ else:
 drone.close()
 " 2>&1 || echo -e "${YELLOW}[WARN]${NC} Auto-arm/takeoff failed. Use NLP console."
 
-# 8. Open NLP Drone Console
+# 8. Start Mission Drone Services
+log "Starting Sensor Bridge (telemetry logger)..."
+cd "$SCRIPT_DIR"
+nohup python3 scripts/sensor_bridge.py 127.0.0.1 14550 --http-port 8090 > /tmp/sensor_bridge.log 2>&1 &
+SENSOR_PID=$!
+sleep 1
+log "Sensor Bridge PID $SENSOR_PID — telemetry at :8090, logs in PC2/logs/"
+
+log "Starting Object Detection..."
+nohup python3 scripts/object_detection_node.py --interval 3.0 > /tmp/object_detection.log 2>&1 &
+DETECT_PID=$!
+sleep 1
+log "Object Detection PID $DETECT_PID — results in /tmp/object_detection.log"
+
+# 9. Offer autonomous mission
+TAKEOFF_ALT=25
+echo ""
+echo -e "${CYAN}══════════════════════════════════════════════════════${NC}"
+echo -e "${CYAN}  ${BOLD}MISSION DRONE READY${NC}${CYAN}                                 ${NC}"
+echo -e "${CYAN}  Drone hovering at 10m — Dodoma City world           ${NC}"
+echo -e "${CYAN}  Sensor bridge logging ✓                             ${NC}"
+echo -e "${CYAN}  Object detection running ✓                          ${NC}"
+echo -e "${CYAN}                                                      ${NC}"
+echo -e "${CYAN}  Start surveillance mission? (y/n)                   ${NC}"
+echo -e "${CYAN}══════════════════════════════════════════════════════${NC}"
+echo ""
+echo -n "  > "
+read -t 15 RUN_MISSION || true
+
+if [ "$RUN_MISSION" = "y" ] || [ "$RUN_MISSION" = "Y" ]; then
+    log "Starting surveillance mission (${TAKEOFF_ALT}m altitude)..."
+    echo -e "${YELLOW}  Press Ctrl+C to abort mission${NC}"
+    python3 scripts/mission_drone_controller.py 127.0.0.1 14550 --alt $TAKEOFF_ALT --mission 2>&1 || \
+        echo -e "${YELLOW}[WARN]${NC} Mission failed. Check /tmp/mission.log"
+    log "Mission complete. Drone returned to home."
+else
+    log "Skipping auto mission. Use NLP console for manual control."
+fi
+
+# 10. Open NLP Drone Console
 log "Opening NLP Drone Console..."
 NLP_CMD="cd '$SCRIPT_DIR' && python3 scripts/nlp_console.py 127.0.0.1"
 if command -v gnome-terminal &>/dev/null; then
@@ -183,18 +225,27 @@ else
     echo -e "${YELLOW}[WARN]${NC} No terminal emulator. Run: python3 scripts/nlp_console.py"
 fi
 
-# 9. Show status
+# 11. Show final status
 echo ""
-echo -e "${CYAN}╔════════════════════════════════════════════════════════╗${NC}"
-echo -e "${CYAN}║          ${BOLD}DODOMA DRONE READY${NC}${CYAN}                         ║${NC}"
-echo -e "${CYAN}╠════════════════════════════════════════════════════════╣${NC}"
-echo -e "${CYAN}║${NC}  ✓ Drone spawned and hovering at 10m              ${CYAN}║${NC}"
-echo -e "${CYAN}║${NC}  ✓ Camera tracking x500_0                         ${CYAN}║${NC}"
-echo -e "${CYAN}║${NC}  ✓ NLP console open for commands                  ${CYAN}║${NC}"
-echo -e "${CYAN}║${NC}                                                    ${CYAN}║${NC}"
-echo -e "${CYAN}║${NC}  ${BOLD}Commands:${NC}                                        ${CYAN}║${NC}"
-echo -e "${CYAN}║${NC}    'take off to 20m'        'land'               ${CYAN}║${NC}"
-echo -e "${CYAN}║${NC}    'fly to bunge parliament' 'go forward 30m'    ${CYAN}║${NC}"
-echo -e "${CYAN}║${NC}    'fly to central hospital' 'return home'       ${CYAN}║${NC}"
-echo -e "${CYAN}╚════════════════════════════════════════════════════════╝${NC}"
+echo -e "${CYAN}╔══════════════════════════════════════════════════════════════╗${NC}"
+echo -e "${CYAN}║          ${BOLD}DODOMA MISSION DRONE — READY${NC}${CYAN}                ║${NC}"
+echo -e "${CYAN}╠══════════════════════════════════════════════════════════════╣${NC}"
+echo -e "${CYAN}║${NC}  ✓ Drone spawned  (x500_0)                               ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}  ✓ World: Dodoma City  (73 models)                       ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}  ✓ Camera tracking                                         ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}  ✓ Sensor bridge  →  :8090/telemetry                      ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}  ✓ Object detection running                              ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}  ✓ NLP console open for commands                         ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}                                                        ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}  ${BOLD}Available:${NC}                                        ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}    • NLP console — natural language drone control       ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}    • Surveillance mission — python3 scripts/mission_... ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}    • YOLO detection — http://localhost:8002/detect      ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}    • Telemetry HTTP — http://localhost:8090              ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}                                                        ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}  ${BOLD}NLP Commands:${NC}                                     ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}    'take off to 20m'        'land'                     ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}    'fly to bunge parliament' 'go forward 30m'          ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}    'fly to central hospital' 'return home'             ${CYAN}║${NC}"
+echo -e "${CYAN}╚══════════════════════════════════════════════════════════════╝${NC}"
 echo ""

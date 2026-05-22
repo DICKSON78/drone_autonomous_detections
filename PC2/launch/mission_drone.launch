@@ -1,0 +1,50 @@
+<?xml version="1.0"?>
+<launch>
+  <!-- Mission Drone Control System Launch File -->
+  
+  <!-- Gazebo World Launch -->
+  <arg name="world" default="dodoma_city"/>
+  <arg name="verbose" default="false"/>
+  
+  <!-- Start Gazebo with the city world -->
+  <include file="$(find gazebo_ros)/launch/empty_world.launch">
+    <arg name="world_name" value="$(find drone_autonomous_detections)/PC2/gazebo_worlds/dodoma/$(arg world).sdf"/>
+    <arg name="verbose" value="$(arg verbose)"/>
+    <arg name="paused" value="false"/>
+    <arg name="use_sim_time" value="true"/>
+  </include>
+
+  <!-- Spawn the iris drone -->
+  <node name="spawn_iris" pkg="gazebo_ros" type="spawn_model" 
+        args="-sdf -model iris_drone -file $(find drone_autonomous_detections)/PC2/gazebo_models/dodoma/iris_drone/model.sdf -x 0 -y 0 -z 0.1" 
+        output="screen"/>
+
+  <!-- MAVROS for drone flight control -->
+  <include file="$(find mavros)/launch/px4.launch">
+    <arg name="fcu_url" value="udp://:14540@127.0.0.1:14557"/>
+    <arg name="gcs_url" value=""/>
+  </include>
+
+  <!-- Mission Drone Controller -->
+  <node name="mission_drone_controller" pkg="drone_autonomous_detections" type="mission_drone_controller.py" 
+        output="screen" launch-prefix="python3"/>
+
+  <!-- Camera/Sensor Bridge -->
+  <node name="sensor_bridge" pkg="drone_autonomous_detections" type="sensor_bridge.py" 
+        output="screen" launch-prefix="python3"/>
+
+  <!-- Object Detection Node -->
+  <node name="object_detector" pkg="drone_autonomous_detections" type="object_detection_node.py" 
+        output="screen" launch-prefix="python3"/>
+
+  <!-- RViz for visualization -->
+  <node name="rviz" pkg="rviz" type="rviz" 
+        args="-d $(find drone_autonomous_detections)/config/drone_mission.rviz"
+        output="screen"/>
+
+  <!-- Telemetry Logger -->
+  <node name="telemetry_logger" pkg="rosbag" type="record" 
+        args="-o /tmp/drone_mission /mavros/local_position/pose /mavros/imu/data /mavros/global_position/global /drone/mission_status"
+        output="screen"/>
+
+</launch>

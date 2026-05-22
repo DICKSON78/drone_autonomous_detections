@@ -1,0 +1,94 @@
+# Mission Drone Configuration
+# This file defines parameters for autonomous drone missions
+
+# Drone Physical Parameters
+drone:
+  mass: 1.5  # kg
+  max_speed: 20  # m/s
+  max_climb_rate: 5  # m/s
+  cruise_speed: 8  # m/s
+  battery_capacity: 5400  # mAh
+  flight_time: 1800  # seconds (30 minutes)
+  
+# Flight Parameters
+flight:
+  default_altitude: 25  # meters
+  hover_time_at_waypoint: 2.0  # seconds
+  waypoint_acceptance_radius: 1.0  # meters
+  max_lean_angle: 45  # degrees
+  
+# Mission Parameters
+mission:
+  enable_return_to_home: true
+  low_battery_threshold: 15  # percent
+  home_position_hold_time: 5  # seconds
+  auto_land_on_battery_critical: true
+  battery_critical_threshold: 5  # percent
+  
+# Safety Parameters
+safety:
+  geofence_radius: 500  # meters
+  max_altitude: 100  # meters
+  collision_avoidance_enabled: true
+  emergency_descent_rate: 2  # m/s
+  
+# Sensor Configuration
+sensors:
+  imu:
+    enabled: true
+    update_rate: 200  # Hz
+    
+  gps:
+    enabled: true
+    update_rate: 10  # Hz
+    rtk_enabled: false
+    
+  camera:
+    enabled: true
+    resolution: [1280, 960]
+    fps: 30
+    fov: 110  # degrees
+    
+  lidar:
+    enabled: false
+    range: 30  # meters
+    update_rate: 10  # Hz
+    
+  barometer:
+    enabled: true
+    update_rate: 50  # Hz
+    
+# Object Detection Parameters
+detection:
+  enabled: true
+  confidence_threshold: 0.7
+  detection_update_rate: 10  # Hz
+  object_classes: 
+    - person
+    - vehicle
+    - building
+    - obstacle
+  detection_radius: 50  # meters
+  
+# Communication
+communication:
+  telemetry_rate: 50  # Hz
+  mavlink_rate: 50  # Hz
+  command_timeout: 5.0  # seconds
+  
+# Control Gains (PID)
+pid_gains:
+  position:
+    p: 1.0
+    i: 0.1
+    d: 0.5
+    
+  velocity:
+    p: 0.8
+    i: 0.05
+    d: 0.3
+    
+  attitude:
+    p: 4.5
+    i: 0.2
+    d: 0.15
