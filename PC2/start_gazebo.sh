@@ -10,26 +10,31 @@ log() { echo -e "${GREEN}[GAZEBO]${NC} $1"; }
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
-# Parse args: --city uses heavier 73-model world
-USE_CITY=false
-[ "$1" = "--city" ] && USE_CITY=true
+# Parse world selection
+# default: light (30 models), --city: 44 models, --full: 73 models
+WORLD_NAME="dodoma_light"
+case "$1" in
+  --city)  WORLD_NAME="dodoma_tanzania" ;;
+  --full)  WORLD_NAME="dodoma_city" ;;
+esac
+
+# Clean up leftover processes
+pkill -f "sensor_bridge.py" 2>/dev/null || true
+pkill -f "object_detection_node.py" 2>/dev/null || true
 
 # 0. Network
 log "Ensuring fyp-network exists..."
 docker network inspect fyp-network >/dev/null 2>&1 || docker network create fyp-network
 
-# 1. Pick world (light = 44 models, city = 73 models)
-if $USE_CITY; then
-    WORLD_FILE="./gazebo_worlds/dodoma/dodoma_city.sdf"
-    [ ! -f "$WORLD_FILE" ] && WORLD_FILE="./gazebo_worlds/dodoma/dodoma_tanzania.sdf"
-    log "Using CITY world (heavier — 73 models)"
-else
-    WORLD_FILE="./gazebo_worlds/dodoma/dodoma_tanzania.sdf"
-    [ ! -f "$WORLD_FILE" ] && WORLD_FILE="./gazebo_worlds/dodoma/dodoma_city.sdf"
-    log "Using LIGHT world (44 models, 16GB RAM optimized)"
+# 1. Verify world file
+WORLD_FILE="./gazebo_worlds/dodoma/${WORLD_NAME}.sdf"
+if [ ! -f "$WORLD_FILE" ]; then
+    echo -e "${RED}[ERROR]${NC} World file not found: $WORLD_FILE"
+    echo -e "${YELLOW}  Available: dodoma_light (30), dodoma_tanzania (44), dodoma_city (73)${NC}"
+    exit 1
 fi
-[ ! -f "$WORLD_FILE" ] && echo -e "${RED}[ERROR]${NC} No world file found" && exit 1
-log "World: $(basename $WORLD_FILE)"
+MODEL_COUNT=$(grep -c '<model name=' "$WORLD_FILE")
+log "World: ${WORLD_NAME}.sdf (${MODEL_COUNT} models)"
 
 # 2. Prepare X11
 log "Preparing X11..."
@@ -46,25 +51,15 @@ cat > gazebo_models/dodoma/gui_config/full.config << 'CONFIG'
 <?xml version="1.0" encoding="UTF-8"?>
 <window>
   <plugin filename="GzScene3D" name="3D View">
-    <gz-gui>
-      <title>3D View</title>
-      <property key="showTitleBar" type="bool">false</property>
-      <property key="state" type="string">docked</property>
-    </gz-gui>
-    <engine>ogre2</engine>
-    <scene>scene</scene>
-    <ambient_light>0.4 0.4 0.45</ambient_light>
-    <background_color>0.3 0.35 0.4</background_color>
+    <gz-gui><title>3D View</title><property key="showTitleBar" type="bool">false</property><property key="state" type="string">docked</property></gz-gui>
+    <engine>ogre2</engine><scene>scene</scene>
+    <ambient_light>0.4 0.4 0.45</ambient_light><background_color>0.3 0.35 0.4</background_color>
     <camera_pose>-12 -12 15 0 0.6 0.785</camera_pose>
     <camera_clip><near>0.25</near><far>25000</far></camera_clip>
   </plugin>
   <plugin filename="CameraTracking" name="Camera Tracking">
     <follow_target>x500_0</follow_target>
   </plugin>
-  <plugin filename="EntityContextMenuPlugin" name="Entity context menu"/>
-  <plugin filename="GzSceneManager" name="Scene Manager"/>
-  <plugin filename="InteractiveViewControl" name="Interactive view control"/>
-  <plugin filename="SelectEntities" name="Select Entities"/>
   <plugin filename="WorldControl" name="World Control"/>
   <plugin filename="WorldStats" name="World Stats"/>
 </window>
@@ -74,48 +69,43 @@ log "GUI config ready ✓"
 # 4. Start container
 log "Starting Gazebo PX4 container..."
 
-if docker ps --format '{{.Names}}' | grep -q '^gazebo-px4$'; then
-    log "Container already running ✓"
-else
-    docker rm -f gazebo-px4 2>/dev/null || true
+docker rm -f gazebo-px4 2>/dev/null || true
 
-    WORLD_NAME=$(basename "$WORLD_FILE" .sdf)
+docker run -d \
+    --name gazebo-px4 \
+    --restart unless-stopped \
+    --network fyp-network \
+    -m 2g --memory-swap 3g \
+    --cpus 2 \
+    --shm-size=512m \
+    -p 14550:18570/udp \
+    -p 14540:14580/udp \
+    -p 14556:14556/udp \
+    -e PX4_SIMULATOR=gz \
+    -e PX4_GZ_WORLD="${WORLD_NAME}" \
+    -e PX4_SIM_MODEL=gz_x500 \
+    -e "GZ_SIM_RESOURCE_PATH=/gazebo_models/dodoma:/opt/px4-gazebo/share/gz/models:/opt/px4-gazebo/share/gz/worlds" \
+    -e PX4_HOME_LAT=-6.1630 \
+    -e PX4_HOME_LON=35.7516 \
+    -e PX4_HOME_ALT=1120 \
+    -e HEADLESS=1 \
+    -e DISPLAY=${DISPLAY} \
+    -e QT_X11_NO_MITSHM=1 \
+    -e XAUTHORITY=/tmp/.docker.xauth \
+    -e PX4_PARAM_COM_ARM_WO_GPS=1 \
+    -e PX4_PARAM_FS_GCS_ENABLE=0 \
+    -e PX4_PARAM_ARMING_CHECK=0 \
+    -v "$SCRIPT_DIR/px4_config:/px4_config" \
+    -v "$SCRIPT_DIR/gazebo_worlds:/gazebo_worlds:ro" \
+    -v "$SCRIPT_DIR/gazebo_models:/gazebo_models:ro" \
+    -v "$SCRIPT_DIR/gazebo_worlds/dodoma/dodoma_light.sdf:/opt/px4-gazebo/share/gz/worlds/dodoma_light.sdf" \
+    -v "$SCRIPT_DIR/gazebo_worlds/dodoma/dodoma_tanzania.sdf:/opt/px4-gazebo/share/gz/worlds/dodoma_tanzania.sdf" \
+    -v "$SCRIPT_DIR/gazebo_worlds/dodoma/dodoma_city.sdf:/opt/px4-gazebo/share/gz/worlds/dodoma_city.sdf" \
+    -v /tmp/.X11-unix:/tmp/.X11-unix:rw \
+    -v /tmp/.docker.xauth:/tmp/.docker.xauth:rw \
+    px4io/px4-sitl-gazebo:latest
 
-    docker run -d \
-        --name gazebo-px4 \
-        --restart unless-stopped \
-        --network fyp-network \
-        -m 2g --memory-swap 3g \
-        --cpus 2 \
-        --shm-size=512m \
-        -p 14550:18570/udp \
-        -p 14540:14580/udp \
-        -p 14556:14556/udp \
-        -e PX4_SIMULATOR=gz \
-        -e PX4_GZ_WORLD="${WORLD_NAME}" \
-        -e PX4_SIM_MODEL=gz_x500 \
-        -e "GZ_SIM_RESOURCE_PATH=/gazebo_models/dodoma:/opt/px4-gazebo/share/gz/models:/opt/px4-gazebo/share/gz/worlds" \
-        -e PX4_HOME_LAT=-6.1630 \
-        -e PX4_HOME_LON=35.7516 \
-        -e PX4_HOME_ALT=1120 \
-        -e HEADLESS=1 \
-        -e DISPLAY=${DISPLAY} \
-        -e QT_X11_NO_MITSHM=1 \
-        -e XAUTHORITY=/tmp/.docker.xauth \
-        -e PX4_PARAM_COM_ARM_WO_GPS=1 \
-        -e PX4_PARAM_FS_GCS_ENABLE=0 \
-        -e PX4_PARAM_ARMING_CHECK=0 \
-        -v "$SCRIPT_DIR/px4_config:/px4_config" \
-        -v "$SCRIPT_DIR/gazebo_worlds:/gazebo_worlds:ro" \
-        -v "$SCRIPT_DIR/gazebo_models:/gazebo_models:ro" \
-        -v "$SCRIPT_DIR/gazebo_worlds/dodoma/dodoma_city.sdf:/opt/px4-gazebo/share/gz/worlds/dodoma_city.sdf" \
-        -v "$SCRIPT_DIR/gazebo_worlds/dodoma/dodoma_tanzania.sdf:/opt/px4-gazebo/share/gz/worlds/dodoma_tanzania.sdf" \
-        -v /tmp/.X11-unix:/tmp/.X11-unix:rw \
-        -v /tmp/.docker.xauth:/tmp/.docker.xauth:rw \
-        px4io/px4-sitl-gazebo:latest
-
-    sleep 5
-fi
+sleep 5
 
 if ! docker ps | grep -q gazebo-px4; then
     echo -e "${RED}[ERROR]${NC} Failed to start container."
@@ -124,30 +114,39 @@ if ! docker ps | grep -q gazebo-px4; then
 fi
 
 log "Waiting for Gazebo server..."
-sleep 10
+sleep 8
 
-if docker exec gazebo-px4 sh -c "pgrep -f 'gz sim' >/dev/null 2>&1"; then
-    log "${GREEN}Gazebo simulator is running!${NC}"
-else
-    warn "Gazebo not detected."
-fi
+# 5. Auto-launch Gazebo GUI with software rendering
+log "Opening Gazebo GUI..."
+docker exec -d gazebo-px4 sh -c " \
+    mkdir -p /tmp/gui_config && \
+    LIBGL_ALWAYS_SOFTWARE=1 MESA_GL_VERSION_OVERRIDE=3.3 \
+    DISPLAY=:0 gz sim -g --gui-config /tmp/gui_config/full.config 2>/dev/null" 2>/dev/null || true
 
-# 5. Wait for drone spawn
+# Copy GUI config into container
+docker cp gazebo_models/dodoma/gui_config/full.config gazebo-px4:/tmp/gui_config/ 2>/dev/null || true
+
+# Re-launch GUI with config
+docker exec -d gazebo-px4 sh -c "\
+    LIBGL_ALWAYS_SOFTWARE=1 MESA_GL_VERSION_OVERRIDE=3.3 \
+    DISPLAY=:0 gz sim -g --gui-config /tmp/gui_config/full.config 2>/dev/null" 2>/dev/null || \
+    echo -e "${YELLOW}[WARN]${NC} GUI launch deferred. Run: docker exec gazebo-px4 gz sim -g"
+
+# 6. Wait for drone spawn
 log "Waiting for drone to spawn..."
-WORLD_NAME=$(basename "$WORLD_FILE" .sdf)
-for i in $(seq 1 30); do
+for i in $(seq 1 20); do
     sleep 2
     DRONE_OK=$(docker exec gazebo-px4 bash -c "gz topic -e -t /world/${WORLD_NAME}/pose/info -d 1 2>/dev/null" 2>/dev/null | grep -c "x500_0" || true)
     if [ "$DRONE_OK" -gt 0 ]; then
         log "${GREEN}Drone x500_0 detected!${NC}"
         break
     fi
-    if [ "$i" -eq 30 ]; then
-        echo -e "${YELLOW}[WARN]${NC} Drone not detected after 60s."
+    if [ "$i" -eq 20 ]; then
+        echo -e "${YELLOW}[WARN]${NC} Drone not detected after 40s — check 'docker logs gazebo-px4'"
     fi
 done
 
-# 6. Auto-arm and takeoff
+# 7. Auto-arm and takeoff
 log "Auto-arming drone and taking off to 10m..."
 cd "$SCRIPT_DIR"
 python3 -c "
@@ -179,7 +178,7 @@ else:
 drone.close()
 " 2>&1 || echo -e "${YELLOW}[WARN]${NC} Auto-arm/takeoff failed."
 
-# 7. Start mission services
+# 8. Start mission services
 log "Starting Sensor Bridge (telemetry)..."
 cd "$SCRIPT_DIR"
 nohup python3 scripts/sensor_bridge.py 127.0.0.1 14550 --http-port 8090 > /tmp/sensor_bridge.log 2>&1 &
@@ -191,7 +190,7 @@ nohup python3 scripts/object_detection_node.py --interval 3.0 > /tmp/object_dete
 DETECT_PID=$!
 sleep 1
 
-# 8. Offer autonomous mission
+# 9. Offer autonomous mission
 TAKEOFF_ALT=25
 echo ""
 echo -e "${CYAN}════════════════════════════════════════════════${NC}"
@@ -212,41 +211,43 @@ if [ "$RUN_MISSION" = "y" ] || [ "$RUN_MISSION" = "Y" ]; then
         echo -e "${YELLOW}[WARN]${NC} Mission failed."
     log "Mission complete. Drone returned to home."
 else
-    log "Skipping auto mission. Use NLP console for manual control."
+    log "Skipping auto mission."
 fi
 
-# 9. Open NLP console
+# 10. Open NLP console
 log "Opening NLP Drone Console..."
 NLP_CMD="cd '$SCRIPT_DIR' && python3 scripts/nlp_console.py 127.0.0.1"
 if command -v gnome-terminal &>/dev/null; then
     nohup gnome-terminal --title="NLP Drone Console" -- bash -c "$NLP_CMD; exec bash" &>/dev/null &
-    sleep 1
 elif command -v xterm &>/dev/null; then
     xterm -T "NLP Drone Console" -e "$NLP_CMD" &
 else
-    echo -e "${YELLOW}[WARN]${NC} Run in another terminal: python3 scripts/nlp_console.py"
+    echo -e "${YELLOW}[WARN]${NC} Open another terminal and run: python3 scripts/nlp_console.py 127.0.0.1"
 fi
 
-# 10. Show final status
+# 11. Final status
+cat << EOF
+
+${CYAN}╔══════════════════════════════════════════════════════════╗${NC}
+${CYAN}║          ${BOLD}DODOMA DRONE — READY${NC}${CYAN}                        ║${NC}
+${CYAN}╠══════════════════════════════════════════════════════════╣${NC}
+${CYAN}║${NC}  ✓ Drone: x500_0 hovering at 10m                    ${CYAN}║${NC}
+${CYAN}║${NC}  ✓ World: ${WORLD_NAME} (${MODEL_COUNT} models)                        ${CYAN}║${NC}
+${CYAN}║${NC}  ✓ Sensor bridge → http://localhost:8090              ${CYAN}║${NC}
+${CYAN}║${NC}  ✓ Object detection running                          ${CYAN}║${NC}
+${CYAN}║${NC}                                                    ${CYAN}║${NC}
+${CYAN}║${NC}  ${BOLD}Gazebo GUI:${NC}                                        ${CYAN}║${NC}
+${CYAN}║${NC}    If GUI didn't open, run:                           ${CYAN}║${NC}
+${CYAN}║${NC}    docker exec -e DISPLAY=\$DISPLAY gazebo-px4 gz sim -g${CYAN}║${NC}
+${CYAN}║${NC}                                                    ${CYAN}║${NC}
+${CYAN}║${NC}  ${BOLD}NLP Commands:${NC}                                   ${CYAN}║${NC}
+${CYAN}║${NC}    'take off to 20m'        'land'                   ${CYAN}║${NC}
+${CYAN}║${NC}    'fly to bunge parliament' 'go forward 30m'        ${CYAN}║${NC}
+${CYAN}║${NC}    'fly to central hospital' 'return home'           ${CYAN}║${NC}
+${CYAN}╚══════════════════════════════════════════════════════════╝${NC}
+EOF
 echo ""
-echo -e "${CYAN}╔══════════════════════════════════════════════════════════╗${NC}"
-echo -e "${CYAN}║          ${BOLD}DODOMA DRONE — READY${NC}${CYAN}                        ║${NC}"
-echo -e "${CYAN}╠══════════════════════════════════════════════════════════╣${NC}"
-echo -e "${CYAN}║${NC}  ✓ Drone: x500_0 at 10m                            ${CYAN}║${NC}"
-echo -e "${CYAN}║${NC}  ✓ World: $(basename $WORLD_FILE .sdf) (light: 44 models)${NC}             ${CYAN}║${NC}"
-echo -e "${CYAN}║${NC}  ✓ Sensor bridge → http://localhost:8090            ${CYAN}║${NC}"
-echo -e "${CYAN}║${NC}  ✓ Object detection running                        ${CYAN}║${NC}"
-echo -e "${CYAN}║${NC}  ✓ NLP console open                               ${CYAN}║${NC}"
-echo -e "${CYAN}║${NC}                                                    ${CYAN}║${NC}"
-echo -e "${CYAN}║${NC}  ${BOLD}To open Gazebo GUI (when ready):${NC}               ${CYAN}║${NC}"
-echo -e "${CYAN}║${NC}    docker exec -d gazebo-px4 gz sim -g              ${CYAN}║${NC}"
-echo -e "${CYAN}║${NC}                                                    ${CYAN}║${NC}"
-echo -e "${CYAN}║${NC}  ${BOLD}NLP Commands:${NC}                                   ${CYAN}║${NC}"
-echo -e "${CYAN}║${NC}    'take off to 20m'        'land'                 ${CYAN}║${NC}"
-echo -e "${CYAN}║${NC}    'fly to bunge parliament' 'go forward 30m'      ${CYAN}║${NC}"
-echo -e "${CYAN}║${NC}    'fly to central hospital' 'return home'         ${CYAN}║${NC}"
-echo -e "${CYAN}╚══════════════════════════════════════════════════════════╝${NC}"
-echo ""
-echo -e "${YELLOW}  💡 Use --city flag for the heavier Dodoma City world (73 models)${NC}"
-echo -e "${YELLOW}     e.g. ./start_gazebo.sh --city${NC}"
+echo -e "${YELLOW}  World options: ./start_gazebo.sh       → light (30 models)${NC}"
+echo -e "${YELLOW}                 ./start_gazebo.sh --city → Tanzania (44 models)${NC}"
+echo -e "${YELLOW}                 ./start_gazebo.sh --full → City (73 models)${NC}"
 echo ""
