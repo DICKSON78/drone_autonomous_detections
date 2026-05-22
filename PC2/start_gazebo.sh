@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-# PC2 Gazebo Launcher
-# Starts the Dodoma simulation with auto-arm/takeoff, camera follow, and NLP console
+# PC2 Gazebo Launcher — Optimized for 16GB RAM
+# Starts Dodoma simulation with auto-arm/takeoff, mission drone services
 
 GREEN='\033[0;32m'; YELLOW='\033[1;33m'; RED='\033[0;31m'
 CYAN='\033[0;36m'; BOLD='\033[1m'; NC='\033[0m'
@@ -10,16 +10,26 @@ log() { echo -e "${GREEN}[GAZEBO]${NC} $1"; }
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
+# Parse args: --city uses heavier 73-model world
+USE_CITY=false
+[ "$1" = "--city" ] && USE_CITY=true
+
 # 0. Network
 log "Ensuring fyp-network exists..."
 docker network inspect fyp-network >/dev/null 2>&1 || docker network create fyp-network
 
-# 1. Verify SDF
-log "Verifying world file..."
-WORLD_FILE="./gazebo_worlds/dodoma/dodoma_city.sdf"
-[ ! -f "$WORLD_FILE" ] && WORLD_FILE="./gazebo_worlds/dodoma/dodoma_tanzania.sdf"
+# 1. Pick world (light = 44 models, city = 73 models)
+if $USE_CITY; then
+    WORLD_FILE="./gazebo_worlds/dodoma/dodoma_city.sdf"
+    [ ! -f "$WORLD_FILE" ] && WORLD_FILE="./gazebo_worlds/dodoma/dodoma_tanzania.sdf"
+    log "Using CITY world (heavier — 73 models)"
+else
+    WORLD_FILE="./gazebo_worlds/dodoma/dodoma_tanzania.sdf"
+    [ ! -f "$WORLD_FILE" ] && WORLD_FILE="./gazebo_worlds/dodoma/dodoma_city.sdf"
+    log "Using LIGHT world (44 models, 16GB RAM optimized)"
+fi
 [ ! -f "$WORLD_FILE" ] && echo -e "${RED}[ERROR]${NC} No world file found" && exit 1
-log "World file found ✓ ($(basename $WORLD_FILE))"
+log "World: $(basename $WORLD_FILE)"
 
 # 2. Prepare X11
 log "Preparing X11..."
@@ -30,7 +40,7 @@ if [ ! -f "$XAUTH" ]; then
     xauth nlist "$DISPLAY" 2>/dev/null | sed -e 's/^..../ffff/' | xauth -f "$XAUTH" nmerge - 2>/dev/null || true
 fi
 
-# 3. Copy GUI config into container volume
+# 3. Generate GUI config
 mkdir -p gazebo_models/dodoma/gui_config
 cat > gazebo_models/dodoma/gui_config/full.config << 'CONFIG'
 <?xml version="1.0" encoding="UTF-8"?>
@@ -59,28 +69,30 @@ cat > gazebo_models/dodoma/gui_config/full.config << 'CONFIG'
   <plugin filename="WorldStats" name="World Stats"/>
 </window>
 CONFIG
-log "GUI config created ✓"
+log "GUI config ready ✓"
 
-# 4. Start the container (use docker run to avoid docker-compose v1.29.2 bug)
+# 4. Start container
 log "Starting Gazebo PX4 container..."
 
-# Check if container already exists and is running
 if docker ps --format '{{.Names}}' | grep -q '^gazebo-px4$'; then
     log "Container already running ✓"
 else
-    # Remove stale container if exists
     docker rm -f gazebo-px4 2>/dev/null || true
-    
+
+    WORLD_NAME=$(basename "$WORLD_FILE" .sdf)
+
     docker run -d \
         --name gazebo-px4 \
         --restart unless-stopped \
         --network fyp-network \
-        -m 3g --memory-swap 4g \
+        -m 2g --memory-swap 3g \
+        --cpus 2 \
+        --shm-size=512m \
         -p 14550:18570/udp \
         -p 14540:14580/udp \
         -p 14556:14556/udp \
         -e PX4_SIMULATOR=gz \
-        -e PX4_GZ_WORLD=dodoma_city \
+        -e PX4_GZ_WORLD="${WORLD_NAME}" \
         -e PX4_SIM_MODEL=gz_x500 \
         -e "GZ_SIM_RESOURCE_PATH=/gazebo_models/dodoma:/opt/px4-gazebo/share/gz/models:/opt/px4-gazebo/share/gz/worlds" \
         -e PX4_HOME_LAT=-6.1630 \
@@ -101,48 +113,41 @@ else
         -v /tmp/.X11-unix:/tmp/.X11-unix:rw \
         -v /tmp/.docker.xauth:/tmp/.docker.xauth:rw \
         px4io/px4-sitl-gazebo:latest
-    
+
     sleep 5
 fi
 
 if ! docker ps | grep -q gazebo-px4; then
     echo -e "${RED}[ERROR]${NC} Failed to start container."
+    docker logs gazebo-px4 --tail 20
     exit 1
 fi
 
-log "Container started. Waiting for Gazebo server..."
+log "Waiting for Gazebo server..."
 sleep 10
 
-# Verify Gazebo is running
 if docker exec gazebo-px4 sh -c "pgrep -f 'gz sim' >/dev/null 2>&1"; then
     log "${GREEN}Gazebo simulator is running!${NC}"
 else
     warn "Gazebo not detected."
 fi
 
-# 5. Copy GUI config into container and launch GUI
-log "Opening Gazebo GUI with camera tracking..."
-docker exec gazebo-px4 mkdir -p /tmp/gui_config
-docker cp gazebo_models/dodoma/gui_config/full.config gazebo-px4:/tmp/gui_config/
-docker exec -d gazebo-px4 sh -c "DISPLAY=:0 gz sim -g --gui-config /tmp/gui_config/full.config &" 2>/dev/null || \
-    echo -e "${YELLOW}[WARN]${NC} Could not open GUI automatically."
-
-# 6. Wait for drone spawn then auto-arm/takeoff
+# 5. Wait for drone spawn
 log "Waiting for drone to spawn..."
+WORLD_NAME=$(basename "$WORLD_FILE" .sdf)
 for i in $(seq 1 30); do
     sleep 2
-    WORLD_NAME=$(basename "$WORLD_FILE" .sdf)
-DRONE_OK=$(docker exec gazebo-px4 bash -c "gz topic -e -t /world/${WORLD_NAME}/pose/info -d 1 2>/dev/null" 2>/dev/null | grep -c "x500_0" || true)
+    DRONE_OK=$(docker exec gazebo-px4 bash -c "gz topic -e -t /world/${WORLD_NAME}/pose/info -d 1 2>/dev/null" 2>/dev/null | grep -c "x500_0" || true)
     if [ "$DRONE_OK" -gt 0 ]; then
         log "${GREEN}Drone x500_0 detected!${NC}"
         break
     fi
     if [ "$i" -eq 30 ]; then
-        echo -e "${YELLOW}[WARN]${NC} Drone not detected after 60s. Check logs."
+        echo -e "${YELLOW}[WARN]${NC} Drone not detected after 60s."
     fi
 done
 
-# 7. Auto-arm and takeoff to show the drone flying
+# 6. Auto-arm and takeoff
 log "Auto-arming drone and taking off to 10m..."
 cd "$SCRIPT_DIR"
 python3 -c "
@@ -172,48 +177,45 @@ if t['connected']:
 else:
     print('  ${YELLOW}Connection timeout. Use NLP console.${NC}')
 drone.close()
-" 2>&1 || echo -e "${YELLOW}[WARN]${NC} Auto-arm/takeoff failed. Use NLP console."
+" 2>&1 || echo -e "${YELLOW}[WARN]${NC} Auto-arm/takeoff failed."
 
-# 8. Start Mission Drone Services
-log "Starting Sensor Bridge (telemetry logger)..."
+# 7. Start mission services
+log "Starting Sensor Bridge (telemetry)..."
 cd "$SCRIPT_DIR"
 nohup python3 scripts/sensor_bridge.py 127.0.0.1 14550 --http-port 8090 > /tmp/sensor_bridge.log 2>&1 &
 SENSOR_PID=$!
 sleep 1
-log "Sensor Bridge PID $SENSOR_PID — telemetry at :8090, logs in PC2/logs/"
 
 log "Starting Object Detection..."
 nohup python3 scripts/object_detection_node.py --interval 3.0 > /tmp/object_detection.log 2>&1 &
 DETECT_PID=$!
 sleep 1
-log "Object Detection PID $DETECT_PID — results in /tmp/object_detection.log"
 
-# 9. Offer autonomous mission
+# 8. Offer autonomous mission
 TAKEOFF_ALT=25
 echo ""
-echo -e "${CYAN}══════════════════════════════════════════════════════${NC}"
-echo -e "${CYAN}  ${BOLD}MISSION DRONE READY${NC}${CYAN}                                 ${NC}"
-echo -e "${CYAN}  Drone hovering at 10m — Dodoma City world           ${NC}"
-echo -e "${CYAN}  Sensor bridge logging ✓                             ${NC}"
-echo -e "${CYAN}  Object detection running ✓                          ${NC}"
-echo -e "${CYAN}                                                      ${NC}"
-echo -e "${CYAN}  Start surveillance mission? (y/n)                   ${NC}"
-echo -e "${CYAN}══════════════════════════════════════════════════════${NC}"
+echo -e "${CYAN}════════════════════════════════════════════════${NC}"
+echo -e "${CYAN}  ${BOLD}MISSION DRONE READY${NC}${CYAN}                          ${NC}"
+echo -e "${CYAN}  Drone hovering at 10m                        ${NC}"
+echo -e "${CYAN}  Sensor bridge logging ✓                      ${NC}"
+echo -e "${CYAN}  Object detection running ✓                   ${NC}"
+echo -e "${CYAN}                                              ${NC}"
+echo -e "${CYAN}  Start surveillance mission? (y/n)            ${NC}"
+echo -e "${CYAN}════════════════════════════════════════════════${NC}"
 echo ""
 echo -n "  > "
 read -t 15 RUN_MISSION || true
 
 if [ "$RUN_MISSION" = "y" ] || [ "$RUN_MISSION" = "Y" ]; then
-    log "Starting surveillance mission (${TAKEOFF_ALT}m altitude)..."
-    echo -e "${YELLOW}  Press Ctrl+C to abort mission${NC}"
+    log "Starting surveillance mission (${TAKEOFF_ALT}m)..."
     python3 scripts/mission_drone_controller.py 127.0.0.1 14550 --alt $TAKEOFF_ALT --mission 2>&1 || \
-        echo -e "${YELLOW}[WARN]${NC} Mission failed. Check /tmp/mission.log"
+        echo -e "${YELLOW}[WARN]${NC} Mission failed."
     log "Mission complete. Drone returned to home."
 else
     log "Skipping auto mission. Use NLP console for manual control."
 fi
 
-# 10. Open NLP Drone Console
+# 9. Open NLP console
 log "Opening NLP Drone Console..."
 NLP_CMD="cd '$SCRIPT_DIR' && python3 scripts/nlp_console.py 127.0.0.1"
 if command -v gnome-terminal &>/dev/null; then
@@ -222,30 +224,29 @@ if command -v gnome-terminal &>/dev/null; then
 elif command -v xterm &>/dev/null; then
     xterm -T "NLP Drone Console" -e "$NLP_CMD" &
 else
-    echo -e "${YELLOW}[WARN]${NC} No terminal emulator. Run: python3 scripts/nlp_console.py"
+    echo -e "${YELLOW}[WARN]${NC} Run in another terminal: python3 scripts/nlp_console.py"
 fi
 
-# 11. Show final status
+# 10. Show final status
 echo ""
-echo -e "${CYAN}╔══════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${CYAN}║          ${BOLD}DODOMA MISSION DRONE — READY${NC}${CYAN}                ║${NC}"
-echo -e "${CYAN}╠══════════════════════════════════════════════════════════════╣${NC}"
-echo -e "${CYAN}║${NC}  ✓ Drone spawned  (x500_0)                               ${CYAN}║${NC}"
-echo -e "${CYAN}║${NC}  ✓ World: Dodoma City  (73 models)                       ${CYAN}║${NC}"
-echo -e "${CYAN}║${NC}  ✓ Camera tracking                                         ${CYAN}║${NC}"
-echo -e "${CYAN}║${NC}  ✓ Sensor bridge  →  :8090/telemetry                      ${CYAN}║${NC}"
-echo -e "${CYAN}║${NC}  ✓ Object detection running                              ${CYAN}║${NC}"
-echo -e "${CYAN}║${NC}  ✓ NLP console open for commands                         ${CYAN}║${NC}"
-echo -e "${CYAN}║${NC}                                                        ${CYAN}║${NC}"
-echo -e "${CYAN}║${NC}  ${BOLD}Available:${NC}                                        ${CYAN}║${NC}"
-echo -e "${CYAN}║${NC}    • NLP console — natural language drone control       ${CYAN}║${NC}"
-echo -e "${CYAN}║${NC}    • Surveillance mission — python3 scripts/mission_... ${CYAN}║${NC}"
-echo -e "${CYAN}║${NC}    • YOLO detection — http://localhost:8002/detect      ${CYAN}║${NC}"
-echo -e "${CYAN}║${NC}    • Telemetry HTTP — http://localhost:8090              ${CYAN}║${NC}"
-echo -e "${CYAN}║${NC}                                                        ${CYAN}║${NC}"
-echo -e "${CYAN}║${NC}  ${BOLD}NLP Commands:${NC}                                     ${CYAN}║${NC}"
-echo -e "${CYAN}║${NC}    'take off to 20m'        'land'                     ${CYAN}║${NC}"
-echo -e "${CYAN}║${NC}    'fly to bunge parliament' 'go forward 30m'          ${CYAN}║${NC}"
-echo -e "${CYAN}║${NC}    'fly to central hospital' 'return home'             ${CYAN}║${NC}"
-echo -e "${CYAN}╚══════════════════════════════════════════════════════════════╝${NC}"
+echo -e "${CYAN}╔══════════════════════════════════════════════════════════╗${NC}"
+echo -e "${CYAN}║          ${BOLD}DODOMA DRONE — READY${NC}${CYAN}                        ║${NC}"
+echo -e "${CYAN}╠══════════════════════════════════════════════════════════╣${NC}"
+echo -e "${CYAN}║${NC}  ✓ Drone: x500_0 at 10m                            ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}  ✓ World: $(basename $WORLD_FILE .sdf) (light: 44 models)${NC}             ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}  ✓ Sensor bridge → http://localhost:8090            ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}  ✓ Object detection running                        ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}  ✓ NLP console open                               ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}                                                    ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}  ${BOLD}To open Gazebo GUI (when ready):${NC}               ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}    docker exec -d gazebo-px4 gz sim -g              ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}                                                    ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}  ${BOLD}NLP Commands:${NC}                                   ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}    'take off to 20m'        'land'                 ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}    'fly to bunge parliament' 'go forward 30m'      ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}    'fly to central hospital' 'return home'         ${CYAN}║${NC}"
+echo -e "${CYAN}╚══════════════════════════════════════════════════════════╝${NC}"
+echo ""
+echo -e "${YELLOW}  💡 Use --city flag for the heavier Dodoma City world (73 models)${NC}"
+echo -e "${YELLOW}     e.g. ./start_gazebo.sh --city${NC}"
 echo ""
