@@ -1,0 +1,99 @@
+#VRML_SIM R2025a utf8
+
+EXTERNPROTO "../protos/Mavic2Pro.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/backgrounds/protos/TexturedBackground.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/backgrounds/protos/TexturedBackgroundLight.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/floors/protos/Floor.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/appearances/protos/SandyGround.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/road/protos/Road.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/appearances/protos/Pavement.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/buildings/protos/Windmill.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/buildings/protos/SmallManor.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/factory/manhole/protos/SquareManhole.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/factory/containers/protos/CardboardBox.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/vehicles/protos/tesla/TeslaModel3Simple.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/trees/protos/Pine.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/trees/protos/Forest.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/buildings/protos/SimpleBuilding.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/traffic/protos/TrafficCone.proto"
+
+WorldInfo {
+  info [
+    "Drone Autonomous Detection - Webots Simulation"
+    "MAVLink bridge controller provides PX4-compatible telemetry on UDP :14550"
+  ]
+  title "Drone Detection World"
+  basicTimeStep 8
+  defaultDamping Damping {
+    linear 0.5
+    angular 0.5
+  }
+}
+Viewpoint {
+  orientation -0.0313 -0.0042 0.9995 2.9017
+  position 3.39 -0.93 0.75
+  near 0.2
+  follow "Mavic 2 PRO"
+  followSmoothness 0.2
+}
+TexturedBackground { luminosity 3 }
+TexturedBackgroundLight {}
+Floor { size 400 400 tileSize 6 6 appearance SandyGround {} }
+
+Road {
+  translation -43.8 9.2 0.01
+  rotation 0 0 1 -0.3927
+  width 3 numberOfLanes 1 rightBorder FALSE leftBorder FALSE
+  wayPoints [0 0 0, 100 0 0, 200 200 0]
+  splineSubdivision 8
+  appearance Pavement { type "black stone" }
+}
+
+Windmill { translation -43.87 -19.84 0 rotation 0 0 1 0.5236 }
+Windmill { translation -44.26 -27.34 0 rotation 0 0 1 0.5236 name "wm2" }
+Windmill { translation -46.24 30.57 0 rotation 0 0 1 0.5236 name "wm3" }
+Windmill { translation -38.75 23.4 0 name "wm4" }
+
+SmallManor { translation -50.35 11.25 0 rotation 0 0 -1 0.3924 }
+
+SimpleBuilding { translation 15 -10 0 rotation 0 0 1 0.5236 }
+SimpleBuilding { translation 20 15 0 rotation 0 0 1 0.7854 name "b1" }
+SimpleBuilding { translation -20 25 0 rotation 0 0 1 -0.7854 name "b2" }
+
+TrafficCone { translation 2.5 0 0 }
+TrafficCone { translation -2.5 0 0 name "c1" }
+
+CardboardBox { translation -0.73 -1.23 0.3 rotation 0 0 1 -1.8326 }
+CardboardBox { translation 1.5 2.0 0.3 rotation 0 0 1 0.5 name "box1" }
+
+TeslaModel3Simple { translation -41.51 4.34 0.31 rotation 0 0 1 -0.2618 }
+
+Pine { translation -14.01 -14.48 0 rotation 0 0 1 2.618 }
+Pine { translation -19.62 -24.38 0 rotation 0 0 1 2.88 name "t1" }
+Pine { translation -22.01 6.20 0 name "t3" }
+Pine { translation -10.69 -25.13 0 name "t4" }
+Pine { translation -14.34 14.56 0 name "t5" }
+Pine { translation -26.63 -7.17 0 name "t6" }
+Pine { translation -9.37 14.02 0 rotation 0 0 1 -2.618 name "t2" }
+Pine { translation 15.0 25.0 0 name "t7" }
+
+Forest {
+  translation 0 0 -0.01
+  shape [200 200, 200 0, 50 0, 50 50, -50 50, -50 -50, 50 -50, 50 0, 200 0, 200 -200, -200 -200, -200 200]
+  density 0.01
+  type "cherry tree"
+  randomSeed 1
+  maxHeight 12
+  minHeight 6
+  maxRadius 6
+  minRadius 3
+}
+
+Mavic2Pro {
+  translation 0 0 0.1
+  rotation 0 0 1 3.1416
+  controller "px4_bridge"
+  cameraSlot [
+    Camera { width 640 height 480 near 0.2 }
+  ]
+}

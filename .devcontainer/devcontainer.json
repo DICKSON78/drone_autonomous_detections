@@ -1,24 +1,13 @@
 {
-    "name": "PX4 Gazebo Simulation",
-    "image": "px4io/px4-sitl-gazebo:latest",
+    "name": "Drone Webots Simulation",
+    "image": "mcr.microsoft.com/devcontainers/python:3.13",
     "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=cached",
     "workspaceFolder": "/workspace",
     "runArgs": [
-        "--name", "px4-codespace",
+        "--name", "drone-codespace",
         "--privileged",
         "--shm-size=512m"
     ],
-    "containerEnv": {
-        "PX4_SIMULATOR": "gz",
-        "PX4_GZ_WORLD": "dodoma_tanzania",
-        "PX4_SIM_MODEL": "gz_x500",
-        "HEADLESS": "1",
-        "DISPLAY": ":1",
-        "PX4_PARAM_COM_ARM_WO_GPS": "1",
-        "PX4_HOME_LAT": "-6.1630",
-        "PX4_HOME_LON": "35.7516",
-        "PX4_HOME_ALT": "1120"
-    },
     "forwardPorts": [
         14550,
         14540,
@@ -35,7 +24,7 @@
             "protocol": "udp"
         },
         "6080": {
-            "label": "Gazebo GUI (noVNC)",
+            "label": "Webots (noVNC)",
             "onAutoForward": "notify"
         }
     },
@@ -50,6 +39,9 @@
             }
         }
     },
-    "postCreateCommand": "bash /workspace/.devcontainer/setup.sh",
+    "features": {
+        "ghcr.io/devcontainers/features/desktop-lite:1": {}
+    },
+    "postCreateCommand": "pip3 install numpy opencv-python pyyaml influxdb-client && echo 'Dev container ready. Webots must be installed on host.'",
     "remoteUser": "root"
 }
