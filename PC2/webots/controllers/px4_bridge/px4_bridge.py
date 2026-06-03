@@ -185,8 +185,8 @@ class MavicBridge(Robot):
     K_VERTICAL_GAIN = 3.0
     TAKEOFF_BOOST = 120.0
     TAKEOFF_BOOST_DURATION = 3.0
-    K_ROLL_P = 50.0
-    K_PITCH_P = 30.0
+    K_ROLL_P = 20.0
+    K_PITCH_P = 15.0
     MAX_YAW_DISTURBANCE = 0.4
     MAX_PITCH_DISTURBANCE = -1
     TARGET_PRECISION = 0.8
@@ -234,6 +234,7 @@ class MavicBridge(Robot):
         self.vel_x = self.vel_y = self.vel_z = 0
         self.mav_seq = 0
         self._in_air = False
+        self._landing = False
 
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -372,10 +373,17 @@ class MavicBridge(Robot):
                 self._in_air = False
 
         if time.time() < self._takeoff_boost_until:
-            vertical_input += self.TAKEOFF_BOOST
+            boost_elapsed = time.time() - (self._takeoff_boost_until - self.TAKEOFF_BOOST_DURATION)
+            boost_factor = min(1.0, boost_elapsed / 0.5)
+            vertical_input += self.TAKEOFF_BOOST * boost_factor
 
-        roll_input = self.K_ROLL_P * clamp(self.roll, -1, 1) + self.roll_accel
-        pitch_input = self.K_PITCH_P * clamp(self.pitch, -1, 1) + self.pitch_accel
+        # On ground: suppress roll/pitch to prevent flip at lift-off
+        on_ground = altitude < 0.15 and not self._in_air
+        roll_input = 0.0
+        pitch_input = 0.0
+        if not on_ground:
+            roll_input = self.K_ROLL_P * clamp(self.roll, -1, 1) + self.roll_accel
+            pitch_input = self.K_PITCH_P * clamp(self.pitch, -1, 1) + self.pitch_accel
 
         fl = self.K_VERTICAL_THRUST + vertical_input - yaw_disturbance + pitch_input - roll_input
         fr = self.K_VERTICAL_THRUST + vertical_input + yaw_disturbance + pitch_input + roll_input
