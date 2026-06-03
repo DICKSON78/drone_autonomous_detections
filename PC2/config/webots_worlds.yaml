@@ -1,0 +1,19 @@
+# Webots world definition for drone autonomous detection simulation
+worlds:
+  mavic2pro_px4:
+    name: "Mavic2Pro Detection World"
+    description: "Rural environment with buildings, trees, vehicles, and objects for object detection"
+    file: "webots/worlds/mavic2pro_px4.wbt"
+    controller: "px4_bridge"
+    bridge_port: 14550
+    drone_model: "Mavic2Pro"
+    features:
+      - "Rural landscape with windmills, manor, buildings"
+      - "Forest area with pine and cherry trees"
+      - "Road with Tesla vehicle"
+      - "Traffic cones, cardboard boxes for detection targets"
+    objects:
+      - "buildings: SimpleBuilding, SmallManor, Windmill"
+      - "vehicles: TeslaModel3Simple"
+      - "obstacles: TrafficCone, CardboardBox, SquareManhole"
+      - "vegetation: Pine, Forest"

@@ -21,7 +21,7 @@ INFLUXDB_URL = os.getenv('INFLUXDB_URL', 'http://influxdb:8086')
 INFLUXDB_TOKEN = os.getenv('INFLUXDB_TOKEN', 'drone-telemetry-token')
 INFLUXDB_ORG = os.getenv('INFLUXDB_ORG', 'drone-project')
 INFLUXDB_BUCKET = os.getenv('INFLUXDB_BUCKET', 'drone_telemetry')
-MAVLINK_HOST = os.getenv('MAVLINK_HOST', os.getenv('PC2_IP', 'gazebo-px4'))
+MAVLINK_HOST = os.getenv('MAVLINK_HOST', os.getenv('PC2_IP', 'localhost'))
 MAVLINK_PORT = int(os.getenv('MAVLINK_PORT', '14550'))
 PORT = int(os.getenv('PORT', '8004'))
 

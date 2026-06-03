@@ -42,6 +42,7 @@ log = logging.getLogger("feedback-service")
 tts: TTSEngine
 mq:  MessageQueue
 audio: AudioManager
+_kafka_connected: bool = False
 
 
 # ── Kafka helpers ─────────────────────────────────────────────────────────────
@@ -105,8 +106,33 @@ def _handle_status(data: dict, queue: MessageQueue, producer) -> None:
         _publish_spoken(producer, text, "normal", "drone.status.flight")
 
 
+def _wait_for_kafka(timeout: int = 60) -> bool:
+    """Block until Kafka is reachable or *timeout* seconds elapse."""
+    try:
+        from kafka.admin import KafkaAdminClient
+    except ImportError:
+        return False
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        try:
+            admin = KafkaAdminClient(
+                bootstrap_servers=KAFKA_SERVERS,
+                client_id="feedback-service-init",
+            )
+            admin.list_topics()
+            admin.close()
+            log.info("Kafka is reachable at %s", KAFKA_SERVERS)
+            return True
+        except Exception as exc:
+            log.warning("Waiting for Kafka at %s (%s) …", KAFKA_SERVERS, exc)
+            time.sleep(5)
+    log.error("Kafka not reachable after %d s — starting without Kafka", timeout)
+    return False
+
+
 def _kafka_thread(queue: MessageQueue) -> None:
     """Runs forever in a daemon thread. Reconnects automatically."""
+    global _kafka_connected
     try:
         from kafka import KafkaConsumer, KafkaProducer  # type: ignore
     except ImportError:
@@ -135,6 +161,7 @@ def _kafka_thread(queue: MessageQueue) -> None:
                 auto_offset_reset="latest",
                 consumer_timeout_ms=5000,
             )
+            _kafka_connected = True
             log.info("Kafka consumer connected to %s", KAFKA_SERVERS)
             for msg in consumer:
                 handler = _HANDLERS.get(msg.topic)
@@ -144,6 +171,7 @@ def _kafka_thread(queue: MessageQueue) -> None:
                     except Exception as exc:
                         log.error("Handler error on %s: %s", msg.topic, exc)
         except Exception as exc:
+            _kafka_connected = False
             log.warning("Kafka error (%s) — retry in 10 s", exc)
             if producer:
                 try: producer.close()
@@ -162,8 +190,12 @@ async def lifespan(app: FastAPI):
         speak_fn=tts.speak,
         cooldown_seconds=COOLDOWN_SEC,
     )
+    kafka_ok = _wait_for_kafka(timeout=60)
     threading.Thread(target=_kafka_thread, args=(mq,), daemon=True, name="kafka").start()
-    log.info("Feedback service started on port %d", PORT)
+    if kafka_ok:
+        log.info("Feedback service started on port %d — Kafka connected", PORT)
+    else:
+        log.warning("Feedback service started on port %d — Kafka NOT available", PORT)
     yield
     log.info("Feedback service shutdown")
 
@@ -203,11 +235,12 @@ EVENT_MESSAGES = {
 @app.get("/health")
 def health():
     return {
-        "status":     "healthy",
-        "service":    "feedback-service",
-        "audio_ok":   tts.available,
-        "queue_size": mq.size,
-        "timestamp":  time.time(),
+        "status":           "healthy",
+        "service":          "feedback-service",
+        "audio_ok":         tts.available,
+        "kafka_connected":  _kafka_connected,
+        "queue_size":       mq.size,
+        "timestamp":        time.time(),
     }
 
 
@@ -247,11 +280,12 @@ def audio_devices():
 @app.get("/stats")
 def stats():
     return {
-        "service":       "feedback-service",
-        "queue_stats":   mq.stats,
-        "audio_ok":      tts.available,
-        "kafka_servers": KAFKA_SERVERS,
-        "timestamp":     time.time(),
+        "service":          "feedback-service",
+        "queue_stats":      mq.stats,
+        "audio_ok":         tts.available,
+        "kafka_connected":  _kafka_connected,
+        "kafka_servers":    KAFKA_SERVERS,
+        "timestamp":        time.time(),
     }
 
 

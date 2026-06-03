@@ -151,15 +151,15 @@ integration:
     
   # Camera Interface
   camera_source:
-    type: "gazebo"  # gazebo, usb, rtsp, file
-    source: "/dev/video0"
+    type: "webots"  # webots, usb, rtsp, file
+    source: "simulation"  # Webots provides simulated camera feed
     backup_source: "test_video.mp4"
     
-  # Gazebo Integration
-  gazebo:
+  # Webots Integration
+  webots:
     enabled: true
-    camera_topic: "/gazebo/default/camera/link/camera/image"
-    camera_info_topic: "/gazebo/default/camera/link/camera/info"
+    camera_source: "Mavic2Pro onboard camera (640x480)"
+    drone_model: "Mavic2Pro"
     
 # Testing and Development
 testing:

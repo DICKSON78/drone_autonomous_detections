@@ -66,10 +66,8 @@ $DOCKER_COMPOSE up -d
 echo ""
 echo "⏳ Waiting for services to be ready..."
 for i in {1..30}; do
-  if curl -s http://localhost:8005/health > /dev/null 2>&1 && \
-     curl -s http://localhost:8006/health > /dev/null 2>&1 && \
-     curl -s http://localhost:80 > /dev/null 2>&1; then
-    echo "✅ All services are healthy!"
+  if curl -s http://localhost:8005/health > /dev/null 2>&1; then
+    echo "✅ Feedback service is healthy!"
     break
   fi
   echo -n "."
@@ -86,5 +84,3 @@ echo "🎉 Deployment complete!"
 echo ""
 echo "Services:"
 echo "  - Feedback Service: http://localhost:8005"
-echo "  - WebSocket Server: ws://localhost:8006"
-echo "  - Web Dashboard:    http://localhost:80"

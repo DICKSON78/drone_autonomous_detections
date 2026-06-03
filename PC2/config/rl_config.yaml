@@ -131,21 +131,21 @@ evaluation:
 
 # Simulation Integration
 simulation:
-  # Gazebo Integration
-  gazebo:
+  # Webots Integration
+  webots:
     enabled: true
-    world_name: "drone_navigation_world"
+    world_name: "mavic2pro_px4"
     update_rate: 50  # Hz
     
     # Drone Model
-    drone_model: "iris"
+    drone_model: "Mavic2Pro"
     camera_enabled: true
-    lidar_enabled: true
+    lidar_enabled: false
     
-    # Physics
-    physics_engine: "ode"
+    # Physics (Webots handles physics internally)
+    physics_engine: "webots"
     real_time_factor: 1.0
-    step_size: 0.02  # seconds
+    step_size: 0.008  # seconds
     
   # State Estimation
   state_estimation:

@@ -45,28 +45,10 @@ class CameraSimulator:
             if self.source == "webcam":
                 self.cap = cv2.VideoCapture(0)
             elif self.source == "simulation":
-                # Try multiple Gazebo stream ports in order of preference
-                stream_urls = [
-                    "udp://gazebo-px4:5600",
-                    "udp://gazebo-px4:5601",
-                    "rtsp://gazebo-px4:8554/stream",
-                    "http://gazebo-px4:8080/stream",
-                ]
-                for url in stream_urls:
-                    logger.info(f"Attempting Gazebo stream: {url}")
-                    self.cap = cv2.VideoCapture(url, cv2.CAP_FFMPEG)
-                    if self.cap.isOpened():
-                        # Test if we can actually read a frame
-                        ret, _ = self.cap.read()
-                        if ret:
-                            logger.info(f"Successfully connected to Gazebo stream: {url}")
-                            break
-                    self.cap.release()
-                    self.cap = None
-                
-                if self.cap is None or not self.cap.isOpened():
-                    logger.warning("Failed to connect to any Gazebo stream. Falling back to generated frames.")
-                    self.is_simulated = True
+                # Camera feed comes from Webots bridge controller directly
+                # Fall back to generated frames
+                logger.info("Webots simulation: using generated camera frames")
+                self.is_simulated = True
             else:
                 self.cap = cv2.VideoCapture(self.source)
             

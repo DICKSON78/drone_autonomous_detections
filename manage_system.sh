@@ -94,13 +94,13 @@ check_pc2_deps() {
     echo -e "${CYAN}╚══════════════════════════════════════════════════════════╝${NC}"
     echo ""
 
-    # Check Gazebo image
-    if ! docker_image_exists "px4io/px4-sitl-gazebo:latest"; then
-        warn "Missing image: px4io/px4-sitl-gazebo:latest"
-        info "Pulling Gazebo PX4 image (large download)..."
-        docker pull px4io/px4-sitl-gazebo:latest
+    # Webots runs natively (no Docker image needed)
+    # Webots is expected to be installed at /usr/local/webots
+    if [ ! -f /usr/local/webots/webots ]; then
+        warn "Webots not found at /usr/local/webots"
+        info "Please install Webots from https://cyberbotics.com/"
     else
-        log "Image OK: px4io/px4-sitl-gazebo:latest"
+        log "Webots found: /usr/local/webots"
     fi
 
     # Build AI services (downloads YOLOv8, installs heavy deps)
@@ -213,7 +213,7 @@ detect_lan() {
         source "$LAN_CONF"
         info "Saved LAN config found:"
         echo "  PC1 (Kafka):       $PC1_IP"
-        echo "  PC2 (Gazebo/AI):   $PC2_IP"
+        echo "  PC2 (Webots/AI):   $PC2_IP"
         echo "  PC3 (Monitoring):  $PC3_IP"
         echo "  PC4 (Feedback):    $PC4_IP"
         echo ""
@@ -265,7 +265,7 @@ configure_lan() {
     echo ""
 
     read -p "  PC1 IP (Kafka, Command Parser)     [${default_subnet}.101]: " pc1
-    read -p "  PC2 IP (Gazebo, Object Detection)  [${default_subnet}.102]: " pc2
+    read -p "  PC2 IP (Webots, Object Detection)  [${default_subnet}.102]: " pc2
     read -p "  PC3 IP (Grafana, Monitoring)       [${default_subnet}.103]: " pc3
     read -p "  PC4 IP (Feedback, TTS)             [${default_subnet}.104]: " pc4
 
@@ -378,14 +378,14 @@ start_pc2() {
 
     log "Starting PC2 (Vision & AI)..."
 
-    # Check if Gazebo container exists
-    if docker ps --format '{{.Names}}' | grep -q '^gazebo-px4$'; then
-        log "Gazebo already running."
+    # Webots runs natively (not in Docker)
+    if pgrep -f "webots" >/dev/null 2>&1; then
+        log "Webots already running."
     else
-        if [ -f "$ROOT_DIR/PC2/start_gazebo.sh" ]; then
-            bash "$ROOT_DIR/PC2/start_gazebo.sh"
+        if [ -f "$ROOT_DIR/PC2/start_webots.sh" ]; then
+            bash "$ROOT_DIR/PC2/start_webots.sh"
         else
-            cd "$ROOT_DIR/PC2" && docker-compose up -d gazebo-px4
+            warn "Webots launcher not found at PC2/start_webots.sh"
         fi
     fi
 
@@ -418,6 +418,24 @@ start_pc4() {
 
     log "Starting PC4 (Feedback)..."
     cd "$ROOT_DIR/PC4" && docker-compose up -d
+
+    _wait_for_pc4_ready
+}
+
+_wait_for_pc4_ready() {
+    local timeout=${1:-60}
+    log "Waiting for PC4 feedback service to be ready (timeout=${timeout}s)..."
+    local elapsed=0
+    while [ $elapsed -lt $timeout ]; do
+        if curl -sf http://localhost:8005/health >/dev/null 2>&1; then
+            log "PC4 feedback service is ready."
+            return 0
+        fi
+        sleep 2
+        elapsed=$((elapsed + 2))
+    done
+    warn "PC4 feedback service not ready after ${timeout}s — continuing anyway."
+    return 1
 }
 
 # ─── Stop PC ─────────────────────────────────────────────────────────────────
@@ -427,7 +445,9 @@ stop_pc() {
     case $pc_num in
         1) cd "$ROOT_DIR/PC1" && docker-compose down ;;
         2)
-            docker rm -f gazebo-px4 2>/dev/null || true
+            pkill -f "webots" 2>/dev/null || true
+            pkill -f "sensor_bridge.py" 2>/dev/null || true
+            pkill -f "object_detection_node.py" 2>/dev/null || true
             cd "$ROOT_DIR/PC2" && docker-compose down
             ;;
         3)
@@ -441,7 +461,9 @@ stop_pc() {
 # ─── Stop All ────────────────────────────────────────────────────────────────
 stop_all() {
     log "Stopping all services..."
-    docker rm -f gazebo-px4 2>/dev/null || true
+    pkill -f "webots" 2>/dev/null || true
+    pkill -f "sensor_bridge.py" 2>/dev/null || true
+    pkill -f "object_detection_node.py" 2>/dev/null || true
     pkill -f "drone_exporter.py" 2>/dev/null || true
 
     for pc in PC1 PC2 PC3 PC4; do
@@ -590,14 +612,14 @@ start_all() {
     cd "$ROOT_DIR/PC3" && bash start_pc3.sh
     sleep 3
 
-    log "Starting PC2 (Gazebo + AI)..."
-    if docker ps --format '{{.Names}}' | grep -q '^gazebo-px4$'; then
-        log "Gazebo already running."
+    log "Starting PC2 (Webots + AI)..."
+    if pgrep -f "webots" >/dev/null 2>&1; then
+        log "Webots already running."
     else
-        if [ -f "$ROOT_DIR/PC2/start_gazebo.sh" ]; then
-            bash "$ROOT_DIR/PC2/start_gazebo.sh"
+        if [ -f "$ROOT_DIR/PC2/start_webots.sh" ]; then
+            bash "$ROOT_DIR/PC2/start_webots.sh"
         else
-            cd "$ROOT_DIR/PC2" && docker-compose up -d gazebo-px4
+            warn "Webots launcher not found at PC2/start_webots.sh"
         fi
     fi
     cd "$ROOT_DIR/PC2" && docker-compose up -d object-detection rl-navigation
@@ -605,6 +627,7 @@ start_all() {
 
     log "Starting PC4 (Feedback)..."
     cd "$ROOT_DIR/PC4" && docker-compose up -d
+    _wait_for_pc4_ready
 
     echo ""
     echo -e "${CYAN}╔══════════════════════════════════════════════════════════╗${NC}"
@@ -631,7 +654,7 @@ show_status() {
         source "$LAN_CONF"
         info "LAN Configuration:"
         echo -e "  ${BOLD}PC1 (Kafka):${NC}       $PC1_IP"
-        echo -e "  ${BOLD}PC2 (Gazebo):${NC}      $PC2_IP"
+        echo -e "  ${BOLD}PC2 (Webots):${NC}      $PC2_IP"
         echo -e "  ${BOLD}PC3 (Grafana):${NC}     $PC3_IP"
         echo -e "  ${BOLD}PC4 (Feedback):${NC}    $PC4_IP"
     else
@@ -757,7 +780,7 @@ main_menu() {
     echo -e "${CYAN}║${NC}                                                    ${CYAN}║${NC}"
     echo -e "${CYAN}║${NC}  ${BOLD}INDIVIDUAL SERVICES:${NC}                                 ${CYAN}║${NC}"
     echo -e "${CYAN}║${NC}    1) PC1 - Core & Kafka                           ${CYAN}║${NC}"
-    echo -e "${CYAN}║${NC}    2) PC2 - Vision & AI (Gazebo)                   ${CYAN}║${NC}"
+    echo -e "${CYAN}║${NC}    2) PC2 - Vision & AI (Webots)                   ${CYAN}║${NC}"
     echo -e "${CYAN}║${NC}    3) PC3 - Monitoring (Grafana)                   ${CYAN}║${NC}"
     echo -e "${CYAN}║${NC}    4) PC4 - Feedback (TTS)                         ${CYAN}║${NC}"
     echo -e "${CYAN}║${NC}                                                    ${CYAN}║${NC}"

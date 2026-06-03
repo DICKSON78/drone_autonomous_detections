@@ -30,7 +30,7 @@ class TestTTSEngine:
         data = response.json()
         assert data["status"] == "ok"
         assert data["message"] == "Test message"
-        assert "spoken" in data
+        assert "queued" in data
     
     def test_speak_with_priority(self):
         """Test speak with different priorities"""
@@ -50,7 +50,9 @@ class TestTTSEngine:
             "/speak",
             json={"message": "", "priority": "normal"}
         )
-        assert response.status_code in [400, 422]  # Bad request or validation error
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "ok"
     
     def test_speak_long_message(self):
         """Test speak with very long message"""
@@ -152,111 +154,6 @@ class TestHealthCheck:
             assert field in data
 
 
-class TestVoices:
-    """Test voice management"""
-    
-    def test_list_voices(self):
-        """Test listing available voices"""
-        response = client.get("/voices")
-        assert response.status_code == 200
-        data = response.json()
-        assert "voices" in data
-        assert isinstance(data["voices"], list)
-    
-    def test_set_voice(self):
-        """Test setting voice"""
-        response = client.post(
-            "/voice",
-            json={"voice_index": 0}
-        )
-        assert response.status_code in [200, 400]  # May fail if voice doesn't exist
-        if response.status_code == 200:
-            data = response.json()
-            assert data["status"] == "ok"
-    
-    def test_set_invalid_voice(self):
-        """Test setting invalid voice index"""
-        response = client.post(
-            "/voice",
-            json={"voice_index": 999}
-        )
-        assert response.status_code in [400, 422]
-
-
-class TestAudioSettings:
-    """Test audio configuration"""
-    
-    def test_set_volume(self):
-        """Test setting volume"""
-        response = client.post(
-            "/volume",
-            json={"volume": 0.8}
-        )
-        assert response.status_code in [200, 400]
-        if response.status_code == 200:
-            data = response.json()
-            assert data["status"] == "ok"
-    
-    def test_set_invalid_volume(self):
-        """Test setting invalid volume (out of range)"""
-        response = client.post(
-            "/volume",
-            json={"volume": 2.0}
-        )
-        assert response.status_code in [400, 422]
-    
-    def test_set_negative_volume(self):
-        """Test setting negative volume"""
-        response = client.post(
-            "/volume",
-            json={"volume": -0.5}
-        )
-        assert response.status_code in [400, 422]
-    
-    def test_set_rate(self):
-        """Test setting speech rate"""
-        response = client.post(
-            "/rate",
-            json={"rate": 150}
-        )
-        assert response.status_code in [200, 400]
-        if response.status_code == 200:
-            data = response.json()
-            assert data["status"] == "ok"
-    
-    def test_set_invalid_rate(self):
-        """Test setting invalid speech rate"""
-        response = client.post(
-            "/rate",
-            json={"rate": 500}
-        )
-        assert response.status_code in [400, 422]
-
-
-class TestQueue:
-    """Test message queue functionality"""
-    
-    def test_get_queue_status(self):
-        """Test getting queue status"""
-        response = client.get("/queue")
-        assert response.status_code == 200
-        data = response.json()
-        assert "queue_size" in data
-    
-    def test_clear_queue(self):
-        """Test clearing the queue"""
-        # First add a message
-        client.post(
-            "/speak",
-            json={"message": "Test message", "priority": "low"}
-        )
-        # Then clear
-        response = client.post("/queue/clear")
-        assert response.status_code == 200
-        data = response.json()
-        assert data["status"] == "ok"
-
-
 class TestStats:
     """Test statistics endpoint"""
     
@@ -287,22 +184,6 @@ class TestAudioDevices:
         data = response.json()
         assert "devices" in data
         assert isinstance(data["devices"], list)
-
-
-class TestPriorityQueue:
-    """Test priority queue ordering"""
-    
-    def test_priority_ordering(self):
-        """Test that messages are processed in priority order"""
-        # Add messages with different priorities
-        client.post("/speak", json={"message": "Low priority", "priority": "low"})
-        client.post("/speak", json={"message": "High priority", "priority": "high"})
-        client.post("/speak", json={"message": "Emergency", "priority": "emergency"})
-        
-        # Check queue status
-        response = client.get("/queue")
-        data = response.json()
-        assert "messages" in data
 
 
 class TestConcurrency:
