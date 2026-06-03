@@ -30,7 +30,7 @@ DEF _ WorldInfo {
 }
 Viewpoint {
   orientation -0.03130003787306874 -0.004200005082009223 0.999501209397195 2.9017
-  position 3.114573675870337 -0.8272150623302755 6.045161841140669
+  position 2.5 -2.5 1.2
   near 0.2
   follow "Mavic 2 PRO"
   followSmoothness 0.2
