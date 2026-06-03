@@ -359,13 +359,14 @@ class MavicBridge(Robot):
 
         if not self.armed:
             vertical_input = -self.K_VERTICAL_THRUST * 0.8
-        elif target_alt < 0.1 and altitude < 0.5:
-            ratio = max(0, altitude / 0.5)
-            vertical_input = -self.K_VERTICAL_THRUST * 0.8 * (1 - ratio)
 
-        is_landing = target_alt < 0.1 and self._in_air is False
-        if is_landing and altitude < 0.3:
-            vertical_input = -self.K_VERTICAL_THRUST * 0.9
+        # Landing: velocity-controlled descent at 0.5 m/s
+        if self.armed and self._in_air is False and target_alt < 0.1:
+            descent_rate = 0.5 if altitude > 1.0 else 0.3
+            vel_error = -descent_rate - self.vel_z
+            vertical_input = vel_error * 5.0
+            if altitude < 0.12:
+                vertical_input = -self.K_VERTICAL_THRUST * 0.95
 
         if time.time() < self._takeoff_boost_until:
             vertical_input += self.TAKEOFF_BOOST
