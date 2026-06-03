@@ -418,6 +418,24 @@ start_pc4() {
 
     log "Starting PC4 (Feedback)..."
     cd "$ROOT_DIR/PC4" && docker-compose up -d
+
+    _wait_for_pc4_ready
+}
+
+_wait_for_pc4_ready() {
+    local timeout=${1:-60}
+    log "Waiting for PC4 feedback service to be ready (timeout=${timeout}s)..."
+    local elapsed=0
+    while [ $elapsed -lt $timeout ]; do
+        if curl -sf http://localhost:8005/health >/dev/null 2>&1; then
+            log "PC4 feedback service is ready."
+            return 0
+        fi
+        sleep 2
+        elapsed=$((elapsed + 2))
+    done
+    warn "PC4 feedback service not ready after ${timeout}s — continuing anyway."
+    return 1
 }
 
 # ─── Stop PC ─────────────────────────────────────────────────────────────────
@@ -609,6 +627,7 @@ start_all() {
 
     log "Starting PC4 (Feedback)..."
     cd "$ROOT_DIR/PC4" && docker-compose up -d
+    _wait_for_pc4_ready
 
     echo ""
     echo -e "${CYAN}╔══════════════════════════════════════════════════════════╗${NC}"

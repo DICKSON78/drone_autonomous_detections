@@ -28,7 +28,7 @@ def test_feedback_service_speak():
     data = response.json()
     assert data["status"] == "ok"
     assert data["message"] == "Test message"
-    assert data["spoken"] in [True, False]
+    assert "queued" in data
 
 
 def test_feedback_service_speak_priorities():
