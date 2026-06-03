@@ -26,6 +26,7 @@ drone = None
 running = True
 last_cmd_result = ""
 last_cmd_time = 0
+input_blocked = False
 
 def draw_bar(value, max_val, width=20, filled="█", empty="░"):
     filled_count = int(value / max_val * width) if max_val > 0 else 0
@@ -40,6 +41,8 @@ def draw_bar(value, max_val, width=20, filled="█", empty="░"):
     return f"{color}{bar}{RESET}"
 
 def draw_screen():
+    if input_blocked:
+        return
     t = drone.get_telemetry()
     out = [CLS]
     out.append(f"{BOLD}{CYAN}╔══════════════════════════════════════════════════════════╗{RESET}\n")
@@ -96,7 +99,7 @@ def console_thread():
         time.sleep(0.5)
 
 def main():
-    global running
+    global running, input_blocked
     signal.signal(signal.SIGINT, lambda s, f: sys.exit(0))
     sys.stdout.write(HIDE)
 
@@ -104,7 +107,7 @@ def main():
         host = sys.argv[1]
     else:
         host = "127.0.0.1"
-    port = int(sys.argv[2]) if len(sys.argv) > 2 else 14540
+    port = int(sys.argv[2]) if len(sys.argv) > 2 else 14550
 
     global drone
     drone = DroneConnection(udp_target=(host, port))
@@ -153,8 +156,9 @@ def main():
                 drone.rtl()
                 cmd("Return to Launch sent!")
             elif key.lower() == 'g':
-                cmd("Goto: Enter lat,lon,alt (e.g. -6.163,35.752,30)")
-                print(f"{CLS}{BOLD}Goto Position{RESET}\nEnter: lat,lon,alt\n> ")
+                input_blocked = True
+                draw_screen()
+                sys.stdout.write(f"{CLS}{BOLD}Goto Position{RESET}\n\n  Enter: lat,lon,alt\n  > ")
                 sys.stdout.flush()
                 try:
                     line = sys.stdin.readline().strip()
@@ -167,9 +171,11 @@ def main():
                         cmd("Invalid format. Use: lat,lon,alt", False)
                 except:
                     cmd("Invalid input", False)
+                input_blocked = False
             elif key == '6':
-                cmd("Enter speed (m/s): ")
-                print(f"{CLS}{BOLD}Set Speed{RESET}\nEnter m/s\n> ")
+                input_blocked = True
+                draw_screen()
+                sys.stdout.write(f"{CLS}{BOLD}Set Speed{RESET}\n\n  Enter m/s\n  > ")
                 sys.stdout.flush()
                 try:
                     speed = float(sys.stdin.readline().strip())
@@ -177,6 +183,7 @@ def main():
                     cmd(f"Speed set to {speed} m/s")
                 except:
                     cmd("Invalid speed", False)
+                input_blocked = False
 
     except (EOFError, KeyboardInterrupt):
         pass

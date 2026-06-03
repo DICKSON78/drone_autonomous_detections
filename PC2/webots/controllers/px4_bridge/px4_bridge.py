@@ -162,9 +162,9 @@ def decode_mavlink(data):
 
 
 def parse_command_long(payload):
-    if len(payload) < 47:
+    if len(payload) < 33:
         return None
-    fields = struct.unpack('<BBHBfffffff', payload[:47])
+    fields = struct.unpack('<BBHBfffffff', payload[:33])
     return {
         'command': fields[2],
         'param1': fields[4],
@@ -180,12 +180,17 @@ def parse_command_long(payload):
 class MavicBridge(Robot):
     K_VERTICAL_THRUST = 68.5
     K_VERTICAL_OFFSET = 0.6
-    K_VERTICAL_P = 3.0
+    K_VERTICAL_P = 15.0
+    K_VERTICAL_D = 3.0
+    K_VERTICAL_GAIN = 3.0
+    TAKEOFF_BOOST = 120.0
+    TAKEOFF_BOOST_DURATION = 3.0
     K_ROLL_P = 50.0
     K_PITCH_P = 30.0
     MAX_YAW_DISTURBANCE = 0.4
     MAX_PITCH_DISTURBANCE = -1
     TARGET_PRECISION = 0.8
+    MOTOR_MAX = 200
 
     def __init__(self):
         Robot.__init__(self)
@@ -228,6 +233,7 @@ class MavicBridge(Robot):
         self.roll_accel = self.pitch_accel = 0
         self.vel_x = self.vel_y = self.vel_z = 0
         self.mav_seq = 0
+        self._in_air = False
 
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -241,6 +247,7 @@ class MavicBridge(Robot):
         self.cmd_pitch = 0
         self.cmd_yaw = 0
         self.cmd_throttle = 0
+        self._takeoff_boost_until = 0.0
 
         print("[BRIDGE] Mavic Bridge controller started on UDP :14550")
 
@@ -262,15 +269,20 @@ class MavicBridge(Robot):
             self.armed = (p1 == 1.0)
             print(f"[BRIDGE] {'ARM' if self.armed else 'DISARM'}")
             if self.armed and not self._in_air:
-                self.target_alt = self.z + 1
+                self._in_air = True
+                self.target_alt = self.z + 2
+                self._takeoff_boost_until = time.time() + self.TAKEOFF_BOOST_DURATION
 
         elif cid == 22:
             print(f"[BRIDGE] TAKEOFF to {p7}m")
             self.armed = True
+            self._in_air = True
             self.target_alt = p7 if p7 > 0 else 10
+            self._takeoff_boost_until = time.time() + self.TAKEOFF_BOOST_DURATION
 
         elif cid == 21:
             print("[BRIDGE] LAND")
+            self._in_air = False
             self.target_alt = -0.1
 
         elif cid == 20:
@@ -340,10 +352,23 @@ class MavicBridge(Robot):
 
         diff_alt = target_alt - altitude
         clamped_diff = clamp(diff_alt + self.K_VERTICAL_OFFSET, -1, 1)
-        vertical_input = self.K_VERTICAL_P * pow(clamped_diff, 3.0) if abs(diff_alt) > 0.3 else 0
+        vertical_input = self.K_VERTICAL_P * pow(clamped_diff, 3.0)
 
-        if not self.armed or target_alt < 0:
-            vertical_input = -self.K_VERTICAL_THRUST * 0.5
+        velocity_damping = -self.K_VERTICAL_D * clamp(self.vel_z, -3, 3)
+        vertical_input += velocity_damping
+
+        if not self.armed:
+            vertical_input = -self.K_VERTICAL_THRUST * 0.8
+        elif target_alt < 0.1 and altitude < 0.5:
+            ratio = max(0, altitude / 0.5)
+            vertical_input = -self.K_VERTICAL_THRUST * 0.8 * (1 - ratio)
+
+        is_landing = target_alt < 0.1 and self._in_air is False
+        if is_landing and altitude < 0.3:
+            vertical_input = -self.K_VERTICAL_THRUST * 0.9
+
+        if time.time() < self._takeoff_boost_until:
+            vertical_input += self.TAKEOFF_BOOST
 
         roll_input = self.K_ROLL_P * clamp(self.roll, -1, 1) + self.roll_accel
         pitch_input = self.K_PITCH_P * clamp(self.pitch, -1, 1) + self.pitch_accel
@@ -353,10 +378,11 @@ class MavicBridge(Robot):
         rl = self.K_VERTICAL_THRUST + vertical_input + yaw_disturbance - pitch_input - roll_input
         rr = self.K_VERTICAL_THRUST + vertical_input - yaw_disturbance - pitch_input + roll_input
 
-        self.front_left_motor.setVelocity(clamp(fl, 0, 150))
-        self.front_right_motor.setVelocity(clamp(-fr, -150, 0))
-        self.rear_left_motor.setVelocity(clamp(-rl, -150, 0))
-        self.rear_right_motor.setVelocity(clamp(rr, 0, 150))
+        mm = self.MOTOR_MAX
+        self.front_left_motor.setVelocity(clamp(fl, 0, mm))
+        self.front_right_motor.setVelocity(clamp(-fr, -mm, 0))
+        self.rear_left_motor.setVelocity(clamp(-rl, -mm, 0))
+        self.rear_right_motor.setVelocity(clamp(rr, 0, mm))
 
     def run(self):
         print("[BRIDGE] Starting Webots MAVLink bridge...")

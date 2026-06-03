@@ -25,9 +25,9 @@ pkill -f "mission_drone_controller.py" 2>/dev/null || true
 pgrep -x webots >/dev/null && pkill -x webots 2>/dev/null || true
 sleep 1
 
-# Start Webots (controller auto-launches from world file)
+# Start Webots in realtime mode (controller auto-launches from world file)
 log "Starting Webots..."
-nohup webots "$WORLD_FILE" > /tmp/webots.log 2>&1 &
+nohup webots --mode=realtime "$WORLD_FILE" > /tmp/webots.log 2>&1 &
 WEBOTS_PID=$!
 log "Webots PID: $WEBOTS_PID"
 
@@ -60,17 +60,65 @@ if [ "$1" = "--full" ]; then
     nohup python3 scripts/object_detection_node.py --interval 3.0 > /tmp/object_detection.log 2>&1 &
 fi
 
+# Launch the drone console in a new terminal window
+DRONE_CONSOLE_SCRIPT="$SCRIPT_DIR/scripts/drone_console.py"
+CONSOLE_PID=""
+if [ -f "$DRONE_CONSOLE_SCRIPT" ]; then
+    log "Launching Drone Console terminal..."
+    # Detect terminal emulator and launch console
+    TERMINAL_CMD=""
+    if command -v ptyxis &>/dev/null; then
+        TERMINAL_CMD="ptyxis -x"
+    elif command -v gnome-terminal &>/dev/null; then
+        TERMINAL_CMD="gnome-terminal --"
+    elif command -v x-terminal-emulator &>/dev/null; then
+        # Check what x-terminal-emulator resolves to
+        REAL_TERM=$(readlink -f "$(command -v x-terminal-emulator)" 2>/dev/null)
+        if echo "$REAL_TERM" | grep -q "ptyxis"; then
+            TERMINAL_CMD="ptyxis -x"
+        elif echo "$REAL_TERM" | grep -q "gnome-terminal"; then
+            TERMINAL_CMD="gnome-terminal --"
+        else
+            TERMINAL_CMD="x-terminal-emulator -e"
+        fi
+    elif command -v xterm &>/dev/null; then
+        TERMINAL_CMD="xterm -hold -e"
+    elif command -v konsole &>/dev/null; then
+        TERMINAL_CMD="konsole --hold -e"
+    fi
+
+    if [ -n "$TERMINAL_CMD" ]; then
+        $TERMINAL_CMD "$SCRIPT_DIR/scripts/drone_console_launcher.sh" &
+        CONSOLE_PID=$!
+    else
+        log "No terminal emulator found. Run manually: python3 scripts/drone_console.py"
+    fi
+else
+    log "Drone console not found at $DRONE_CONSOLE_SCRIPT"
+fi
+
 echo ""
 echo -e "${CYAN}╔══════════════════════════════════════════════════════════╗${NC}"
 echo -e "${CYAN}║          ${BOLD}WEBOTS DRONE — RUNNING${NC}${CYAN}                        ║${NC}"
 echo -e "${CYAN}╠══════════════════════════════════════════════════════════╣${NC}"
 echo -e "${CYAN}║${NC}  MAVLink bridge → UDP :14550                          ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}  Drone Console → $(basename "$DRONE_CONSOLE_SCRIPT") in new terminal         ${CYAN}║${NC}"
 if [ "$1" = "--full" ]; then
     echo -e "${CYAN}║${NC}  Telemetry → http://localhost:8090                     ${CYAN}║${NC}"
     echo -e "${CYAN}║${NC}  Object detection running                              ${CYAN}║${NC}"
 fi
-echo -e "${CYAN}║${NC}  Send MAVLink commands (arm, takeoff, goto, land)      ${CYAN}║${NC}"
-echo -e "${CYAN}║${NC}  Close Webots window to stop                           ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}                                                          ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}  Commands: [1]=Arm+Takeoff  [2]=Arm  [3]=Land           ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}           [4]=Disarm  [5]=Return Home  [6]=Set Speed    ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}           [G]=Goto GPS  [Q]=Quit                        ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}                                                          ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}  Close Webots window OR press Q in console to stop      ${CYAN}║${NC}"
 echo -e "${CYAN}╚══════════════════════════════════════════════════════════╝${NC}"
 
 wait $WEBOTS_PID
+
+# Cleanup: kill the console when Webots exits
+if [ -n "$CONSOLE_PID" ]; then
+    kill $CONSOLE_PID 2>/dev/null || true
+fi
+log "Webots stopped."
