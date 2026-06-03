@@ -268,10 +268,9 @@ class MavicBridge(Robot):
         if cid == 400:
             self.armed = (p1 == 1.0)
             print(f"[BRIDGE] {'ARM' if self.armed else 'DISARM'}")
-            if self.armed and not self._in_air:
-                self._in_air = True
-                self.target_alt = self.z + 2
-                self._takeoff_boost_until = time.time() + self.TAKEOFF_BOOST_DURATION
+            if not self.armed:
+                self._in_air = False
+                self._landing = False
 
         elif cid == 22:
             print(f"[BRIDGE] TAKEOFF to {p7}m")
@@ -283,6 +282,7 @@ class MavicBridge(Robot):
         elif cid == 21:
             print("[BRIDGE] LAND")
             self._in_air = False
+            self._landing = True
             self.target_alt = -0.1
 
         elif cid == 20:
@@ -359,14 +359,17 @@ class MavicBridge(Robot):
 
         if not self.armed:
             vertical_input = -self.K_VERTICAL_THRUST * 0.8
+            self._landing = False
 
         # Landing: velocity-controlled descent at 0.5 m/s
-        if self.armed and self._in_air is False and target_alt < 0.1:
+        if self.armed and self._landing:
             descent_rate = 0.5 if altitude > 1.0 else 0.3
             vel_error = -descent_rate - self.vel_z
             vertical_input = vel_error * 5.0
             if altitude < 0.12:
                 vertical_input = -self.K_VERTICAL_THRUST * 0.95
+                self._landing = False
+                self._in_air = False
 
         if time.time() < self._takeoff_boost_until:
             vertical_input += self.TAKEOFF_BOOST
