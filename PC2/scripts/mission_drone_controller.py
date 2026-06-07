@@ -49,18 +49,36 @@ SURVEILLANCE_WAYPOINTS = [
 ]
 
 class DroneState:
-    DISARMED = 0; ARMED = 1; FLYING = 2; HOVERING = 3
-    LANDING = 4; RETURNING_HOME = 5; MISSION_COMPLETE = 6
+    IDLE = 0; TAKEOFF = 1; NAVIGATING = 2; APPROACHING = 3
+    HOVERING = 4; LANDING = 5; LANDED = 6; RETURNING_HOME = 7
 
-STATE_NAMES = {0: "DISARMED", 1: "ARMED", 2: "FLYING", 3: "HOVERING",
-               4: "LANDING", 5: "RETURNING_HOME", 6: "MISSION COMPLETE"}
+STATE_NAMES = {0: "IDLE", 1: "TAKEOFF", 2: "NAVIGATING", 3: "APPROACHING",
+               4: "HOVERING", 5: "LANDING", 6: "LANDED", 7: "RETURNING_HOME"}
+
+class PIDController:
+    def __init__(self, kp=1.0, ki=0.05, kd=0.3, integral_limit=5, output_limit=10):
+        self.kp = kp; self.ki = ki; self.kd = kd
+        self.integral = 0; self.prev_error = 0
+        self.integral_limit = integral_limit
+        self.output_limit = output_limit
+
+    def reset(self):
+        self.integral = 0; self.prev_error = 0
+
+    def update(self, error, dt):
+        if dt <= 0: return 0
+        self.integral = max(-self.integral_limit, min(self.integral_limit, self.integral + error * dt))
+        derivative = (error - self.prev_error) / dt
+        self.prev_error = error
+        output = self.kp * error + self.ki * self.integral + self.kd * derivative
+        return max(-self.output_limit, min(self.output_limit, output))
 
 class MissionDrone:
     def __init__(self, host="127.0.0.1", port=14550):
         self.host = host
         self.port = port
         self.drone = None
-        self.state = DroneState.DISARMED
+        self.state = DroneState.IDLE
         self.home_position = None
         self.current_waypoint_idx = 0
         self.waypoints = []
@@ -98,7 +116,7 @@ class MissionDrone:
         return t
 
     def arm(self):
-        if self.state != DroneState.DISARMED:
+        if self.state not in (DroneState.IDLE, DroneState.LANDED):
             return True
         if not self.drone:
             return False
@@ -107,7 +125,6 @@ class MissionDrone:
             time.sleep(1)
             t = self.drone.get_telemetry()
             if t["armed"]:
-                self.state = DroneState.ARMED
                 print(f"  {GREEN}Drone ARMED ✓{RESET}")
                 return True
         print(f"  {RED}Arm command sent but not confirmed{RESET}")
@@ -117,7 +134,7 @@ class MissionDrone:
         if not self.drone:
             return False
         self.drone.disarm()
-        self.state = DroneState.DISARMED
+        self.state = DroneState.IDLE
         print(f"  Drone disarmed")
         return True
 
@@ -128,31 +145,104 @@ class MissionDrone:
             return False
         self.arm()
         print(f"  Taking off to {altitude}m...")
+        self.state = DroneState.TAKEOFF
         self.drone.takeoff(altitude)
-        self.state = DroneState.FLYING
         for i in range(15):
             time.sleep(1.5)
             t = self.drone.get_telemetry()
             print(f"  Altitude: {t['alt']:.1f}m")
             if t["alt"] >= altitude * 0.8:
+                self.state = DroneState.HOVERING
                 print(f"  {GREEN}Reached {altitude}m ✓{RESET}")
                 return True
+        self.state = DroneState.HOVERING
         return True
 
-    def land(self):
+    def smooth_land(self):
         if not self.drone:
             return False
         self.state = DroneState.LANDING
-        print(f"  Landing...")
-        self.drone.land()
-        for i in range(15):
-            time.sleep(1)
+        print(f"  {YELLOW}Landing...{RESET}")
+        t = self.drone.get_telemetry()
+        alt = t["alt"]
+        self.drone.set_speed(3.0)
+        while alt > 5:
             t = self.drone.get_telemetry()
-            print(f"  Altitude: {t['alt']:.1f}m")
-            if t["alt"] < 1:
-                print(f"  {GREEN}Landed ✓{RESET}")
-                self.state = DroneState.DISARMED
-                return True
+            alt = t["alt"]
+            if alt <= 5: break
+            target_alt = max(5, alt - 3)
+            self.drone.goto_position(t["lat"], t["lon"], target_alt)
+            time.sleep(0.5)
+        if alt > 2:
+            self.drone.set_speed(1.5)
+            while alt > 2:
+                t = self.drone.get_telemetry()
+                alt = t["alt"]
+                if alt <= 2: break
+                target_alt = max(2, alt - 1.5)
+                self.drone.goto_position(t["lat"], t["lon"], target_alt)
+                time.sleep(0.5)
+        if alt > 0.5:
+            self.drone.set_speed(0.5)
+            while alt > 0.5:
+                t = self.drone.get_telemetry()
+                alt = t["alt"]
+                if alt <= 0.5: break
+                target_alt = max(0.5, alt - 0.5)
+                self.drone.goto_position(t["lat"], t["lon"], target_alt)
+                time.sleep(0.4)
+        self.drone.set_speed(0.2)
+        self.drone.land()
+        for i in range(10):
+            time.sleep(0.3)
+            t = self.drone.get_telemetry()
+            alt = t["alt"]
+            print(f"  Altitude: {alt:.2f}m")
+            if alt < 0.2:
+                break
+        self.drone.disarm()
+        self.state = DroneState.LANDED
+        print(f"  {GREEN}Landed ✓{RESET}")
+        return True
+
+    def navigate_to(self, target_lat, target_lon, target_alt=None, land_at_target=False):
+        if not self.drone:
+            return False
+        t0 = self.drone.get_telemetry()
+        safe_alt = CONFIG["flight"]["default_altitude"] if target_alt is None else target_alt
+        if self.state == DroneState.IDLE or t0["alt"] < 2:
+            self.state = DroneState.TAKEOFF
+            print(f"  {CYAN}State: TAKEOFF → ascending to {safe_alt}m{RESET}")
+            self.takeoff(safe_alt)
+        self.state = DroneState.NAVIGATING
+        pid_lat = PIDController(kp=0.8, ki=0.02, kd=0.2, integral_limit=3, output_limit=5)
+        pid_lon = PIDController(kp=0.8, ki=0.02, kd=0.2, integral_limit=3, output_limit=5)
+        print(f"  {CYAN}State: NAVIGATING → heading to target{RESET}")
+        for _ in range(120):
+            if not self.running:
+                return False
+            t = self.drone.get_telemetry()
+            lat_err = target_lat - t["lat"]
+            lon_err = target_lon - t["lon"]
+            dist_m = ((lat_err * 111000)**2 + (lon_err * 111000 * np.cos(np.radians(t["lat"])))**2)**0.5
+            alt_err = (target_alt or safe_alt) - t["alt"]
+            dt = 1.0
+            if dist_m < 1.5 and abs(alt_err) < 2:
+                self.state = DroneState.HOVERING
+                print(f"  {GREEN}State: HOVERING → target reached ✓{RESET}")
+                break
+            elif dist_m < 8:
+                self.state = DroneState.APPROACHING
+                print(f"  {YELLOW}State: APPROACHING — {dist_m:.1f}m away, slowing...{RESET}")
+                pid_lat.kp = 0.4; pid_lat.output_limit = 2
+                pid_lon.kp = 0.4; pid_lon.output_limit = 2
+            lat_adj = pid_lat.update(lat_err * 111000, dt) / 111000
+            lon_adj = pid_lon.update(lon_err * 111000, dt) / (111000 * np.cos(np.radians(t["lat"])))
+            self.drone.goto_position(t["lat"] + lat_adj, t["lon"] + lon_adj, target_alt or safe_alt)
+            print(f"  Dist: {dist_m:.1f}m  Alt: {t['alt']:.1f}m")
+            time.sleep(1)
+        if land_at_target:
+            self.smooth_land()
         return True
 
     def return_to_home(self):
@@ -213,7 +303,7 @@ class MissionDrone:
         print(f"\n  {CYAN}{BOLD}Starting mission with {len(waypoints)} waypoints{RESET}")
         print(f"  Home: {self.home_position[0]:.6f}, {self.home_position[1]:.6f}\n")
         self.takeoff()
-        self.state = DroneState.FLYING
+        self.state = DroneState.NAVIGATING
         for idx, wp in enumerate(waypoints[1:], 1):
             if not self.running:
                 break
@@ -226,15 +316,15 @@ class MissionDrone:
                 if not self.running:
                     break
                 time.sleep(1)
-            self.state = DroneState.FLYING
+            self.state = DroneState.NAVIGATING
             battery = self.drone.get_telemetry().get("battery", 100)
             if battery >= 0 and battery < CONFIG["mission"]["low_battery_threshold"]:
                 print(f"\n  {RED}{BOLD}Low battery ({battery}%)! Returning home{RESET}")
                 break
         if CONFIG["mission"]["enable_return_to_home"]:
             self.return_to_home()
-            self.land()
-        self.state = DroneState.MISSION_COMPLETE
+            self.smooth_land()
+        self.state = DroneState.LANDED
         self.mission_active = False
         print(f"\n  {GREEN}{BOLD}Mission complete! ✓{RESET}")
 
@@ -247,7 +337,7 @@ class MissionDrone:
             t = self.drone.get_telemetry()
             print(f"  Hovering... Alt: {t['alt']:.1f}m")
             time.sleep(1)
-        self.state = DroneState.FLYING
+        self.state = DroneState.HOVERING
 
     def close(self):
         if self.drone:

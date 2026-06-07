@@ -21,6 +21,7 @@ MAV_CMD = {
     "NAV_LAND": 21,
     "NAV_RETURN_TO_LAUNCH": 20,
     "NAV_WAYPOINT": 16,
+    "DO_REPOSITION": 51,
     "DO_CHANGE_SPEED": 178,
     "NAV_DELAY": 93,
     "CONDITION_DELAY": 67,
@@ -372,10 +373,29 @@ class DroneConnection:
         return self._send_command(MAV_CMD["NAV_RETURN_TO_LAUNCH"])
 
     def goto_position(self, lat, lon, alt):
-        return self._send_command(MAV_CMD["NAV_WAYPOINT"], 0, 0, 0, 0, lat, lon, alt)
+        return self._send_command(MAV_CMD["DO_REPOSITION"], -1, 0, 0, 0, lat, lon, alt)
 
     def set_speed(self, speed_ms):
         return self._send_command(MAV_CMD["DO_CHANGE_SPEED"], 0, speed_ms, -1, 0)
+
+    def strafe(self, direction, distance=3):
+        """Strafe in body frame using position offsets. direction: left/right/up/down"""
+        import math
+        t = self.get_telemetry()
+        yaw = t.get("heading", 0)
+        if direction == 'right':
+            angle = yaw + math.pi/2
+        elif direction == 'left':
+            angle = yaw - math.pi/2
+        elif direction == 'up':
+            return self._send_command(MAV_CMD["DO_REPOSITION"], -1, 0, 0, 0, t["lat"], t["lon"], t["alt"] + distance)
+        elif direction == 'down':
+            return self._send_command(MAV_CMD["DO_REPOSITION"], -1, 0, 0, 0, t["lat"], t["lon"], max(0.5, t["alt"] - distance))
+        else:
+            return False
+        dlat = distance * math.cos(angle) / 111000
+        dlon = distance * math.sin(angle) / (111000 * math.cos(math.radians(t["lat"])))
+        return self._send_command(MAV_CMD["DO_REPOSITION"], -1, 0, 0, 0, t["lat"] + dlat, t["lon"] + dlon, t["alt"])
 
     def close(self):
         self.running = False

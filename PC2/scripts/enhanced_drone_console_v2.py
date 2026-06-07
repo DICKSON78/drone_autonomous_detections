@@ -2,6 +2,7 @@
 """Drone Console v2 — Numbered menu + GCS heartbeat + YOLO detection."""
 
 import os, sys, time, threading, signal, math, json, urllib.request, urllib.error
+import termios, tty, atexit
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from mavlink_lite import DroneConnection
@@ -12,9 +13,18 @@ RESET = "\033[0m"; CLS = "\033[2J\033[H"; HIDE = "\033[?25l"; SHOW = "\033[?25h"
 
 drone = None; running = True; last_msg = ""; last_msg_time = 0
 gcs_heartbeat_active = True
+state_machine = "IDLE"
+avoidance_enabled = False
+avoidance_thread = None
+old_termios = None
+stdout_lock = threading.Lock()
 
 OBJECT_DETECTION_URL = "http://object-detection:8002/detect"
 WAYPOINTS = []
+
+STATE_NAMES = {0: "IDLE", 1: "TAKEOFF", 2: "NAVIGATING", 3: "APPROACHING",
+               4: "HOVERING", 5: "LANDING", 6: "LANDED", 7: "RETURNING_HOME",
+               8: "MISSION", 9: "AVOIDANCE"}
 
 def set_msg(text, ok=True):
     global last_msg, last_msg_time
@@ -29,37 +39,79 @@ def draw_bar(value, max_val, width=20):
     color = RED if value < 30 else YELLOW if value < 60 else GREEN
     return f"{color}{f}{e}{RESET}"
 
+def setup_terminal():
+    global old_termios
+    fd = sys.stdin.fileno()
+    old_termios = termios.tcgetattr(fd)
+    tty.setcbreak(fd)
+
+def restore_terminal():
+    global old_termios
+    if old_termios is not None:
+        termios.tcsetattr(sys.stdin.fileno(), termios.TCSADRAIN, old_termios)
+
 def draw_screen():
-    t = drone.get_telemetry()
-    out = [CLS]
-    out.append(f"{BOLD}{CYAN}╔══════════════════════════════════════════════════════════╗{RESET}\n")
-    out.append(f"{BOLD}{CYAN}║        DRONE CONSOLE v2 — Numbered Commands              ║{RESET}\n")
-    out.append(f"{BOLD}{CYAN}╚══════════════════════════════════════════════════════════╝{RESET}\n")
-    status = f"{GREEN}● CONNECTED{RESET}" if t["connected"] else f"{RED}○ DISCONNECTED{RESET}"
-    armed = f"{GREEN}● ARMED{RESET}" if t["armed"] else f"{YELLOW}○ DISARMED{RESET}"
-    hb = f"{GREEN}● HB{RESET}" if gcs_heartbeat_active else f"{RED}○ HB OFF{RESET}"
-    out.append(f"  {status}  |  {armed}  |  {hb}  |  Mode: {BOLD}{t['mode']}{RESET}\n")
-    out.append(f"  Lat: {t['lat']:.6f}  Lon: {t['lon']:.6f}  Alt: {t['alt']:.1f}m\n")
-    out.append(f"  Heading: {t['heading']*57.3:.0f}°  |  GPS: {t['fix_type']}D ({t['satellites']} sats)\n")
-    bat = t["battery"]
-    if bat >= 0:
-        out.append(f"  Battery: {draw_bar(bat, 100)} {bat:.0f}%\n")
-    out.append(f"\n  {BOLD}─── COMMANDS ───{RESET}\n")
-    out.append(f"  {GREEN}[1]{RESET} Arm & Takeoff (10m)   {GREEN}[5]{RESET} Land\n")
-    out.append(f"  {GREEN}[2]{RESET} Arm only              {GREEN}[6]{RESET} Disarm\n")
-    out.append(f"  {GREEN}[3]{RESET} Takeoff (alt m)       {GREEN}[7]{RESET} Return to Launch\n")
-    out.append(f"  {GREEN}[4]{RESET} Set Speed (m/s)       {GREEN}[8]{RESET} Hover/Hold\n")
-    out.append(f"  {YELLOW}[G]{RESET} Goto GPS (lat,lon,alt) {CYAN}[Y]{RESET} YOLO Detect\n")
-    out.append(f"  {BLUE}[M]{RESET} Run Mission (4 WPs)     {BLUE}[W]{RESET} Set Waypoint\n")
-    out.append(f"  {RED}[Q]{RESET} Quit\n")
-    if len(WAYPOINTS) > 0:
-        out.append(f"  {DIM}WPs: {len(WAYPOINTS)} set{RESET}\n")
-    global last_msg, last_msg_time
-    if last_msg and time.time() - last_msg_time < 8:
-        out.append(f"  {last_msg}\n")
-    out.append(f"\n  {BOLD}Enter command: {RESET}")
-    sys.stdout.write("".join(out))
-    sys.stdout.flush()
+    with stdout_lock:
+        t = drone.get_telemetry()
+        out = []
+        out.append("\033[1;1H\033[2K")
+        out.append(f"{BOLD}{CYAN}╔══════════════════════════════════════════════════════════╗{RESET}")
+        out.append("\033[2;1H\033[2K")
+        out.append(f"{BOLD}{CYAN}║        DRONE CONSOLE v2 — Numbered Commands              ║{RESET}")
+        out.append("\033[3;1H\033[2K")
+        out.append(f"{BOLD}{CYAN}╚══════════════════════════════════════════════════════════╝{RESET}")
+        out.append("\033[4;1H\033[2K")
+        status = f"{GREEN}● CONNECTED{RESET}" if t["connected"] else f"{RED}○ DISCONNECTED{RESET}"
+        armed = f"{GREEN}● ARMED{RESET}" if t["armed"] else f"{YELLOW}○ DISARMED{RESET}"
+        hb_st = f"{GREEN}● HB{RESET}" if gcs_heartbeat_active else f"{RED}○ HB OFF{RESET}"
+        out.append(f"  {status}  |  {armed}  |  {hb_st}  |  {CYAN}State: {state_machine}{RESET}  |  Mode: {t['mode']}")
+        out.append("\033[5;1H\033[2K")
+        out.append(f"  Lat: {t['lat']:.6f}  Lon: {t['lon']:.6f}  Alt: {t['alt']:.1f}m")
+        out.append("\033[6;1H\033[2K")
+        out.append(f"  Heading: {t['heading']*57.3:.0f}°  |  GPS: {t['fix_type']}D ({t['satellites']} sats)")
+        out.append("\033[7;1H\033[2K")
+        bat = t["battery"]
+        if bat >= 0:
+            out.append(f"  Battery: {draw_bar(bat, 100)} {bat:.0f}%")
+        else:
+            out.append(f"  Battery: N/A")
+        out.append("\033[8;1H\033[2K")
+        out.append("\033[9;1H\033[2K")
+        out.append(f"  {BOLD}─── ACTIONS ───{RESET}")
+        cmd_lines = [
+            f"  {GREEN}[1]{RESET} Takeoff      {GREEN}[3]{RESET} Go to GPS    {GREEN}[5]{RESET} Arm      {GREEN}[7]{RESET} Hover",
+            f"  {GREEN}[2]{RESET} Land         {GREEN}[4]{RESET} Navigate to  {GREEN}[6]{RESET} Disarm   {GREEN}[8]{RESET} Return Home",
+            f"",
+            f"  {YELLOW}[Y]{RESET} YOLO  {YELLOW}[A]{RESET} Avoid: {'ON ' if avoidance_enabled else 'OFF'}  {YELLOW}[M]{RESET} Mission  {YELLOW}[G]{RESET} Set Speed  {RED}[Q]{RESET} Quit",
+        ]
+        for i, line in enumerate(cmd_lines):
+            out.append(f"\033[{10+i};1H\033[2K{line}")
+        out.append("\033[14;1H\033[2K")
+        global last_msg, last_msg_time
+        if last_msg and time.time() - last_msg_time < 8:
+            out.append(f"  {last_msg}")
+        else:
+            out.append(f"  Waypoints: {len(WAYPOINTS)} set")
+        out.append("\033[15;1H\033[2K")
+        out.append(f"  {DIM}Avoidance thread: {'RUNNING' if avoidance_enabled else 'OFF'}{RESET}")
+        out.append("\033[16;1H\033[2K")
+        sys.stdout.write("".join(out))
+        sys.stdout.flush()
+
+def show_prompt():
+    with stdout_lock:
+        sys.stdout.write("\033[19;1H\033[2K  Enter command: \033[19;18H")
+        sys.stdout.flush()
+
+def show_sub_prompt(text):
+    with stdout_lock:
+        sys.stdout.write(f"\033[20;1H\033[2K  {text} ")
+        sys.stdout.flush()
+
+def clear_sub_prompt():
+    with stdout_lock:
+        sys.stdout.write("\033[20;1H\033[2K")
+        sys.stdout.flush()
 
 def gcs_heartbeat_loop():
     global gcs_heartbeat_active
@@ -76,7 +128,7 @@ def ui_loop():
         draw_screen()
         time.sleep(0.5)
 
-def yolo_detect():
+def yolo_detect_single():
     try:
         import cv2
         cap = cv2.VideoCapture("udp://127.0.0.1:5600", cv2.CAP_FFMPEG)
@@ -106,6 +158,51 @@ def yolo_detect():
     except Exception as e:
         set_msg(f"YOLO error: {e}", False)
 
+def yolo_continuous():
+    global avoidance_enabled
+    try:
+        import cv2
+    except ImportError:
+        return
+    cap = cv2.VideoCapture("udp://127.0.0.1:5600", cv2.CAP_FFMPEG)
+    while running:
+        if not avoidance_enabled:
+            time.sleep(0.5)
+            continue
+        ret, frame = cap.read()
+        if not ret:
+            time.sleep(0.1)
+            continue
+        _, img_encoded = cv2.imencode('.jpg', frame)
+        try:
+            req = urllib.request.Request(
+                OBJECT_DETECTION_URL,
+                data=img_encoded.tobytes(),
+                headers={'Content-Type': 'image/jpeg'},
+                method='POST'
+            )
+            resp = urllib.request.urlopen(req, timeout=2)
+            result = json.loads(resp.read())
+            detections = result.get('detections', [])
+            if detections:
+                img_w = frame.shape[1]
+                for d in detections:
+                    bbox = d.get('bbox', [0, 0, 0, 0])
+                    cx = (bbox[0] + bbox[2]) / 2
+                    rel_x = cx / img_w
+                    if rel_x < 0.3:
+                        set_msg(f"Obstacle LEFT → strafe right")
+                        drone.strafe('right', 3)
+                    elif rel_x > 0.7:
+                        set_msg(f"Obstacle RIGHT → strafe left")
+                        drone.strafe('left', 3)
+                    else:
+                        set_msg(f"Obstacle CENTER → ascend")
+                        drone.strafe('up', 2)
+        except:
+            pass
+        time.sleep(0.2)
+
 def run_mission():
     t = drone.get_telemetry()
     lat, lon, alt = t["lat"], t["lon"], t["alt"]
@@ -120,26 +217,75 @@ def run_mission():
         (lat, lon - radius, alt),
         (lat + radius, lon, alt),
     ]
+    run_mission_args(wps)
+
+def run_mission_args(wps):
     set_msg(f"Running {len(wps)} waypoint mission...")
     for i, (wlat, wlon, walt) in enumerate(wps, 1):
         drone.goto_position(wlat, wlon, walt)
         time.sleep(4)
         for _ in range(20):
             t = drone.get_telemetry()
-            dist = math.hypot(t["lat"] - wlat, t["lon"] - wlon) * 111000
+            lat_dist = (t["lat"] - wlat) * 111000
+            lon_dist = (t["lon"] - wlon) * 111000 * math.cos(math.radians((t["lat"] + wlat) / 2))
+            dist = math.hypot(lat_dist, lon_dist)
             if dist < 3:
                 break
             time.sleep(1)
         set_msg(f"WP {i}/{len(wps)} reached")
     set_msg("Mission complete!")
 
+def navigate_to_thread(la, lo, a):
+    global state_machine
+    t = drone.get_telemetry()
+    safe_alt = max(a, 10)
+    if t["alt"] < 2:
+        state_machine = "TAKEOFF"
+        drone.arm()
+        time.sleep(0.3)
+        drone.takeoff(safe_alt)
+        state_machine = "NAVIGATING"
+    drone.goto_position(la, lo, a)
+    for step in range(600):
+        t = drone.get_telemetry()
+        lat_dist = (t["lat"] - la) * 111000
+        lon_dist = (t["lon"] - lo) * 111000 * math.cos(math.radians((t["lat"] + la) / 2))
+        dist = math.hypot(lat_dist, lon_dist)
+        if dist < 1.5:
+            state_machine = "HOVERING"
+            set_msg(f"Target reached! ({dist:.1f}m)")
+            return
+        state_machine = "APPROACHING" if dist < 8 else "NAVIGATING"
+        if step % 10 == 0:
+            drone.goto_position(la, lo, a)
+        time.sleep(0.3)
+    state_machine = "HOVERING"
+    set_msg("Navigate timeout — check coordinates")
+
+def smooth_land():
+    global state_machine
+    state_machine = "LANDING"
+    t = drone.get_telemetry()
+    set_msg(f"Landing from {t['alt']:.1f}m...")
+    drone.land()
+    for _ in range(60):
+        time.sleep(0.3)
+        t = drone.get_telemetry()
+        if t["alt"] < 0.15:
+            break
+    drone.disarm()
+    state_machine = "LANDED"
+    set_msg("Landed ✓")
+
 def main():
-    global running
+    global running, state_machine, avoidance_enabled, avoidance_thread
     signal.signal(signal.SIGINT, lambda s, f: sys.exit(0))
     sys.stdout.write(HIDE)
+    setup_terminal()
+    atexit.register(restore_terminal)
 
     host = sys.argv[1] if len(sys.argv) > 1 else "127.0.0.1"
-    port = int(sys.argv[2]) if len(sys.argv) > 2 else 14540
+    port = int(sys.argv[2]) if len(sys.argv) > 2 else 14550
 
     global drone
     drone = DroneConnection(udp_target=(host, port))
@@ -149,16 +295,19 @@ def main():
         print(f"{GREEN}Connected!{RESET}")
     except Exception as e:
         print(f"{RED}Connection failed: {e}{RESET}")
+        restore_terminal()
         sys.stdout.write(SHOW)
         return
 
-    time.sleep(2)
+    time.sleep(0.5)
     threading.Thread(target=gcs_heartbeat_loop, daemon=True).start()
     threading.Thread(target=ui_loop, daemon=True).start()
+    avoidance_thread = threading.Thread(target=yolo_continuous, daemon=True)
+    avoidance_thread.start()
 
+    show_prompt()
     try:
         while running:
-            draw_screen()
             try:
                 key = sys.stdin.read(1)
             except:
@@ -166,79 +315,135 @@ def main():
             if not key:
                 break
 
-            if key.lower() == 'q':
-                set_msg("Shutting down...")
+            if key == 'q' or key == 'Q':
                 break
+
             elif key == '1':
-                set_msg("Arming & takeoff to 10m...")
-                drone.arm()
-                time.sleep(1)
-                drone.takeoff(10)
-            elif key == '2':
-                drone.arm()
-                set_msg("Arm command sent")
-            elif key == '3':
-                set_msg("Enter altitude (m):")
-                print(f"{CLS}{BOLD}Takeoff altitude (m):{RESET}\n> ")
-                sys.stdout.flush()
+                show_sub_prompt("Takeoff altitude (m) [10]:")
                 try:
-                    a = float(sys.stdin.readline().strip())
+                    line = sys.stdin.readline().strip()
+                    a = float(line) if line else 10
+                    clear_sub_prompt()
+                    state_machine = "TAKEOFF"
+                    drone.arm()
+                    time.sleep(0.3)
                     drone.takeoff(a)
+                    state_machine = "HOVERING"
                     set_msg(f"Takeoff to {a}m")
                 except:
+                    clear_sub_prompt()
                     set_msg("Invalid altitude", False)
+
+            elif key == '2':
+                threading.Thread(target=smooth_land, daemon=True).start()
+                set_msg("Landing...")
+
+            elif key == '3':
+                show_sub_prompt("Enter latitude:")
+                try:
+                    la = float(sys.stdin.readline().strip())
+                    show_sub_prompt("Enter longitude:")
+                    lo = float(sys.stdin.readline().strip())
+                    show_sub_prompt("Enter altitude (m) [15]:")
+                    line = sys.stdin.readline().strip()
+                    a = float(line) if line else 15
+                    clear_sub_prompt()
+                    set_msg(f"Navigating to {la:.4f},{lo:.4f} at {a}m...")
+                    threading.Thread(target=navigate_to_thread, args=(la, lo, a), daemon=True).start()
+                except:
+                    clear_sub_prompt()
+                    set_msg("Invalid coordinate", False)
+
             elif key == '4':
-                set_msg("Enter speed (m/s):")
-                print(f"{CLS}{BOLD}Speed (m/s):{RESET}\n> ")
-                sys.stdout.flush()
+                show_sub_prompt("Target latitude:")
+                try:
+                    la = float(sys.stdin.readline().strip())
+                    show_sub_prompt("Target longitude:")
+                    lo = float(sys.stdin.readline().strip())
+                    show_sub_prompt("Target altitude (m) [15]:")
+                    line = sys.stdin.readline().strip()
+                    a = float(line) if line else 15
+                    clear_sub_prompt()
+                    set_msg(f"Navigating to {la:.4f},{lo:.4f} at {a}m...")
+                    threading.Thread(target=navigate_to_thread, args=(la, lo, a), daemon=True).start()
+                except:
+                    clear_sub_prompt()
+                    set_msg("Invalid target", False)
+
+            elif key == '5':
+                drone.arm()
+                state_machine = "HOVERING"
+                set_msg("Arm command sent")
+
+            elif key == '6':
+                drone.disarm()
+                state_machine = "IDLE"
+                set_msg("Disarmed")
+
+            elif key == '7':
+                t = drone.get_telemetry()
+                drone.goto_position(t["lat"], t["lon"], t["alt"])
+                state_machine = "HOVERING"
+                set_msg("Hovering at current position")
+
+            elif key == '8':
+                drone.rtl()
+                state_machine = "RETURNING_HOME"
+                set_msg("Return to Launch")
+
+            elif key.lower() == 'y':
+                set_msg("Running YOLO detection...")
+                threading.Thread(target=yolo_detect_single, daemon=True).start()
+
+            elif key.lower() == 'a':
+                avoidance_enabled = not avoidance_enabled
+                set_msg(f"Avoidance {'ENABLED' if avoidance_enabled else 'DISABLED'}")
+
+            elif key.lower() == 'm':
+                show_sub_prompt("Number of waypoints:")
+                try:
+                    n = int(sys.stdin.readline().strip())
+                    clear_sub_prompt()
+                    if n < 1:
+                        set_msg("Need at least 1 waypoint", False)
+                        show_prompt()
+                        continue
+                    wps = []
+                    for i in range(n):
+                        show_sub_prompt(f"WP {i+1} latitude:")
+                        la = float(sys.stdin.readline().strip())
+                        show_sub_prompt(f"WP {i+1} longitude:")
+                        lo = float(sys.stdin.readline().strip())
+                        show_sub_prompt(f"WP {i+1} altitude (m) [15]:")
+                        line = sys.stdin.readline().strip()
+                        a = float(line) if line else 15
+                        wps.append((la, lo, a))
+                    clear_sub_prompt()
+                    set_msg(f"Running {len(wps)} waypoint mission...")
+                    threading.Thread(target=run_mission_args, args=(wps,), daemon=True).start()
+                except:
+                    clear_sub_prompt()
+                    set_msg("Invalid mission input", False)
+
+            elif key.lower() == 'g':
+                show_sub_prompt("Speed (m/s):")
                 try:
                     s = float(sys.stdin.readline().strip())
+                    clear_sub_prompt()
                     drone.set_speed(s)
                     set_msg(f"Speed = {s} m/s")
                 except:
+                    clear_sub_prompt()
                     set_msg("Invalid speed", False)
-            elif key == '5':
-                drone.land()
-                set_msg("Landing")
-            elif key == '6':
-                drone.disarm()
-                set_msg("Disarmed")
-            elif key == '7':
-                drone.rtl()
-                set_msg("Return to Launch")
-            elif key == '8':
-                t = drone.get_telemetry()
-                drone.goto_position(t["lat"], t["lon"], t["alt"])
-                set_msg("Hovering at current position")
-            elif key.lower() == 'g':
-                set_msg("Enter: lat,lon,alt")
-                print(f"{CLS}{BOLD}Goto Position{RESET}\nformat: lat,lon,alt\n> ")
-                sys.stdout.flush()
-                try:
-                    parts = sys.stdin.readline().strip().split(",")
-                    if len(parts) == 3:
-                        la, lo, a = float(parts[0]), float(parts[1]), float(parts[2])
-                        drone.goto_position(la, lo, a)
-                        set_msg(f"Going to {la:.4f},{lo:.4f} at {a}m")
-                    else:
-                        set_msg("Use: lat,lon,alt", False)
-                except:
-                    set_msg("Invalid input", False)
-            elif key.lower() == 'y':
-                set_msg("Running YOLO detection...")
-                threading.Thread(target=yolo_detect, daemon=True).start()
-            elif key.lower() == 'm':
-                threading.Thread(target=run_mission, daemon=True).start()
-            elif key.lower() == 'w':
-                t = drone.get_telemetry()
-                WAYPOINTS.append((t["lat"], t["lon"], t["alt"]))
-                set_msg(f"WP {len(WAYPOINTS)}: {t['lat']:.4f},{t['lon']:.4f}")
+
+            show_prompt()
 
     except (EOFError, KeyboardInterrupt):
         pass
     finally:
         running = False
         drone.close()
+        restore_terminal()
         sys.stdout.write(f"\n{SHOW}")
         print(f"\n{GREEN}Console closed.{RESET}")
 
