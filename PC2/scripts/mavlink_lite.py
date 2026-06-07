@@ -3,10 +3,9 @@
 Minimal MAVLink v2 protocol implementation for drone control.
 
 Key fixes vs original:
-  - SET_POSITION_TARGET_GLOBAL_INT (msg 86) with correct MAVLink 2 wire
-    format (fields ordered by size descending) so PX4 parses it properly.
-  - Yaw is embedded in msg 86 payload; no separate CONDITION_YAW needed.
-  - Altitude is always MAV_FRAME_GLOBAL_RELATIVE_ALT (relative to home, frame 3).
+  - goto_position uses COMMAND_LONG with NAV_WAYPOINT (msg 76, cmd 16)
+    so it works in GUIDED mode.  msg 86 requires OFFBOARD mode in PX4,
+    which we don't use after takeoff.
   - encode_heartbeat restored properly.
 """
 
@@ -400,31 +399,28 @@ class DroneConnection:
             1.0 if relative else 0.0  # p4 = 0=absolute, 1=relative
         )
 
-    # ── goto position  (THE MAIN FIX) ────────────────────────────────────────
+    # ── goto position  (COMMAND_LONG → NAV_WAYPOINT) ─────────────────────────
     def goto_position(self, lat: float, lon: float, alt: float,
                       use_relative_alt: bool = True) -> bool:
         """
-        Fly to GPS position using SET_POSITION_TARGET_GLOBAL_INT (msg 86).
+        Fly to GPS position via COMMAND_LONG with NAV_WAYPOINT (cmd 16).
 
-        Uses MAV_FRAME_GLOBAL_RELATIVE_ALT so altitude is relative to home (AGL).
-        Sends the position target 5 times for reliability.
-        No DO_REPOSITION fallback — it causes PX4 mode transitions → altitude drops.
-        Yaw is embedded in the message itself so no CONDITION_YAW needed.
+        Works in GUIDED mode (set by NAV_TAKEOFF). PX4 ignores msg 86 unless
+        in OFFBOARD mode, so we use COMMAND_LONG which is accepted in GUIDED.
+        Sends 3x for reliability.
         """
-        if not self.sock:
-            return False
-
-        frame = (MAV_FRAME["GLOBAL_RELATIVE_ALT"]
-                 if use_relative_alt else MAV_FRAME["GLOBAL"])
-
-        pkt = self.mav.encode_set_position_target(lat, lon, alt, frame=frame)
-        for _ in range(5):
-            try:
-                self.sock.sendall(pkt)
-                time.sleep(0.02)
-            except Exception:
-                pass
-        return True
+        ok = True
+        for _ in range(3):
+            ok = self._send_command(
+                MAV_CMD["NAV_WAYPOINT"],
+                0,              # p1 = hold time (sec)
+                0,              # p2 = acceptance radius
+                0,              # p3 = 0 (pass through)
+                1.0 if use_relative_alt else 0.0,  # p4 = 0=abs, 1=rel alt
+                float(lat), float(lon), float(alt),
+            ) and ok
+            time.sleep(0.02)
+        return ok
 
     # ── strafe helpers ────────────────────────────────────────────────────────
     def strafe(self, direction: str, distance: float = 3):
