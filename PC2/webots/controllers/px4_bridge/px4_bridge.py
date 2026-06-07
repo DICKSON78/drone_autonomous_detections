@@ -30,6 +30,7 @@ MAV_CMD = {
     "NAV_LAND": 21,
     "NAV_RETURN_TO_LAUNCH": 20,
     "NAV_WAYPOINT": 16,
+    "DO_REPOSITION": 51,
     "DO_CHANGE_SPEED": 178,
 }
 
@@ -299,6 +300,13 @@ class MavicBridge(Robot):
                 self.target_lon = p6
                 self.target_alt = p7 if p7 > 0 else 15
 
+        elif cid == 51:
+            if p5 != 0 and p6 != 0:
+                print(f"[BRIDGE] REPOSITION {p5:.6f}, {p6:.6f}, {p7:.1f}")
+                self.target_lat = p5
+                self.target_lon = p6
+                self.target_alt = p7 if p7 > 0 else 15
+
         elif cid == 178:
             print(f"[BRIDGE] Set speed: {p2} m/s")
 
@@ -334,22 +342,32 @@ class MavicBridge(Robot):
         target_alt = self.target_alt
         altitude = self.z
 
+        # Position error in global frame (north, east meters)
         d_lat = self.target_lat - self.gps_lat
         d_lon = self.target_lon - self.gps_lon
-        n = d_lat * 111111.0
-        e = d_lon * 111111.0 * math.cos(math.radians(self.gps_lat))
+        err_n = d_lat * 111111.0
+        err_e = d_lon * 111111.0 * math.cos(math.radians(self.gps_lat))
 
-        dn = n * math.cos(self.yaw) + e * math.sin(self.yaw)
-        de = -n * math.sin(self.yaw) + e * math.cos(self.yaw)
+        # Rotate to body frame: forward (+=ahead) and right (+=right)
+        err_fwd = err_n * math.cos(self.yaw) + err_e * math.sin(self.yaw)
+        err_right = -err_n * math.sin(self.yaw) + err_e * math.cos(self.yaw)
 
-        yaw_disturbance = clamp(self.MAX_YAW_DISTURBANCE * math.atan2(de, dn) / math.pi, -0.3, 0.3)
+        # Yaw: face the direction of travel (disabled during landing)
+        yaw_cmd = 0
+        if not self._landing and (abs(err_fwd) > 0.5 or abs(err_right) > 0.5):
+            yaw_cmd = clamp(self.MAX_YAW_DISTURBANCE * math.atan2(err_right, err_fwd) / math.pi, -0.3, 0.3)
 
-        if abs(dn) < self.TARGET_PRECISION and abs(de) < self.TARGET_PRECISION:
-            yaw_disturbance = 0
+        # Position → attitude setpoint (disabled during landing)
+        des_pitch = 0.0; des_roll = 0.0
+        if not self._landing:
+            K_POS = 0.03
+            MAX_TILT = 0.45
+            des_pitch = clamp(-err_fwd * K_POS, -MAX_TILT, MAX_TILT)
+            des_roll = clamp(err_right * K_POS, -MAX_TILT, MAX_TILT)
 
-        pitch_disturbance = clamp(math.log10(max(abs(math.atan2(de, dn)), 0.1)) * 2, -0.5, 0.3) if abs(dn) > 0.5 or abs(de) > 0.5 else 0
-        if abs(dn) < 0.5 and abs(de) < 0.5:
-            pitch_disturbance = 0
+        # Dead zone: stop position control within target precision
+        if not self._landing and abs(err_fwd) < self.TARGET_PRECISION and abs(err_right) < self.TARGET_PRECISION:
+            des_pitch = 0; des_roll = 0; yaw_cmd = 0
 
         diff_alt = target_alt - altitude
         clamped_diff = clamp(diff_alt + self.K_VERTICAL_OFFSET, -1, 1)
@@ -362,33 +380,34 @@ class MavicBridge(Robot):
             vertical_input = -self.K_VERTICAL_THRUST * 0.8
             self._landing = False
 
-        # Landing: velocity-controlled descent at 0.5 m/s
+        # Landing: velocity-controlled descent (fast high, slow low)
         if self.armed and self._landing:
-            descent_rate = 0.5 if altitude > 1.0 else 0.3
+            descent_rate = min(2.0, max(0.2, altitude * 0.25))
             vel_error = -descent_rate - self.vel_z
             vertical_input = vel_error * 5.0
             if altitude < 0.12:
                 vertical_input = -self.K_VERTICAL_THRUST * 0.95
                 self._landing = False
                 self._in_air = False
+                self.target_alt = 0
 
         if time.time() < self._takeoff_boost_until:
             boost_elapsed = time.time() - (self._takeoff_boost_until - self.TAKEOFF_BOOST_DURATION)
             boost_factor = min(1.0, boost_elapsed / 0.5)
             vertical_input += self.TAKEOFF_BOOST * boost_factor
 
-        # On ground: suppress roll/pitch to prevent flip at lift-off
+        # Attitude stabilization tracking desired setpoint
         on_ground = altitude < 0.15 and not self._in_air
-        roll_input = 0.0
-        pitch_input = 0.0
-        if not on_ground:
-            roll_input = self.K_ROLL_P * clamp(self.roll, -1, 1) + self.roll_accel
-            pitch_input = self.K_PITCH_P * clamp(self.pitch, -1, 1) + self.pitch_accel
+        if on_ground:
+            pitch_input = 0; roll_input = 0
+        else:
+            pitch_input = self.K_PITCH_P * clamp(self.pitch - des_pitch, -1, 1) + self.pitch_accel
+            roll_input = self.K_ROLL_P * clamp(self.roll - des_roll, -1, 1) + self.roll_accel
 
-        fl = self.K_VERTICAL_THRUST + vertical_input - yaw_disturbance + pitch_input - roll_input
-        fr = self.K_VERTICAL_THRUST + vertical_input + yaw_disturbance + pitch_input + roll_input
-        rl = self.K_VERTICAL_THRUST + vertical_input + yaw_disturbance - pitch_input - roll_input
-        rr = self.K_VERTICAL_THRUST + vertical_input - yaw_disturbance - pitch_input + roll_input
+        fl = self.K_VERTICAL_THRUST + vertical_input - yaw_cmd + pitch_input - roll_input
+        fr = self.K_VERTICAL_THRUST + vertical_input + yaw_cmd + pitch_input + roll_input
+        rl = self.K_VERTICAL_THRUST + vertical_input + yaw_cmd - pitch_input - roll_input
+        rr = self.K_VERTICAL_THRUST + vertical_input - yaw_cmd - pitch_input + roll_input
 
         mm = self.MOTOR_MAX
         self.front_left_motor.setVelocity(clamp(fl, 0, mm))

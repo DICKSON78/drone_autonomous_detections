@@ -166,7 +166,8 @@ def parse_nlp(text):
     # Goto location
     loc = find_location(text_lower)
     if loc:
-        return ('goto', loc[0], loc[1], loc[2])
+        flight_alt = alt if alt > 0 else 30
+        return ('goto', loc[0], loc[1], flight_alt)
 
     # Goto coordinates
     if 'fly to' in text_lower or 'go to' in text_lower or 'navigate' in text_lower:
@@ -204,8 +205,45 @@ def execute_action(action):
             drone.set_position(0, 0, 0)
             msg("Hovering")
         elif cmd == 'goto':
-            drone.goto_position(action[1], action[2], action[3])
-            msg(f"Navigating to {action[1]:.4f}, {action[2]:.4f}")
+            la, lo, a = action[1], action[2], action[3]
+            t = drone.get_telemetry()
+            if t["alt"] < 2:
+                drone.arm()
+                time.sleep(0.5)
+                msg(f"Taking off to {a}m...")
+                drone.takeoff(a)
+                for _ in range(60):
+                    time.sleep(0.5)
+                    t = drone.get_telemetry()
+                    if t["alt"] > 3:
+                        break
+                for _ in range(40):
+                    time.sleep(0.5)
+                    t = drone.get_telemetry()
+                    if abs(t["alt"] - a) < 2:
+                        break
+            elif abs(t["alt"] - a) > 2:
+                msg(f"Adjusting altitude to {a}m...")
+                drone.goto_position(t["lat"], t["lon"], a)
+                for _ in range(60):
+                    time.sleep(0.5)
+                    t = drone.get_telemetry()
+                    if abs(t["alt"] - a) < 2:
+                        break
+            drone.goto_position(la, lo, a)
+            msg(f"Navigating to {la:.4f}, {lo:.4f}")
+            for step in range(120):
+                time.sleep(0.5)
+                t = drone.get_telemetry()
+                dist = math.hypot(t["lat"] - la, t["lon"] - lo) * 111000
+                alt_err = abs(t["alt"] - a)
+                if dist < 2 and alt_err < 3:
+                    msg(f"Target reached ({dist:.1f}m, {alt_err:.1f}m alt)")
+                    break
+                if dist < 8:
+                    msg(f"Approaching — {dist:.1f}m away")
+                if step % 6 == 0:
+                    drone.goto_position(la, lo, a)
         elif cmd == 'climb':
             t = drone.get_telemetry()
             drone.goto_position(t['lat'], t['lon'], t['alt'] + action[1])

@@ -4,6 +4,7 @@
 import os
 import sys
 import time
+import math
 import signal
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -76,7 +77,9 @@ def main():
 
         for _ in range(15):
             t = drone.get_telemetry()
-            dist = ((t["lat"] - wlat)**2 + (t["lon"] - wlon)**2)**0.5 * 111000
+            lat_dist = (t["lat"] - wlat) * 111000
+            lon_dist = (t["lon"] - wlon) * 111000 * math.cos(math.radians((t["lat"] + wlat) / 2))
+            dist = math.hypot(lat_dist, lon_dist)
             bar_len = int(max(0, min(20, 20 - dist / 5)))
             bar = f"{'█' * bar_len}{'░' * (20 - bar_len)}"
             print(f"    Moving... [{bar}] {dist:.1f}m remaining", end="\r")
