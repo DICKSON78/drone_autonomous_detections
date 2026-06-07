@@ -238,41 +238,66 @@ def run_mission_args(wps):
 def navigate_to_thread(la, lo, a):
     global state_machine
     t = drone.get_telemetry()
-    safe_alt = max(a, 10)
+
+    # If on ground, arm and take off directly to user's target altitude
     if t["alt"] < 2:
         state_machine = "TAKEOFF"
+        set_msg(f"Taking off to {a}m...")
         drone.arm()
-        time.sleep(0.3)
-        drone.takeoff(safe_alt)
-        state_machine = "NAVIGATING"
-    # First reach target altitude at current position, then navigate laterally
-    t = drone.get_telemetry()
-    alt_diff = abs(t["alt"] - a)
-    if alt_diff > 2:
-        set_msg(f"Adjusting altitude to {a}m...")
-        drone.goto_position(t["lat"], t["lon"], a)
+        time.sleep(1)
+        drone.takeoff(a)
         for _ in range(60):
+            time.sleep(0.5)
+            t = drone.get_telemetry()
+            if t["alt"] > 3:
+                break
+        else:
+            set_msg("Takeoff failed — aborting goto", False)
+            state_machine = "IDLE"
+            return
+        # Wait a bit more to reach target altitude
+        for _ in range(40):
             time.sleep(0.5)
             t = drone.get_telemetry()
             if abs(t["alt"] - a) < 2:
                 break
-    set_msg(f"Navigating to target...")
+
+    elif abs(t["alt"] - a) > 3:
+        state_machine = "TAKEOFF" if a > t["alt"] else "LANDING"
+        set_msg(f"{'Climbing' if a > t['alt'] else 'Descending'} to {a}m...")
+        drone.goto_position(t["lat"], t["lon"], a)
+        for _ in range(40):
+            time.sleep(0.5)
+            t = drone.get_telemetry()
+            if abs(t["alt"] - a) < 2:
+                break
+
+    # Navigate to target lat/lon at target altitude
+    state_machine = "NAVIGATING"
+    set_msg(f"Navigating to {la:.4f},{lo:.4f} at {a}m...")
     drone.goto_position(la, lo, a)
+
     for step in range(600):
         t = drone.get_telemetry()
         lat_dist = (t["lat"] - la) * 111000
         lon_dist = (t["lon"] - lo) * 111000 * math.cos(math.radians((t["lat"] + la) / 2))
         dist = math.hypot(lat_dist, lon_dist)
-        if dist < 1.5:
+        alt_err = abs(t["alt"] - a)
+
+        if dist < 2 and alt_err < 3:
             state_machine = "HOVERING"
-            set_msg(f"Target reached! ({dist:.1f}m)")
+            set_msg(f"Target reached! ({dist:.1f}m, alt err {alt_err:.1f}m)")
             return
-        state_machine = "APPROACHING" if dist < 8 else "NAVIGATING"
-        if step % 10 == 0:
+
+        state_machine = "APPROACHING" if dist < 10 else "NAVIGATING"
+
+        if step % 6 == 0:
             drone.goto_position(la, lo, a)
+
         time.sleep(0.3)
+
     state_machine = "HOVERING"
-    set_msg("Navigate timeout — check coordinates")
+    set_msg("Navigate timeout — check coordinates", False)
 
 def smooth_land():
     global state_machine

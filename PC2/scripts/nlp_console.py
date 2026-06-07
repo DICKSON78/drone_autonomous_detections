@@ -207,8 +207,22 @@ def execute_action(action):
         elif cmd == 'goto':
             la, lo, a = action[1], action[2], action[3]
             t = drone.get_telemetry()
-            alt_diff = abs(t["alt"] - a)
-            if alt_diff > 2:
+            if t["alt"] < 2:
+                drone.arm()
+                time.sleep(0.5)
+                msg(f"Taking off to {a}m...")
+                drone.takeoff(a)
+                for _ in range(60):
+                    time.sleep(0.5)
+                    t = drone.get_telemetry()
+                    if t["alt"] > 3:
+                        break
+                for _ in range(40):
+                    time.sleep(0.5)
+                    t = drone.get_telemetry()
+                    if abs(t["alt"] - a) < 2:
+                        break
+            elif abs(t["alt"] - a) > 2:
                 msg(f"Adjusting altitude to {a}m...")
                 drone.goto_position(t["lat"], t["lon"], a)
                 for _ in range(60):
