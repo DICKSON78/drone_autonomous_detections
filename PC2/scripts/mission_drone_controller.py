@@ -214,6 +214,16 @@ class MissionDrone:
             self.state = DroneState.TAKEOFF
             print(f"  {CYAN}State: TAKEOFF → ascending to {safe_alt}m{RESET}")
             self.takeoff(safe_alt)
+        else:
+            alt_diff = abs(t0["alt"] - safe_alt)
+            if alt_diff > 2:
+                print(f"  {YELLOW}Adjusting altitude to {safe_alt}m first...{RESET}")
+                self.drone.goto_position(t0["lat"], t0["lon"], safe_alt)
+                for _ in range(60):
+                    time.sleep(0.5)
+                    t = self.drone.get_telemetry()
+                    if abs(t["alt"] - safe_alt) < 2:
+                        break
         self.state = DroneState.NAVIGATING
         pid_lat = PIDController(kp=0.8, ki=0.02, kd=0.2, integral_limit=3, output_limit=5)
         pid_lon = PIDController(kp=0.8, ki=0.02, kd=0.2, integral_limit=3, output_limit=5)

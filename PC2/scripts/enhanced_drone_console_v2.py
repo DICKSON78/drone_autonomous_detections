@@ -245,6 +245,18 @@ def navigate_to_thread(la, lo, a):
         time.sleep(0.3)
         drone.takeoff(safe_alt)
         state_machine = "NAVIGATING"
+    # First reach target altitude at current position, then navigate laterally
+    t = drone.get_telemetry()
+    alt_diff = abs(t["alt"] - a)
+    if alt_diff > 2:
+        set_msg(f"Adjusting altitude to {a}m...")
+        drone.goto_position(t["lat"], t["lon"], a)
+        for _ in range(60):
+            time.sleep(0.5)
+            t = drone.get_telemetry()
+            if abs(t["alt"] - a) < 2:
+                break
+    set_msg(f"Navigating to target...")
     drone.goto_position(la, lo, a)
     for step in range(600):
         t = drone.get_telemetry()

@@ -206,6 +206,16 @@ def execute_action(action):
             msg("Hovering")
         elif cmd == 'goto':
             la, lo, a = action[1], action[2], action[3]
+            t = drone.get_telemetry()
+            alt_diff = abs(t["alt"] - a)
+            if alt_diff > 2:
+                msg(f"Adjusting altitude to {a}m...")
+                drone.goto_position(t["lat"], t["lon"], a)
+                for _ in range(60):
+                    time.sleep(0.5)
+                    t = drone.get_telemetry()
+                    if abs(t["alt"] - a) < 2:
+                        break
             drone.goto_position(la, lo, a)
             msg(f"Navigating to {la:.4f}, {lo:.4f}")
             for _ in range(120):

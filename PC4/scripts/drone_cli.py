@@ -266,6 +266,16 @@ class DroneCLI:
                 self.log(f"Speed set to {s} m/s")
             elif cmd == "goto":
                 lat, lon, alt = args[0], args[1], args[2] if len(args) > 2 else 30
+                t = self.mav.get_telemetry()
+                alt_diff = abs(t["alt"] - alt)
+                if alt_diff > 2:
+                    self.log(f"Adjusting altitude to {alt}m...")
+                    self.mav.goto_position(t["lat"], t["lon"], alt)
+                    for _ in range(60):
+                        time.sleep(0.5)
+                        t = self.mav.get_telemetry()
+                        if abs(t["alt"] - alt) < 2:
+                            break
                 self.mav.goto_position(lat, lon, alt)
                 self.log(f"Going to {lat:.4f}, {lon:.4f} at {alt}m")
                 self.say(f"Navigating to destination")
@@ -277,8 +287,6 @@ class DroneCLI:
                         self.log(f"Target reached ({dist:.1f}m)")
                         self.say("Reached destination")
                         break
-                    if int(dist) % 10 == 0 and dist > 10:
-                        pass
             elif cmd == "climb":
                 t = self.mav.get_telemetry()
                 d = args[0] if args else 10
