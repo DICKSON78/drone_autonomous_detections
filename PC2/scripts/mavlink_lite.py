@@ -3,10 +3,10 @@
 Minimal MAVLink v2 protocol implementation for drone control.
 
 Key fixes vs original:
-  - SET_POSITION_TARGET_GLOBAL_INT (msg 86) with explicit yaw so drone
-    knows which way to face before moving — prevents spin-and-crash.
-  - goto_position computes bearing to target and sets yaw first.
-  - Altitude is always MAV_FRAME_GLOBAL_RELATIVE_ALT (relative to home).
+  - SET_POSITION_TARGET_GLOBAL_INT (msg 86) with correct MAVLink 2 wire
+    format (fields ordered by size descending) so PX4 parses it properly.
+  - Yaw is embedded in msg 86 payload; no separate CONDITION_YAW needed.
+  - Altitude is always MAV_FRAME_GLOBAL_RELATIVE_ALT (relative to home, frame 3).
   - encode_heartbeat restored properly.
 """
 
@@ -45,8 +45,8 @@ MAV_CMD = {
 
 # ── MAVLink frame types ───────────────────────────────────────────────────────
 MAV_FRAME = {
-    "GLOBAL":              0,   # AMSL altitude
-    "GLOBAL_RELATIVE_ALT": 6,  # altitude relative to home (AGL) ← use this
+    "GLOBAL": 0,
+    "GLOBAL_RELATIVE_ALT": 3,  # alt relative to home (AGL)
 }
 
 MAV_MODE_FLAG = {"SAFETY_ARMED": 128, "MANUAL": 1, "GUIDED": 4,
@@ -126,43 +126,36 @@ class MAVLink:
 
     # ── SET_POSITION_TARGET_GLOBAL_INT (msg 86) ───────────────────────────────
     def encode_set_position_target(self, lat: float, lon: float, alt: float,
-                                   yaw_deg: float = None,
-                                   frame: int = MAV_FRAME["GLOBAL_RELATIVE_ALT"]) -> bytes:
+                                    yaw_deg: float = None,
+                                    frame: int = MAV_FRAME["GLOBAL_RELATIVE_ALT"]) -> bytes:
         """
-        Send a GPS position + optional yaw target.
+        MAVLink 2 wire format — fields ordered by byte-size descending.
 
         type_mask bits (1 = ignore):
-          bit 0  = ignore vx      bit 6  = ignore ax
-          bit 1  = ignore vy      bit 7  = ignore ay
-          bit 2  = ignore vz      bit 8  = ignore az
-          bit 3  = ignore ax(dup) bit 10 = ignore yaw
-          bit 4  = ignore ay(dup) bit 11 = ignore yaw_rate
-          bit 5  = ignore az(dup)
-        0x0FF8 = ignore vel+accel+yaw (position only)
-        0x04F8 = ignore vel+accel, USE yaw          ← we want this when yaw given
+          bits 0-2: pos x,y,z     bits 3-5: vel vx,vy,vz
+          bits 6-8: acc afx,afy,afz  bit 9: force
+          bit 10: yaw              bit 11: yaw_rate
         """
         if yaw_deg is not None:
-            # bit 10 = 0 → use yaw;  bits 0-8 = 1 → ignore vel/accel
-            type_mask = 0x04F8
+            type_mask = 0x0DF8   # use pos(0-2) + yaw(10), ignore vel(3-5)+acc(6-8)+yaw_rate(11)
             yaw_rad = math.radians(yaw_deg % 360)
         else:
-            type_mask = 0x0FF8   # ignore everything except position
+            type_mask = 0x0FF8   # use pos(0-2), ignore everything else
             yaw_rad = 0.0
 
-        payload = (
-            struct.pack('<I',  0) +                      # time_boot_ms
-            struct.pack('<H',  type_mask) +              # type_mask
-            struct.pack('<B',  self.target_system) +
-            struct.pack('<B',  self.target_component) +
-            struct.pack('<B',  frame) +                  # coordinate_frame
-            struct.pack('<i',  int(lat * 1e7)) +         # lat_int  (degE7)
-            struct.pack('<i',  int(lon * 1e7)) +         # lon_int  (degE7)
-            struct.pack('<f',  float(alt)) +             # alt      (metres AGL)
-            struct.pack('<fff', 0.0, 0.0, 0.0) +        # vx vy vz  (ignored)
-            struct.pack('<fff', 0.0, 0.0, 0.0) +        # afx afy afz (ignored)
-            struct.pack('<f',  yaw_rad) +               # yaw      (radians)
-            struct.pack('<f',  0.0)                      # yaw_rate (ignored)
-        )
+        lat_int = int(lat * 1e7)
+        lon_int = int(lon * 1e7)
+
+        payload = struct.pack('<Iii', 0, lat_int, lon_int)           # time_boot_ms, lat, lon
+        payload += struct.pack('<f', float(alt))                      # alt
+        payload += struct.pack('<fff', 0.0, 0.0, 0.0)                # vx, vy, vz
+        payload += struct.pack('<fff', 0.0, 0.0, 0.0)                # afx, afy, afz
+        payload += struct.pack('<ff', yaw_rad, 0.0)                  # yaw, yaw_rate
+        payload += struct.pack('<H', type_mask)                      # type_mask
+        payload += struct.pack('<BBB',
+            self.target_system,
+            self.target_component,
+            frame)                                                   # target_sys, comp, frame
         return self._packet(86, payload)
 
     # ── decode ────────────────────────────────────────────────────────────────
