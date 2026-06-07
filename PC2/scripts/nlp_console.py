@@ -218,7 +218,7 @@ def execute_action(action):
                         break
             drone.goto_position(la, lo, a)
             msg(f"Navigating to {la:.4f}, {lo:.4f}")
-            for _ in range(120):
+            for step in range(120):
                 time.sleep(0.5)
                 t = drone.get_telemetry()
                 dist = math.hypot(t["lat"] - la, t["lon"] - lo) * 111000
@@ -228,6 +228,8 @@ def execute_action(action):
                     break
                 if dist < 8:
                     msg(f"Approaching — {dist:.1f}m away")
+                if step % 6 == 0:
+                    drone.goto_position(la, lo, a)
         elif cmd == 'climb':
             t = drone.get_telemetry()
             drone.goto_position(t['lat'], t['lon'], t['alt'] + action[1])

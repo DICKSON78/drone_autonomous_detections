@@ -279,7 +279,7 @@ class DroneCLI:
                 self.mav.goto_position(lat, lon, alt)
                 self.log(f"Going to {lat:.4f}, {lon:.4f} at {alt}m")
                 self.say(f"Navigating to destination")
-                for _ in range(120):
+                for step in range(120):
                     time.sleep(0.5)
                     t = self.mav.get_telemetry()
                     dist = math.hypot(t["lat"] - lat, t["lon"] - lon) * 111000
@@ -287,6 +287,8 @@ class DroneCLI:
                         self.log(f"Target reached ({dist:.1f}m)")
                         self.say("Reached destination")
                         break
+                    if step % 6 == 0:
+                        self.mav.goto_position(lat, lon, alt)
             elif cmd == "climb":
                 t = self.mav.get_telemetry()
                 d = args[0] if args else 10

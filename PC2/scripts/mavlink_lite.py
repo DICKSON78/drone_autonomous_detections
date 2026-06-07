@@ -372,8 +372,8 @@ class DroneConnection:
     def rtl(self):
         return self._send_command(MAV_CMD["NAV_RETURN_TO_LAUNCH"])
 
-    def goto_position(self, lat, lon, alt):
-        return self._send_command(MAV_CMD["DO_REPOSITION"], -1, 0, 0, 0, lat, lon, alt)
+    def goto_position(self, lat, lon, alt, yaw=float('nan')):
+        return self._send_command(MAV_CMD["DO_REPOSITION"], -1, 0, float('nan'), yaw, lat, lon, alt)
 
     def set_speed(self, speed_ms):
         return self._send_command(MAV_CMD["DO_CHANGE_SPEED"], 0, speed_ms, -1, 0)
@@ -388,14 +388,14 @@ class DroneConnection:
         elif direction == 'left':
             angle = yaw - math.pi/2
         elif direction == 'up':
-            return self._send_command(MAV_CMD["DO_REPOSITION"], -1, 0, 0, 0, t["lat"], t["lon"], t["alt"] + distance)
+            return self._send_command(MAV_CMD["DO_REPOSITION"], -1, 0, float('nan'), float('nan'), t["lat"], t["lon"], t["alt"] + distance)
         elif direction == 'down':
-            return self._send_command(MAV_CMD["DO_REPOSITION"], -1, 0, 0, 0, t["lat"], t["lon"], max(0.5, t["alt"] - distance))
+            return self._send_command(MAV_CMD["DO_REPOSITION"], -1, 0, float('nan'), float('nan'), t["lat"], t["lon"], max(0.5, t["alt"] - distance))
         else:
             return False
         dlat = distance * math.cos(angle) / 111000
         dlon = distance * math.sin(angle) / (111000 * math.cos(math.radians(t["lat"])))
-        return self._send_command(MAV_CMD["DO_REPOSITION"], -1, 0, 0, 0, t["lat"] + dlat, t["lon"] + dlon, t["alt"])
+        return self._send_command(MAV_CMD["DO_REPOSITION"], -1, 0, float('nan'), float('nan'), t["lat"] + dlat, t["lon"] + dlon, t["alt"])
 
     def close(self):
         self.running = False
