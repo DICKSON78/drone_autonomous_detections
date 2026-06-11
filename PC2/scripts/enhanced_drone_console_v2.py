@@ -244,15 +244,15 @@ def navigate_to_thread(la, lo, a):
     global state_machine
     t = drone.get_telemetry()
 
-    # If on ground, arm and take off directly to user's target altitude
+    # If on ground, arm and take off
     if t["alt"] < 2:
         state_machine = "TAKEOFF"
         set_msg(f"Taking off to {a}m...")
         drone.arm()
-        time.sleep(1)
+        time.sleep(0.3)
         drone.takeoff(a)
-        for _ in range(60):
-            time.sleep(0.5)
+        for _ in range(30):
+            time.sleep(0.3)
             t = drone.get_telemetry()
             if t["alt"] > 3:
                 break
@@ -260,9 +260,9 @@ def navigate_to_thread(la, lo, a):
             set_msg("Takeoff failed — aborting goto", False)
             state_machine = "IDLE"
             return
-        # Wait a bit more to reach target altitude
-        for _ in range(40):
-            time.sleep(0.5)
+        # Quick altitude check
+        for _ in range(20):
+            time.sleep(0.3)
             t = drone.get_telemetry()
             if abs(t["alt"] - a) < 2:
                 break
@@ -271,16 +271,16 @@ def navigate_to_thread(la, lo, a):
         state_machine = "TAKEOFF" if a > t["alt"] else "LANDING"
         set_msg(f"{'Climbing' if a > t['alt'] else 'Descending'} to {a}m...")
         drone.goto_position(t["lat"], t["lon"], a)
-        for _ in range(40):
-            time.sleep(0.5)
+        for _ in range(20):
+            time.sleep(0.3)
             t = drone.get_telemetry()
             if abs(t["alt"] - a) < 2:
                 break
 
-    # Navigate to target lat/lon at target altitude
+    # Turn to face target first for faster response
     state_machine = "NAVIGATING"
     set_msg(f"Navigating to {la:.4f},{lo:.4f} at {a}m...")
-    drone.goto_position(la, lo, a)
+    drone.goto_with_yaw(la, lo, a)
 
     for step in range(600):
         t = drone.get_telemetry()
@@ -296,10 +296,11 @@ def navigate_to_thread(la, lo, a):
 
         state_machine = "APPROACHING" if dist < 10 else "NAVIGATING"
 
-        if step % 6 == 0:
+        # Re-send goto every 2nd iteration for reliable execution
+        if step % 2 == 0:
             drone.goto_position(la, lo, a)
 
-        time.sleep(0.3)
+        time.sleep(0.2)
 
     state_machine = "HOVERING"
     set_msg("Navigate timeout — check coordinates", False)

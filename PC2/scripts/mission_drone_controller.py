@@ -218,15 +218,21 @@ class MissionDrone:
         elif abs(t0["alt"] - safe_alt) > 2:
             print(f"  {YELLOW}Adjusting altitude to {safe_alt}m first...{RESET}")
             self.drone.goto_position(t0["lat"], t0["lon"], safe_alt)
-            for _ in range(60):
-                time.sleep(0.5)
+            for _ in range(30):
+                time.sleep(0.3)
                 t = self.drone.get_telemetry()
                 if abs(t["alt"] - safe_alt) < 2:
                     break
+        # Face target before moving
         self.state = DroneState.NAVIGATING
-        pid_lat = PIDController(kp=0.8, ki=0.02, kd=0.2, integral_limit=3, output_limit=5)
-        pid_lon = PIDController(kp=0.8, ki=0.02, kd=0.2, integral_limit=3, output_limit=5)
-        print(f"  {CYAN}State: NAVIGATING → heading to target{RESET}")
+        dlat = target_lat - t0["lat"]
+        dlon = target_lon - t0["lon"]
+        bearing = math.degrees(math.atan2(dlon * math.cos(math.radians(t0["lat"])), dlat))
+        self.drone.set_yaw((bearing + 360) % 360)
+        time.sleep(0.2)
+        pid_lat = PIDController(kp=1.2, ki=0.03, kd=0.3, integral_limit=3, output_limit=8)
+        pid_lon = PIDController(kp=1.2, ki=0.03, kd=0.3, integral_limit=3, output_limit=8)
+        print(f"  {CYAN}State: NAVIGATING → heading to target (bearing {bearing:.0f}°){RESET}")
         for _ in range(120):
             if not self.running:
                 return False
@@ -235,21 +241,20 @@ class MissionDrone:
             lon_err = target_lon - t["lon"]
             dist_m = ((lat_err * 111000)**2 + (lon_err * 111000 * np.cos(np.radians(t["lat"])))**2)**0.5
             alt_err = (target_alt or safe_alt) - t["alt"]
-            dt = 1.0
+            dt = 0.3
             if dist_m < 1.5 and abs(alt_err) < 2:
                 self.state = DroneState.HOVERING
                 print(f"  {GREEN}State: HOVERING → target reached ✓{RESET}")
                 break
             elif dist_m < 8:
                 self.state = DroneState.APPROACHING
-                print(f"  {YELLOW}State: APPROACHING — {dist_m:.1f}m away, slowing...{RESET}")
-                pid_lat.kp = 0.4; pid_lat.output_limit = 2
-                pid_lon.kp = 0.4; pid_lon.output_limit = 2
+                pid_lat.kp = 0.6; pid_lat.output_limit = 3
+                pid_lon.kp = 0.6; pid_lon.output_limit = 3
             lat_adj = pid_lat.update(lat_err * 111000, dt) / 111000
             lon_adj = pid_lon.update(lon_err * 111000, dt) / (111000 * np.cos(np.radians(t["lat"])))
             self.drone.goto_position(t["lat"] + lat_adj, t["lon"] + lon_adj, target_alt or safe_alt)
             print(f"  Dist: {dist_m:.1f}m  Alt: {t['alt']:.1f}m")
-            time.sleep(1)
+            time.sleep(0.3)
         if land_at_target:
             self.smooth_land()
         return True
@@ -259,10 +264,17 @@ class MissionDrone:
             return False
         self.state = DroneState.RETURNING_HOME
         print(f"  Returning to home...")
+        # Face home first
+        t = self.drone.get_telemetry()
+        dlat = self.home_position[0] - t["lat"]
+        dlon = self.home_position[1] - t["lon"]
+        bearing = math.degrees(math.atan2(dlon * math.cos(math.radians(t["lat"])), dlat))
+        self.drone.set_yaw((bearing + 360) % 360)
+        time.sleep(0.1)
         self.drone.goto_position(
             self.home_position[0], self.home_position[1], self.home_position[2])
         for i in range(30):
-            time.sleep(1)
+            time.sleep(0.5)
             t = self.drone.get_telemetry()
             lat_dist = (t["lat"] - self.home_position[0]) * 111000
             lon_dist = (t["lon"] - self.home_position[1]) * 111000 * np.cos(np.radians(t["lat"]))
@@ -271,6 +283,9 @@ class MissionDrone:
             if dist < 3:
                 print(f"  {GREEN}At home position ✓{RESET}")
                 return True
+            if i % 4 == 0:
+                self.drone.goto_position(
+                    self.home_position[0], self.home_position[1], self.home_position[2])
         return True
 
     def go_to_waypoint(self, waypoint):
@@ -284,10 +299,16 @@ class MissionDrone:
         target_lat = home_lat + lat_offset
         target_lon = home_lon + lon_offset
         print(f"  Going to waypoint ({local_x:.0f}, {local_y:.0f}, {alt:.0f}m)...")
+        # Face target first, then go
+        dlat = target_lat - t["lat"]
+        dlon = target_lon - t["lon"]
+        bearing = math.degrees(math.atan2(dlon * math.cos(math.radians(t["lat"])), dlat))
+        self.drone.set_yaw((bearing + 360) % 360)
+        time.sleep(0.1)
         self.drone.goto_position(target_lat, target_lon, alt)
         acceptance = CONFIG["flight"]["waypoint_acceptance_radius"]
         for i in range(30):
-            time.sleep(1.5)
+            time.sleep(0.5)
             t = self.drone.get_telemetry()
             lat_dist = (t["lat"] - target_lat) * 111000
             lon_dist = (t["lon"] - target_lon) * 111000 * np.cos(np.radians(t["lat"]))
@@ -297,6 +318,9 @@ class MissionDrone:
             if dist < acceptance and alt_diff < 3:
                 print(f"  {GREEN}Waypoint reached ✓{RESET}")
                 return True
+            # Re-send goto every 3rd check for reliability
+            if i % 3 == 0:
+                self.drone.goto_position(target_lat, target_lon, alt)
             if not self.running:
                 return False
         print(f"  {YELLOW}Waypoint timeout, continuing...{RESET}")

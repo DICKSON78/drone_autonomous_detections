@@ -397,18 +397,32 @@ class DroneConnection:
         return self._send_command(MAV_CMD["DO_CHANGE_SPEED"], 0, speed_ms, -1, 0)
 
     # ── yaw command ───────────────────────────────────────────────────────────
-    def set_yaw(self, yaw_deg: float, relative: bool = False):
+    def set_yaw(self, yaw_deg: float, relative: bool = False, speed: float = 45.0):
         """
         Rotate to absolute heading (relative=False) or rotate by angle (relative=True).
-        direction: 1 = clockwise (default for shortest path when relative=False).
+        speed: yaw rate in deg/s (default 45, was 20 for faster turns)
         """
         return self._send_command(
             MAV_CMD["CONDITION_YAW"],
             float(yaw_deg % 360),   # p1 = target angle deg
-            20.0,                   # p2 = yaw speed deg/s
-            1.0,                    # p3 = direction (1=CW, -1=CCW)
+            speed,                  # p2 = yaw speed deg/s (increased for faster turns)
+            -1.0,                    # p3 = direction (-1=auto, shortest path)
             1.0 if relative else 0.0  # p4 = 0=absolute, 1=relative
         )
+
+    def goto_with_yaw(self, lat: float, lon: float, alt: float):
+        """
+        Turn to face the target first, then go there — much faster response.
+        Computes bearing from current position to target and yaws before moving.
+        """
+        t = self.get_telemetry()
+        dlat = lat - t["lat"]
+        dlon = lon - t["lon"]
+        bearing = math.degrees(math.atan2(dlon * math.cos(math.radians(t["lat"])), dlat))
+        bearing = (bearing + 360) % 360
+        self.set_yaw(bearing)
+        time.sleep(0.1)
+        return self.goto_position(lat, lon, alt)
 
     # ── goto position  (COMMAND_LONG → NAV_WAYPOINT) ─────────────────────────
     def goto_position(self, lat: float, lon: float, alt: float,

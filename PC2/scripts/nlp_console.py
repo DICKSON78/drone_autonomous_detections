@@ -210,31 +210,31 @@ def execute_action(action):
             t = drone.get_telemetry()
             if t["alt"] < 2:
                 drone.arm()
-                time.sleep(0.5)
+                time.sleep(0.3)
                 msg(f"Taking off to {a}m...")
                 drone.takeoff(a)
-                for _ in range(60):
-                    time.sleep(0.5)
+                for _ in range(30):
+                    time.sleep(0.3)
                     t = drone.get_telemetry()
                     if t["alt"] > 3:
                         break
-                for _ in range(40):
-                    time.sleep(0.5)
+                for _ in range(20):
+                    time.sleep(0.3)
                     t = drone.get_telemetry()
                     if abs(t["alt"] - a) < 2:
                         break
             elif abs(t["alt"] - a) > 2:
                 msg(f"Adjusting altitude to {a}m...")
                 drone.goto_position(t["lat"], t["lon"], a)
-                for _ in range(60):
-                    time.sleep(0.5)
+                for _ in range(30):
+                    time.sleep(0.3)
                     t = drone.get_telemetry()
                     if abs(t["alt"] - a) < 2:
                         break
-            drone.goto_position(la, lo, a)
+            drone.goto_with_yaw(la, lo, a)
             msg(f"Navigating to {la:.4f}, {lo:.4f}")
-            for step in range(120):
-                time.sleep(0.5)
+            for step in range(180):
+                time.sleep(0.3)
                 t = drone.get_telemetry()
                 dist = math.hypot(t["lat"] - la, t["lon"] - lo) * 111000
                 alt_err = abs(t["alt"] - a)
@@ -243,7 +243,7 @@ def execute_action(action):
                     break
                 if dist < 8:
                     msg(f"Approaching — {dist:.1f}m away")
-                if step % 6 == 0:
+                if step % 2 == 0:
                     drone.goto_position(la, lo, a)
         elif cmd == 'climb':
             t = drone.get_telemetry()
