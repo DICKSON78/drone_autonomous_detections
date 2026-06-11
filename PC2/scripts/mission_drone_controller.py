@@ -201,6 +201,7 @@ class MissionDrone:
             if alt < 0.2:
                 break
         self.drone.disarm()
+        self.drone.set_speed(CONFIG["drone"]["cruise_speed"])
         self.state = DroneState.LANDED
         print(f"  {GREEN}Landed ✓{RESET}")
         return True

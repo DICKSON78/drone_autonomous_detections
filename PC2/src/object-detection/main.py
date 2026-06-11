@@ -26,8 +26,9 @@ app = FastAPI(title="PC2 - Object Detection Service")
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Initialize components
-detector = YOLOHandler(model_name="yolov8n.pt", device="auto")
+# Initialize components (model path from env or default)
+MODEL_PATH = os.getenv('YOLO_MODEL_PATH', 'yolov8n.pt')
+detector = YOLOHandler(model_name=MODEL_PATH, device="auto")
 unsupervised = UnsupervisedHandler(model_dir="/app/models/unsupervised")
 camera = CameraSimulator(width=640, height=480, source="simulation")
 image_processor = ImageProcessor()

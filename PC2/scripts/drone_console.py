@@ -6,6 +6,7 @@ import sys
 import time
 import threading
 import signal
+from threading import Lock
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from mavlink_lite import DroneConnection
@@ -27,6 +28,7 @@ running = True
 last_cmd_result = ""
 last_cmd_time = 0
 input_blocked = False
+stdout_lock = threading.Lock()
 
 def draw_bar(value, max_val, width=20, filled="█", empty="░"):
     filled_count = int(value / max_val * width) if max_val > 0 else 0
@@ -43,48 +45,49 @@ def draw_bar(value, max_val, width=20, filled="█", empty="░"):
 def draw_screen():
     if input_blocked:
         return
-    t = drone.get_telemetry()
-    out = [CLS]
-    out.append(f"{BOLD}{CYAN}╔══════════════════════════════════════════════════════════╗{RESET}\n")
-    out.append(f"{BOLD}{CYAN}║          DRONE AUTONOMOUS CONTROL CONSOLE                ║{RESET}\n")
-    out.append(f"{BOLD}{CYAN}╚══════════════════════════════════════════════════════════╝{RESET}\n")
+    with stdout_lock:
+        t = drone.get_telemetry()
+        out = [CLS]
+        out.append(f"{BOLD}{CYAN}╔══════════════════════════════════════════════════════════╗{RESET}\n")
+        out.append(f"{BOLD}{CYAN}║          DRONE AUTONOMOUS CONTROL CONSOLE                ║{RESET}\n")
+        out.append(f"{BOLD}{CYAN}╚══════════════════════════════════════════════════════════╝{RESET}\n")
 
-    status = f"{GREEN}● CONNECTED{RESET}" if t["connected"] else f"{RED}○ DISCONNECTED{RESET}"
-    armed = f"{GREEN}● ARMED{RESET}" if t["armed"] else f"{YELLOW}○ DISARMED{RESET}"
-    out.append(f"  Status  : {status}  |  {armed}")
-    out.append(f"  Mode    : {BOLD}{t['mode']}{RESET}")
-    out.append(f""
-)
-    out.append(f"  {BOLD}POSITION{RESET}")
-    out.append(f"  Lat     : {t['lat']:.6f}")
-    out.append(f"  Lon     : {t['lon']:.6f}")
-    out.append(f"  Alt     : {t['alt']:.1f} m")
-    out.append(f"  Heading : {t['heading']*57.3:.0f}°")
-    out.append(f""
-)
-    out.append(f"  {BOLD}TELEMETRY{RESET}")
-    bat = t["battery"]
-    if bat >= 0:
-        bar = draw_bar(bat, 100)
-        out.append(f"  Battery : {bar} {bat:.0f}%")
-    out.append(f"  GPS Fix : {'3D' if t['fix_type'] >= 3 else '2D' if t['fix_type'] >= 2 else 'No Fix'}")
-    out.append(f"  Sats    : {t['satellites']}")
-    out.append(f""
-)
-    out.append(f"  {BOLD}COMMANDS{RESET}")
-    out.append(f"  {GREEN}[1]{RESET} Arm & Takeoff  {GREEN}[3]{RESET} Land     {GREEN}[5]{RESET} Return Home")
-    out.append(f"  {GREEN}[2]{RESET} Arm            {GREEN}[4]{RESET} Disarm   {GREEN}[6]{RESET} Set Speed")
-    out.append(f"")
-    out.append(f"  {YELLOW}[G]{RESET} Goto GPS       {YELLOW}[M]{RESET} Mission  {RED}[Q]{RESET} Quit")
-    out.append(f""
-)
-    global last_cmd_result, last_cmd_time
-    if last_cmd_result and time.time() - last_cmd_time < 5:
-        out.append(f"  {last_cmd_result}")
-    out.append(f"")
-    out.append(f"  {DIM}Enter command: {RESET}")
-    sys.stdout.write("".join(out))
-    sys.stdout.flush()
+        status = f"{GREEN}● CONNECTED{RESET}" if t["connected"] else f"{RED}○ DISCONNECTED{RESET}"
+        armed = f"{GREEN}● ARMED{RESET}" if t["armed"] else f"{YELLOW}○ DISARMED{RESET}"
+        out.append(f"  Status  : {status}  |  {armed}")
+        out.append(f"  Mode    : {BOLD}{t['mode']}{RESET}")
+        out.append(f"")
+
+        out.append(f"  {BOLD}POSITION{RESET}")
+        out.append(f"  Lat     : {t['lat']:.6f}")
+        out.append(f"  Lon     : {t['lon']:.6f}")
+        out.append(f"  Alt     : {t['alt']:.1f} m")
+        out.append(f"  Heading : {t['heading']*57.3:.0f}°")
+        out.append(f"")
+
+        out.append(f"  {BOLD}TELEMETRY{RESET}")
+        bat = t["battery"]
+        if bat >= 0:
+            bar = draw_bar(bat, 100)
+            out.append(f"  Battery : {bar} {bat:.0f}%")
+        out.append(f"  GPS Fix : {'3D' if t['fix_type'] >= 3 else '2D' if t['fix_type'] >= 2 else 'No Fix'}")
+        out.append(f"  Sats    : {t['satellites']}")
+        out.append(f"")
+
+        out.append(f"  {BOLD}COMMANDS{RESET}")
+        out.append(f"  {GREEN}[1]{RESET} Arm & Takeoff  {GREEN}[3]{RESET} Land     {GREEN}[5]{RESET} Return Home")
+        out.append(f"  {GREEN}[2]{RESET} Arm            {GREEN}[4]{RESET} Disarm   {GREEN}[6]{RESET} Set Speed")
+        out.append(f"")
+        out.append(f"  {YELLOW}[G]{RESET} Goto GPS       {YELLOW}[M]{RESET} Mission  {RED}[Q]{RESET} Quit")
+        out.append(f"")
+
+        global last_cmd_result, last_cmd_time
+        if last_cmd_result and time.time() - last_cmd_time < 5:
+            out.append(f"  {last_cmd_result}")
+        out.append(f"")
+        out.append(f"  {DIM}Enter command: {RESET}")
+        sys.stdout.write("".join(out))
+        sys.stdout.flush()
 
 def cmd(msg, ok=True):
     global last_cmd_result, last_cmd_time

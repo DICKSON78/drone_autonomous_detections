@@ -5,6 +5,7 @@ detection:
   # Model Configuration
   model:
     name: "yolov8n.pt"  # Options: yolov8n.pt, yolov8s.pt, yolov8m.pt, yolov8l.pt, yolov8x.pt
+    path: "/app/models/best.pt"  # Path to custom trained model (overrides name if set)
     confidence_threshold: 0.5
     iou_threshold: 0.45
     max_detections: 100

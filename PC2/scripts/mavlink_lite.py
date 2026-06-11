@@ -180,9 +180,10 @@ class MAVLink:
             msg["mode"] = mode_map.get(main_mode, f"CUSTOM({main_mode})")
 
         elif msg_id == 24 and len(payload) >= 30:
-            f = struct.unpack('<QiiHHHHBB', payload[:30])
+            f = struct.unpack('<QiiiHHHHBB', payload[:30])
             msg.update(name="GPS_RAW_INT", lat=f[1]/1e7, lon=f[2]/1e7,
-                       alt=f[3]/1e3, fix_type=f[8], satellites=f[9])
+                       alt=f[3]/1e3, eph=f[4], epv=f[5], vel=f[6],
+                       cog=f[7], fix_type=f[8], satellites=f[9])
 
         elif msg_id == 33 and len(payload) >= 28:
             msg.update(name="GLOBAL_POSITION_INT",
@@ -196,7 +197,7 @@ class MAVLink:
             msg.update(name="VFR_HUD",
                        airspeed=struct.unpack('<f', payload[0:4])[0],
                        groundspeed=struct.unpack('<f', payload[4:8])[0],
-                       heading=struct.unpack('<H', payload[8:10])[0],
+                       heading=struct.unpack('<h', payload[8:10])[0],
                        throttle=struct.unpack('<H', payload[10:12])[0],
                        alt=struct.unpack('<f', payload[12:16])[0],
                        climb=struct.unpack('<f', payload[16:20])[0])
@@ -236,8 +237,9 @@ class MAVLink:
 
 # ── DroneConnection ───────────────────────────────────────────────────────────
 class DroneConnection:
-    def __init__(self, udp_target=("127.0.0.1", 14550)):
+    def __init__(self, udp_target=("127.0.0.1", 14550), bind_port=14555):
         self.udp_target = udp_target
+        self.bind_port  = bind_port
         self.sock       = None
         self.mav        = MAVLink()
         self.running    = False
@@ -257,7 +259,7 @@ class DroneConnection:
     def connect(self):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.settimeout(1.0)
-        self.sock.bind(("0.0.0.0", 14555))
+        self.sock.bind(("0.0.0.0", self.bind_port))
         self.sock.connect(self.udp_target)
         self.running   = True
         self._listener = threading.Thread(target=self._listen, daemon=True)
@@ -268,7 +270,8 @@ class DroneConnection:
         hb_tick = 0
         while self.running:
             try:
-                self.sock.sendall(self.mav.encode_heartbeat())
+                with self._lock:
+                    self.sock.sendall(self.mav.encode_heartbeat())
                 hb_tick += 1
             except Exception:
                 pass
@@ -307,12 +310,18 @@ class DroneConnection:
                 # prefer alt_relative (AGL) over AMSL
                 rel = msg.get("alt_relative", 0)
                 t["alt"]     = rel if rel != 0 else msg.get("alt", t["alt"])
-                t["heading"] = msg.get("hdg", t["heading"])
+                # hdg is in centidegrees → radians
+                hdg = msg.get("hdg", None)
+                if hdg is not None:
+                    t["heading"] = math.radians(hdg)
 
             elif name == "VFR_HUD":
                 if msg.get("alt", 0) != 0:
                     t["alt"] = msg["alt"]
-                t["heading"] = msg.get("heading", t["heading"])
+                # heading is in degrees → radians
+                hdg = msg.get("heading", None)
+                if hdg is not None:
+                    t["heading"] = math.radians(hdg)
                 t["speed"]   = msg.get("groundspeed", 0)
 
             elif name == "ALTITUDE":
@@ -321,7 +330,7 @@ class DroneConnection:
                     t["alt"] = rel
 
             elif name == "ATTITUDE":
-                t["heading"] = msg.get("yaw", t["heading"])
+                t["heading"] = msg.get("yaw", t["heading"])  # already radians
                 t["roll"]    = msg.get("roll", 0)
                 t["pitch"]   = msg.get("pitch", 0)
 
@@ -349,7 +358,8 @@ class DroneConnection:
         if not self.sock:
             return False
         try:
-            self.sock.sendall(self.mav.encode_heartbeat())
+            with self._lock:
+                self.sock.sendall(self.mav.encode_heartbeat())
             return True
         except Exception:
             return False
@@ -361,7 +371,8 @@ class DroneConnection:
             return False
         pkt = self.mav.encode_command_long(cmd_id, p1, p2, p3, p4, p5, p6, p7)
         try:
-            self.sock.sendall(pkt)
+            with self._lock:
+                self.sock.sendall(pkt)
             return True
         except Exception:
             return False

@@ -164,44 +164,49 @@ def yolo_continuous():
         import cv2
     except ImportError:
         return
-    cap = cv2.VideoCapture("udp://127.0.0.1:5600", cv2.CAP_FFMPEG)
-    while running:
-        if not avoidance_enabled:
-            time.sleep(0.5)
-            continue
-        ret, frame = cap.read()
-        if not ret:
-            time.sleep(0.1)
-            continue
-        _, img_encoded = cv2.imencode('.jpg', frame)
-        try:
-            req = urllib.request.Request(
-                OBJECT_DETECTION_URL,
-                data=img_encoded.tobytes(),
-                headers={'Content-Type': 'image/jpeg'},
-                method='POST'
-            )
-            resp = urllib.request.urlopen(req, timeout=2)
-            result = json.loads(resp.read())
-            detections = result.get('detections', [])
-            if detections:
-                img_w = frame.shape[1]
-                for d in detections:
-                    bbox = d.get('bbox', [0, 0, 0, 0])
-                    cx = (bbox[0] + bbox[2]) / 2
-                    rel_x = cx / img_w
-                    if rel_x < 0.3:
-                        set_msg(f"Obstacle LEFT → strafe right")
-                        drone.strafe('right', 3)
-                    elif rel_x > 0.7:
-                        set_msg(f"Obstacle RIGHT → strafe left")
-                        drone.strafe('left', 3)
-                    else:
-                        set_msg(f"Obstacle CENTER → ascend")
-                        drone.strafe('up', 2)
-        except:
-            pass
-        time.sleep(0.2)
+    cap = None
+    try:
+        cap = cv2.VideoCapture("udp://127.0.0.1:5600", cv2.CAP_FFMPEG)
+        while running:
+            if not avoidance_enabled:
+                time.sleep(0.5)
+                continue
+            ret, frame = cap.read()
+            if not ret:
+                time.sleep(0.1)
+                continue
+            _, img_encoded = cv2.imencode('.jpg', frame)
+            try:
+                req = urllib.request.Request(
+                    OBJECT_DETECTION_URL,
+                    data=img_encoded.tobytes(),
+                    headers={'Content-Type': 'image/jpeg'},
+                    method='POST'
+                )
+                resp = urllib.request.urlopen(req, timeout=2)
+                result = json.loads(resp.read())
+                detections = result.get('detections', [])
+                if detections:
+                    img_w = frame.shape[1]
+                    for d in detections:
+                        bbox = d.get('bbox', [0, 0, 0, 0])
+                        cx = (bbox[0] + bbox[2]) / 2
+                        rel_x = cx / img_w
+                        if rel_x < 0.3:
+                            set_msg(f"Obstacle LEFT → strafe right")
+                            drone.strafe('right', 3)
+                        elif rel_x > 0.7:
+                            set_msg(f"Obstacle RIGHT → strafe left")
+                            drone.strafe('left', 3)
+                        else:
+                            set_msg(f"Obstacle CENTER → ascend")
+                            drone.strafe('up', 2)
+            except:
+                pass
+            time.sleep(0.2)
+    finally:
+        if cap is not None:
+            cap.release()
 
 def run_mission():
     t = drone.get_telemetry()
@@ -305,14 +310,20 @@ def smooth_land():
     t = drone.get_telemetry()
     set_msg(f"Landing from {t['alt']:.1f}m...")
     drone.land()
-    for _ in range(60):
+    landed = False
+    for _ in range(80):
         time.sleep(0.3)
         t = drone.get_telemetry()
         if t["alt"] < 0.15:
+            landed = True
             break
-    drone.disarm()
-    state_machine = "LANDED"
-    set_msg("Landed ✓")
+    if landed:
+        drone.disarm()
+        state_machine = "LANDED"
+        set_msg("Landed ✓")
+    else:
+        state_machine = "HOVERING"
+        set_msg("Land timeout — check drone state", False)
 
 def main():
     global running, state_machine, avoidance_enabled, avoidance_thread
@@ -337,7 +348,6 @@ def main():
         return
 
     time.sleep(0.5)
-    threading.Thread(target=gcs_heartbeat_loop, daemon=True).start()
     threading.Thread(target=ui_loop, daemon=True).start()
     avoidance_thread = threading.Thread(target=yolo_continuous, daemon=True)
     avoidance_thread.start()
