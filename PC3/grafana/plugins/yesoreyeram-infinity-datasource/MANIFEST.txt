@@ -1,0 +1,42 @@
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA512
+
+{
+  "manifestVersion": "2.0.0",
+  "signatureType": "grafana",
+  "signedByOrg": "grafana",
+  "signedByOrgName": "Grafana Labs",
+  "plugin": "yesoreyeram-infinity-datasource",
+  "version": "3.8.0",
+  "time": 1775638212297,
+  "keyId": "7e4d0c6a708866e7",
+  "files": {
+    "module.js.map": "b3143581c2176a27cf8e0fb55617629d36aa8a18bf8b8c17679e7ca43bf7348e",
+    "README.md": "4a99cb657e9b9ba6976edf42480d79c083709e5c5ea2b96965c56c318f64bf0e",
+    "plugin.json": "dba16b5ca7bca97bf9b0426b33e9f3ae8a2cb6e1d17fb6e8610af079bebec422",
+    "img/homepage-bg.svg": "97ec32b2c542bcb63b7fa7659e42a876a5b9ec00aef7a486f2dc41b83d7d9eb8",
+    "img/slide-series.png": "f7d523c39f9d4567974c37432f047e4e8944cb92dc2c9a4424757ce5e54dc3a7",
+    "img/slide-features.png": "58aba3b2f2d73ee99945cba9746463f0039d8afb5366ed8d42db62145b914d0f",
+    "img/oauth-2-sm.png": "9945bb307d5545369d50381acc97d48b4a98433831f14e99eb839f0970a91258",
+    "img/slide-variables.png": "8ed0cd7b1ac00bd2c7fa6e72c513b678c39ba7d63030f06e8695cb1d352e3b34",
+    "img/slide-rest-api.png": "cf72349768e0ccf19a856d86e97c8e67dcdadfcee49e73ae5acbe781c3ae0c79",
+    "img/aws.jpg": "e682ccc794708fd3eb32a3fb5e2bcccd8ff3b54f30eba2086fd1b28a82020d81",
+    "img/icon.svg": "e498b00e1cc3c9e8b65a2b8320b7d170c6da61d424fe5f3f3fdf9963204449ae",
+    "module.js.LICENSE.txt": "2602ac20ba6f82cafdf6938df7ef7f2c28321fad2526976d343f652374b1c505",
+    "module.js": "a82bf6aae6bb9e4d59639d15cd758b4d4a30d7b2842ed43e1a84e39d74bd7b55",
+    "CHANGELOG.md": "2e8f8da6afd44751abef634168fa3bfbe1a35cc842dbeb20203e6df4a8859f53",
+    "go_plugin_build_manifest": "65630e1c97c550b49b85d34bb15135a1cef4b1803a75da631836e0e584b76075",
+    "gpx_infinity_linux_amd64": "96b8b2d868c2308cdf87df1e687bdbf8e092c58505889512b7d658a9ac0137a7",
+    "LICENSE": "85fb2c20b586ef9dc00ee5c41140e1cd59fdded9a0b24a9054b04e9f0f6b2977"
+  }
+}
+-----BEGIN PGP SIGNATURE-----
+
+wsA+BAETCgBtBYJp1hbECRB+TQxqcIhm50UUAAAAAAAcACBzYWx0QG5vdGF0
+aW9ucy5vcGVucGdwanMub3JnLts8N+NTVjiuizhW5qvL7OHB3kscJe8A4AYg
+MSCzkvcWIQTzOyW2kQdOhGNlcPN+TQxqcIhm5wAA618CCODrz9MRTr/OZuwv
+p60ZYo682F5pVT+genDv71pg5Up/QoIeUKeUTGPonv5P8k0cvWqwKCA2h5dS
+7vv8TZDZo+GsAgkBjHmoXqPTXFbCBdXszr3joL8DksavJtKu8kDfEtfmU+eC
+RZud4s48zdHDeP3HP8fQ5i9zisj55dV0mEPBanAi4rg=
+=MnNp
+-----END PGP SIGNATURE-----
