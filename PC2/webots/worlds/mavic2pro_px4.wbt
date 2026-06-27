@@ -28,12 +28,11 @@ DEF _ WorldInfo {
     angular 0.5
   }
 }
-Viewpoint {
-  orientation -0.03130003787306874 -0.004200005082009223 0.999501209397195 2.9017
-  position 2.5 -2.5 1.2
+DEF MAIN_VIEW Viewpoint {
+  position 0 -5 1.5
   near 0.2
-  follow "Mavic 2 PRO"
-  followSmoothness 0.2
+  follow "Mavic2Pro"
+  followSmoothness 0.15
 }
 TexturedBackground {
   luminosity 3
@@ -178,9 +177,10 @@ Forest {
   minRadius 3
 }
 Mavic2Pro {
-  translation 0 0 0.05
+  translation 0 0 0.5
   rotation -0.0018273642989068096 0.0006333165374266473 0.9999981298231926 -3.1142226276225933
   controller "px4_bridge"
+  supervisor TRUE
   cameraSlot [
     Camera {
       width 640

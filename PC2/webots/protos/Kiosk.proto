@@ -1,0 +1,73 @@
+#VRML_SIM R2025a utf8
+PROTO Kiosk [
+  field SFVec3f    translation  0 0 0
+  field SFRotation rotation     0 0 1 0
+  field SFString   name         ""
+]
+{
+  Solid {
+    translation IS translation
+    rotation IS rotation
+    name IS name
+    children [
+      # Main body
+      Shape {
+        appearance PBRAppearance {
+          baseColor 0.75 0.70 0.55
+          roughness 0.9
+        }
+        geometry Box {
+          size 1.5 1.5 2.0
+        }
+      }
+      # Roof (corrugated metal)
+      Transform {
+        translation 0 0 1.1
+        children [
+          Shape {
+            appearance PBRAppearance {
+              baseColor 0.5 0.5 0.5
+              roughness 0.7
+              metalness 0.3
+            }
+            geometry Box {
+              size 1.8 1.8 0.15
+            }
+          }
+        ]
+      }
+      # Counter window
+      Transform {
+        translation 0.76 0 0.5
+        children [
+          Shape {
+            appearance PBRAppearance {
+              baseColor 0.6 0.7 0.8
+              roughness 0.3
+            }
+            geometry RectangleXZ {
+              xSize 1.0
+              zSize 0.8
+            }
+          }
+        ]
+      }
+      # Sign board on top
+      Transform {
+        translation 0 0 1.3
+        children [
+          Shape {
+            appearance PBRAppearance {
+              baseColor 0.9 0.2 0.2
+              roughness 0.6
+            }
+            geometry Box {
+              size 1.2 0.1 0.4
+            }
+          }
+        ]
+      }
+    ]
+    boundingObject Box { size 1.5 1.5 2.2 }
+  }
+}

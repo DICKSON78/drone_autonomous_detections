@@ -1,0 +1,146 @@
+#VRML_SIM R2025a utf8
+PROTO TanzaniaBuilding [
+  field SFVec3f    translation   0 0 0
+  field SFRotation rotation      0 0 1 0
+  field SFString   name          ""
+  field SFVec3f    size          8 8 6
+  field SFColor    wallColor     0.80 0.72 0.55
+  field SFColor    roofColor     0.65 0.55 0.40
+  field SFColor    windowColor   0.35 0.55 0.82
+  field SFColor    doorColor     0.40 0.25 0.15
+  field SFBool     hasWindows    TRUE
+]
+{
+  Solid {
+    translation IS translation
+    rotation IS rotation
+    name IS name
+    children [
+      %{ if (fields.size.value.z >= 2.5) { }%
+      # Foundation band
+      Transform {
+        translation 0 0 %{=-fields.size.value.z/2 + 0.15}%
+        children [
+          Shape {
+            appearance PBRAppearance {
+              baseColor 0.45 0.40 0.30
+              roughness 0.9
+            }
+            geometry Box {
+              size %{=fields.size.value.x + 0.15}% %{=fields.size.value.y + 0.15}% 0.3
+            }
+          }
+        ]
+      }
+      %{ } }%
+      # Main walls
+      Shape {
+        appearance PBRAppearance {
+          baseColor IS wallColor
+          roughness 0.9
+          metalness 0
+        }
+        geometry Box {
+          size %{=fields.size.value.x}% %{=fields.size.value.y}% %{=fields.size.value.z}%
+        }
+      }
+      %{
+        var sx = fields.size.value.x;
+        var sy = fields.size.value.y;
+        var sz = fields.size.value.z;
+        var ww = 1.2, wh = 1.4, hg = 0.8, vg = 0.6, m = 0.8;
+        var rows = 0, colsX = 0, colsY = 0;
+        if (fields.hasWindows.value) {
+          rows = Math.max(0, Math.floor((sz - 2*m + vg) / (wh + vg)));
+          colsX = Math.max(0, Math.floor((sx - 2*m + hg) / (ww + hg)));
+          colsY = Math.max(0, Math.floor((sy - 2*m + hg) / (ww + hg)));
+        }
+      }%
+      %{ if (rows > 0 && colsX > 0) { }%
+      # Front and back windows
+      %{ for (var c = 0; c < colsX; c++) { }%
+        %{ for (var r = 0; r < rows; r++) { }%
+        Transform {
+          translation %{=-sx/2 + m + ww/2 + c * (ww + hg)}% %{=sy/2 + 0.02}% %{=-sz/2 + m + wh/2 + r * (wh + vg)}%
+          children [
+            Shape {
+              appearance PBRAppearance { baseColor IS windowColor roughness 0.1 metalness 0.3 }
+              geometry Box { size %{=ww}% 0.04 %{=wh}% }
+            }
+          ]
+        }
+        Transform {
+          translation %{=-sx/2 + m + ww/2 + c * (ww + hg)}% %{=-sy/2 - 0.02}% %{=-sz/2 + m + wh/2 + r * (wh + vg)}%
+          children [
+            Shape {
+              appearance PBRAppearance { baseColor IS windowColor roughness 0.1 metalness 0.3 }
+              geometry Box { size %{=ww}% 0.04 %{=wh}% }
+            }
+          ]
+        }
+        %{ } }%
+      %{ } }%
+      %{ } }%
+      %{ if (rows > 0 && colsY > 0) { }%
+      # Left and right windows
+      %{ for (var c = 0; c < colsY; c++) { }%
+        %{ for (var r = 0; r < rows; r++) { }%
+        Transform {
+          translation %{=sx/2 + 0.02}% %{=-sy/2 + m + ww/2 + c * (ww + hg)}% %{=-sz/2 + m + wh/2 + r * (wh + vg)}%
+          children [
+            Shape {
+              appearance PBRAppearance { baseColor IS windowColor roughness 0.1 metalness 0.3 }
+              geometry Box { size 0.04 %{=ww}% %{=wh}% }
+            }
+          ]
+        }
+        Transform {
+          translation %{=-sx/2 - 0.02}% %{=-sy/2 + m + ww/2 + c * (ww + hg)}% %{=-sz/2 + m + wh/2 + r * (wh + vg)}%
+          children [
+            Shape {
+              appearance PBRAppearance { baseColor IS windowColor roughness 0.1 metalness 0.3 }
+              geometry Box { size 0.04 %{=ww}% %{=wh}% }
+            }
+          ]
+        }
+        %{ } }%
+      %{ } }%
+      %{ } }%
+      %{ if (sz >= 2.5) { }%
+      # Front door
+      Transform {
+        translation 0 %{=sy/2 + 0.02}% %{=-sz/2 + 1.1}%
+        children [
+          Shape {
+            appearance PBRAppearance {
+              baseColor IS doorColor
+              roughness 0.8
+              metalness 0
+            }
+            geometry Box { size 2 0.04 2.2 }
+          }
+        ]
+      }
+      %{ } }%
+      # Roof
+      Transform {
+        translation 0 0 %{=sz * 0.5 + 0.1}%
+        children [
+          Shape {
+            appearance PBRAppearance {
+              baseColor IS roofColor
+              roughness 0.8
+              metalness 0
+            }
+            geometry Box {
+              size %{=sx + 0.5}% %{=sy + 0.5}% 0.2
+            }
+          }
+        ]
+      }
+    ]
+    boundingObject Box {
+      size %{=sx}% %{=sy}% %{=sz}%
+    }
+  }
+}

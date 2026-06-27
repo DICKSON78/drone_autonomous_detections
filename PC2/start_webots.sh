@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
-# PC2 Webots Launcher — starts simulation with MAVLink bridge
-set -e
-
+# PC2 Webots Launcher — starts CIVE campus simulation with YOLO+PPO bridge
 GREEN='\033[0;32m'; YELLOW='\033[1;33m'; RED='\033[0;31m'
 CYAN='\033[0;36m'; BOLD='\033[1m'; NC='\033[0m'
 log()  { echo -e "${GREEN}[WEBOTS]${NC} $1"; }
@@ -16,25 +14,43 @@ if [ ! -f "$WORLD_FILE" ]; then
     exit 1
 fi
 
-# Kill leftover processes (only our bridge, not random Python)
-pkill -f "sensor_bridge.py" 2>/dev/null || true
-pkill -f "object_detection_node.py" 2>/dev/null || true
-pkill -f "px4_bridge.py" 2>/dev/null || true
-pkill -f "mission_drone_controller.py" 2>/dev/null || true
+# Ensure venv is set up
+VENV_DIR="$SCRIPT_DIR/venv"
+if [ ! -f "$VENV_DIR/lib/python3.12/site-packages/system.pth" ]; then
+    log "Creating venv at $VENV_DIR ..."
+    python3 -m venv "$VENV_DIR" 2>/dev/null
+    "$VENV_DIR/bin/python3" -m ensurepip --upgrade 2>/dev/null
+    echo "/usr/lib/python3/dist-packages" > "$VENV_DIR/lib/python3.12/site-packages/system.pth"
+    "$VENV_DIR/bin/python3" -m pip install pymavlink 2>/dev/null
+fi
 
+pkill -f "px4_bridge.py" 2>/dev/null || true
 pgrep -x webots >/dev/null && pkill -x webots 2>/dev/null || true
 sleep 1
 
-# Start Webots in realtime mode (controller auto-launches from world file)
+SNAP="/snap/webots/current"
+WEBOTS_BIN="$SNAP/usr/share/webots/bin/webots-bin"
+if [ ! -x "$WEBOTS_BIN" ]; then
+    echo -e "${RED}[ERROR]${NC} Webots binary not found at $WEBOTS_BIN"
+    exit 1
+fi
+log "Webots binary: $WEBOTS_BIN"
+
+export PATH="$VENV_DIR/bin:$PATH"
+export WEBOTS_PYTHON=$VENV_DIR/bin/python3
+export LD_LIBRARY_PATH="$SNAP/usr/share/webots/lib/webots:/lib/x86_64-linux-gnu:/usr/lib/x86_64-linux-gnu:$SNAP/lib/x86_64-linux-gnu:$SNAP/usr/lib/x86_64-linux-gnu"
+export QT_QPA_PLATFORM=wayland
+export QT_QPA_PLATFORM_PLUGIN_PATH="$SNAP/usr/share/webots/lib/webots/plugins/platforms"
+export GIO_MODULE_DIR=/dev/null
+
 log "Starting Webots..."
-nohup webots --mode=realtime "$WORLD_FILE" > /tmp/webots.log 2>&1 &
+nohup "$WEBOTS_BIN" --mode=realtime "$WORLD_FILE" > /tmp/webots.log 2>&1 &
 WEBOTS_PID=$!
 log "Webots PID: $WEBOTS_PID"
 
-# Wait for the MAVLink bridge controller
 log "Waiting for MAVLink bridge on UDP :14550..."
 STARTED=0
-for i in $(seq 1 60); do
+for i in $(seq 1 120); do
     sleep 2
     if ss -uln 2>/dev/null | grep -q ":14550 "; then
         echo -e "${GREEN}[WEBOTS]${NC} MAVLink bridge ready on :14550"
@@ -43,84 +59,30 @@ for i in $(seq 1 60); do
     fi
     if ! kill -0 $WEBOTS_PID 2>/dev/null; then
         echo -e "${RED}[ERROR]${NC} Webots died early. Check /tmp/webots.log"
+        tail -30 /tmp/webots.log 2>/dev/null
         exit 1
     fi
 done
 
 if [ "$STARTED" -eq 0 ]; then
-    echo -e "${RED}[ERROR]${NC} Bridge didn't start within 2 minutes. Check Webots."
+    echo -e "${RED}[ERROR]${NC} Bridge didn't start within 4 minutes. Check /tmp/webots.log"
+    tail -50 /tmp/webots.log 2>/dev/null
     exit 1
 fi
 
-# Optional: start sensor bridge + object detection (off by default to save RAM)
-if [ "$1" = "--full" ]; then
-    log "Starting Sensor Bridge..."
-    nohup python3 scripts/sensor_bridge.py 127.0.0.1 14550 --http-port 8090 > /tmp/sensor_bridge.log 2>&1 &
-    log "Starting Object Detection..."
-    nohup python3 scripts/object_detection_node.py --interval 3.0 > /tmp/object_detection.log 2>&1 &
-fi
-
-# Launch the drone console in a new terminal window
-DRONE_CONSOLE_SCRIPT="$SCRIPT_DIR/scripts/drone_console.py"
-CONSOLE_PID=""
-if [ -f "$DRONE_CONSOLE_SCRIPT" ]; then
-    log "Launching Drone Console terminal..."
-    # Detect terminal emulator and launch console
-    TERMINAL_CMD=""
-    if command -v ptyxis &>/dev/null; then
-        TERMINAL_CMD="ptyxis -x"
-    elif command -v gnome-terminal &>/dev/null; then
-        TERMINAL_CMD="gnome-terminal --"
-    elif command -v x-terminal-emulator &>/dev/null; then
-        # Check what x-terminal-emulator resolves to
-        REAL_TERM=$(readlink -f "$(command -v x-terminal-emulator)" 2>/dev/null)
-        if echo "$REAL_TERM" | grep -q "ptyxis"; then
-            TERMINAL_CMD="ptyxis -x"
-        elif echo "$REAL_TERM" | grep -q "gnome-terminal"; then
-            TERMINAL_CMD="gnome-terminal --"
-        else
-            TERMINAL_CMD="x-terminal-emulator -e"
-        fi
-    elif command -v xterm &>/dev/null; then
-        TERMINAL_CMD="xterm -hold -e"
-    elif command -v konsole &>/dev/null; then
-        TERMINAL_CMD="konsole --hold -e"
-    fi
-
-    if [ -n "$TERMINAL_CMD" ]; then
-        $TERMINAL_CMD "$SCRIPT_DIR/scripts/drone_console_launcher.sh" &
-        CONSOLE_PID=$!
-    else
-        log "No terminal emulator found. Run manually: python3 scripts/drone_console.py"
-    fi
-else
-    log "Drone console not found at $DRONE_CONSOLE_SCRIPT"
-fi
-
+WORLD_NAME=$(basename "$WORLD_FILE")
 echo ""
 echo -e "${CYAN}╔══════════════════════════════════════════════════════════╗${NC}"
-echo -e "${CYAN}║          ${BOLD}WEBOTS DRONE — RUNNING${NC}${CYAN}                        ║${NC}"
+echo -e "${CYAN}║ ${BOLD}UDOM CIVE CAMPUS — DRONE RUNNING${NC}${CYAN}                    ║${NC}"
 echo -e "${CYAN}╠══════════════════════════════════════════════════════════╣${NC}"
-echo -e "${CYAN}║${NC}  MAVLink bridge → UDP :14550                          ${CYAN}║${NC}"
-echo -e "${CYAN}║${NC}  Drone Console → $(basename "$DRONE_CONSOLE_SCRIPT") in new terminal         ${CYAN}║${NC}"
-if [ "$1" = "--full" ]; then
-    echo -e "${CYAN}║${NC}  Telemetry → http://localhost:8090                     ${CYAN}║${NC}"
-    echo -e "${CYAN}║${NC}  Object detection running                              ${CYAN}║${NC}"
-fi
+echo -e "${CYAN}║${NC}  World       → $WORLD_NAME            ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}  GPS ref     → -6.21745, 35.81396 | Alt: 1120m          ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}  Detection   → YOLOv8n @ 640×480                       ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}  Control     → PPO continuous [vx,vy,vz] ±3 m/s         ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}  MAVLink     → UDP :14550 (connect QGC here)           ${CYAN}║${NC}"
 echo -e "${CYAN}║${NC}                                                          ${CYAN}║${NC}"
-echo -e "${CYAN}║${NC}  Commands: [1]=Arm+Takeoff  [5]=Land  [9]=Smooth Land    ${CYAN}║${NC}"
-echo -e "${CYAN}║${NC}           [2]=Arm  [6]=Disarm  [7]=Return Home           ${CYAN}║${NC}"
-echo -e "${CYAN}║${NC}           [3]=Takeoff(m)  [4]=Speed  [8]=Hover           ${CYAN}║${NC}"
-echo -e "${CYAN}║${NC}           [G]=Goto GPS  [Y]=YOLO  [A]=Avoid Toggle       ${CYAN}║${NC}"
-echo -e "${CYAN}║${NC}           [N]=Navigate To  [M]=Mission  [Q]=Quit         ${CYAN}║${NC}"
-echo -e "${CYAN}║${NC}                                                          ${CYAN}║${NC}"
-echo -e "${CYAN}║${NC}  Close Webots window OR press Q in console to stop      ${CYAN}║${NC}"
+echo -e "${CYAN}║${NC}  Close Webots window to stop                            ${CYAN}║${NC}"
 echo -e "${CYAN}╚══════════════════════════════════════════════════════════╝${NC}"
 
 wait $WEBOTS_PID
-
-# Cleanup: kill the console when Webots exits
-if [ -n "$CONSOLE_PID" ]; then
-    kill $CONSOLE_PID 2>/dev/null || true
-fi
 log "Webots stopped."
