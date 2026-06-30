@@ -59,6 +59,14 @@ _kafka_connected: bool = False
 
 # ── Kafka helpers ─────────────────────────────────────────────────────────────
 
+def _safe_deserialize(data: bytes):
+    """Deserialize JSON, returning None on parse failure (skip bad messages)."""
+    try:
+        return json.loads(data.decode())
+    except Exception:
+        log.warning("Skipping malformed Kafka message")
+        return None
+
 def _publish_spoken(producer, text: str, priority: str, source: str) -> None:
     if producer is None:
         return
@@ -209,13 +217,14 @@ def _kafka_thread(queue: MessageQueue) -> None:
                 *KAFKA_IN,
                 bootstrap_servers=KAFKA_SERVERS,
                 group_id=KAFKA_GROUP,
-                value_deserializer=lambda b: json.loads(b.decode()),
+                value_deserializer=lambda b: _safe_deserialize(b),
                 auto_offset_reset="latest",
-                consumer_timeout_ms=5000,
             )
             _kafka_connected = True
             log.info("Kafka consumer connected to %s", KAFKA_SERVERS)
             for msg in consumer:
+                if msg.value is None:
+                    continue
                 handler = _HANDLERS.get(msg.topic)
                 if handler:
                     try:
