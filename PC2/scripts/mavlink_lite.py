@@ -237,7 +237,7 @@ class MAVLink:
 
 # ── DroneConnection ───────────────────────────────────────────────────────────
 class DroneConnection:
-    def __init__(self, udp_target=("127.0.0.1", 14550), bind_port=14555):
+    def __init__(self, udp_target=("127.0.0.1", 14550), bind_port=None):
         self.udp_target = udp_target
         self.bind_port  = bind_port
         self.sock       = None
@@ -258,8 +258,10 @@ class DroneConnection:
     # ── connect / listen ──────────────────────────────────────────────────────
     def connect(self):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.sock.settimeout(1.0)
-        self.sock.bind(("0.0.0.0", self.bind_port))
+        if self.bind_port is not None:
+            self.sock.bind(("0.0.0.0", self.bind_port))
         self.sock.connect(self.udp_target)
         self.running   = True
         self._listener = threading.Thread(target=self._listen, daemon=True)

@@ -1,0 +1,16 @@
+{
+  "_note": "Coordinates computed from Webots world mavic2pro_px4.wbt local XYZ via px4_bridge latlon_add_m(). Origin: (-6.1630, 35.7516, 1120 AMSL) from PC2/webots/controllers/px4_bridge/px4_bridge.py:46-48. Altitudes are AGL (relative).",
+  "locations": {
+    "base":       {"lat": -6.1630,   "lon": 35.7516,  "alt": 10.0},
+    "home":       {"lat": -6.1630,   "lon": 35.7516,  "alt": 10.0},
+    "start":      {"lat": -6.1630,   "lon": 35.7516,  "alt": 10.0},
+    "forest":     {"lat": -6.1630,   "lon": 35.7516,  "alt": 25.0},
+    "building":   {"lat": -6.16309,  "lon": 35.75174, "alt": 20.0},
+    "manor":      {"lat": -6.1629,   "lon": 35.75114, "alt": 20.0},
+    "road":       {"lat": -6.16292,  "lon": 35.7512,  "alt": 15.0},
+    "tesla":      {"lat": -6.16296,  "lon": 35.75122, "alt": 15.0},
+    "windmill":   {"lat": -6.16318,  "lon": 35.7512,  "alt": 25.0},
+    "park":       {"lat": -6.1630,   "lon": 35.7516,  "alt": 15.0},
+    "center":     {"lat": -6.1630,   "lon": 35.7516,  "alt": 15.0}
+  }
+}

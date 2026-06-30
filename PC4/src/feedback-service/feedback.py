@@ -18,6 +18,7 @@ from pydantic import BaseModel
 from audio_manager import AudioManager
 from message_queue import MessageQueue
 from tts_engine import TTSEngine
+from nlg_generator import NLGFeedback
 
 # ── Config (kept inline so this file is self-contained as the entry point) ───
 KAFKA_SERVERS  = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "kafka:9092")
@@ -38,10 +39,21 @@ logging.basicConfig(
 )
 log = logging.getLogger("feedback-service")
 
+# File logging for NLG testing evidence
+_nlg_log_file = os.getenv("NLG_LOG_FILE", "/var/log/nlg_generator.log")
+try:
+    os.makedirs(os.path.dirname(_nlg_log_file), exist_ok=True)
+    _nlg_fh = logging.FileHandler(_nlg_log_file)
+    _nlg_fh.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
+    log.addHandler(_nlg_fh)
+except Exception:
+    pass
+
 # ── Globals (set during lifespan) ─────────────────────────────────────────────
 tts: TTSEngine
 mq:  MessageQueue
 audio: AudioManager
+nlg:  NLGFeedback
 _kafka_connected: bool = False
 
 
@@ -60,16 +72,56 @@ def _publish_spoken(producer, text: str, priority: str, source: str) -> None:
 
 
 def _handle_detections(data: dict, queue: MessageQueue, producer) -> None:
-    detections = [
+    raw = [
         d for d in data.get("detections", [])
         if d.get("confidence", 0) >= CONFIDENCE_THR
     ]
-    if not detections:
+    if not raw:
         return
-    classes = list({d.get("class_name", "object") for d in detections})
-    label   = classes[0] if len(classes) == 1 else f"{len(detections)} objects"
-    text    = f"{len(detections)} {label} detected"
+
+    # Frame width: detect from bbox values or fall back to camera default (640).
+    frame_width = 640
+    for d in raw:
+        bbox = d.get("bbox") or []
+        if len(bbox) == 4:
+            # If pixel coords look normalised (< 1) scale accordingly
+            if max(bbox) <= 1.0:
+                frame_width = 1.0
+            break
+
+    # Sort by confidence descending
+    raw.sort(key=lambda d: d.get("confidence", 0), reverse=True)
+
+    # Generate NLG message for the top detection
+    top = raw[0]
+    bbox = top.get("bbox") or [0, 0, 0, 0]
+    cx = (bbox[0] + bbox[2]) / 2.0
+    rel_x = cx / frame_width if frame_width > 0 else 0.5
+
+    text = nlg.generate(top, rel_x, allow_cooldown=True)
+    if not text:
+        # Suppressed by cooldown — try the next detection if any
+        for alt in raw[1:]:
+            alt_bbox = alt.get("bbox") or [0, 0, 0, 0]
+            alt_cx = (alt_bbox[0] + alt_bbox[2]) / 2.0
+            alt_rel_x = alt_cx / frame_width if frame_width > 0 else 0.5
+            text = nlg.generate(alt, alt_rel_x, allow_cooldown=True)
+            if text:
+                break
+
+    if not text:
+        return  # everything on cooldown
+
+    # Append count if multiple distinct objects
+    if len(raw) > 1:
+        distinct = list({d.get("class_name", "object") for d in raw})
+        text += f" Plus {len(raw) - 1} more obstacle{'s' if len(raw) > 2 else ''}."
+
+    log.info("NLG: %s", text)
+
     if queue.enqueue(text, "high"):
+        # Also speak on background thread (text-only if TTS unavailable)
+        nlg.speak(text)
         _publish_spoken(producer, "Warning. " + text, "high", "drone.detections.objects")
 
 
@@ -183,13 +235,14 @@ def _kafka_thread(queue: MessageQueue) -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global tts, mq, audio
+    global tts, mq, audio, nlg
     tts   = TTSEngine(rate=TTS_RATE, volume=TTS_VOLUME, voice_index=TTS_VOICE_IDX)
     audio = AudioManager()
     mq    = MessageQueue(
         speak_fn=tts.speak,
         cooldown_seconds=COOLDOWN_SEC,
     )
+    nlg   = NLGFeedback(cooldown_seconds=COOLDOWN_SEC)
     kafka_ok = _wait_for_kafka(timeout=60)
     threading.Thread(target=_kafka_thread, args=(mq,), daemon=True, name="kafka").start()
     if kafka_ok:

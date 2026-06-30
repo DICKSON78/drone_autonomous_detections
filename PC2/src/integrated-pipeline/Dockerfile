@@ -13,7 +13,7 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 
 # Install only Jupyter for Colab connection
-RUN pip install jupyterlab --no-cache-dir
+RUN pip install --default-timeout=1000 jupyterlab --no-cache-dir
 
 # Create necessary directories
 RUN mkdir -p /app/models /app/data /app/logs /app/config /workspace

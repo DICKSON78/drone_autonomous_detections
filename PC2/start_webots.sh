@@ -21,9 +21,15 @@ pkill -f "sensor_bridge.py" 2>/dev/null || true
 pkill -f "object_detection_node.py" 2>/dev/null || true
 pkill -f "px4_bridge.py" 2>/dev/null || true
 pkill -f "mission_drone_controller.py" 2>/dev/null || true
+pkill -f "enhanced_drone_console" 2>/dev/null || true
+pkill -f "drone_console" 2>/dev/null || true
+pkill -f "nlp_console" 2>/dev/null || true
 
 pgrep -x webots >/dev/null && pkill -x webots 2>/dev/null || true
 sleep 1
+
+# Also free the UDP port in case the kernel still holds the association
+timeout 2 bash -c 'exec 3<>/dev/udp/127.0.0.1/14550' 2>/dev/null || true
 
 # Start Webots in background
 log "Starting Webots..."
