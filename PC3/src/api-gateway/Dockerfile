@@ -2,8 +2,10 @@ FROM node:18-alpine
 
 WORKDIR /app
 
-COPY package.json ./
-RUN npm install --production
+# Copy local node_modules if available (pre-installed), otherwise run npm install
+COPY node_modules /app/node_modules
+COPY package.json package-lock.json* ./
+RUN if [ ! -d node_modules ]; then npm install --production; fi
 
 COPY src/ ./src/
 COPY public/ ./public/

@@ -14,18 +14,24 @@ app = FastAPI(title="Flight Control Service")
 # Kafka configuration
 KAFKA_BOOTSTRAP_SERVERS = os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'kafka:9092').split(',')
 
-consumer = KafkaConsumer(
-    'drone.commands.flight',
-    'drone.navigation.decisions',
-    bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS,
-    value_deserializer=lambda m: json.loads(m.decode('utf-8')),
-    auto_offset_reset='latest'
-)
+consumer = None
+producer = None
 
-producer = KafkaProducer(
-    bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS,
-    value_serializer=lambda v: json.dumps(v).encode('utf-8')
-)
+def init_kafka():
+    global consumer, producer
+    if consumer is None:
+        consumer = KafkaConsumer(
+            'drone.commands.flight',
+            'drone.navigation.decisions',
+            bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS,
+            value_deserializer=lambda m: json.loads(m.decode('utf-8')),
+            auto_offset_reset='latest'
+        )
+    if producer is None:
+        producer = KafkaProducer(
+            bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS,
+            value_serializer=lambda v: json.dumps(v).encode('utf-8')
+        )
 
 # Global drone instance
 drone = None
@@ -196,28 +202,40 @@ async def execute_move_command(action):
 
 async def command_consumer():
     """Consume commands from Kafka"""
+    loop = asyncio.get_event_loop()
     while True:
         try:
-            for message in consumer:
-                command = message.value
-                logging.info(f"Received command: {command}")
-                
-                # Execute flight command
-                if message.topic == 'drone.commands.flight':
-                    success = await execute_flight_command(command)
-                elif message.topic == 'drone.navigation.decisions':
-                    await execute_move_command(command.get("action"))
-                    success = True
-                
-                # Send status update
-                status = {
-                    "command_id": command.get("command_id"),
-                    "command_type": command.get("type", "unknown"),
-                    "status": "completed" if success else "failed",
-                    "timestamp": datetime.now(timezone.utc).isoformat()
-                }
-                producer.send('drone.status.flight', status)
-                
+            if consumer is None:
+                await asyncio.sleep(3)
+                continue
+            if producer is None:
+                await asyncio.sleep(3)
+                continue
+            # Poll for messages in a thread so we don't block the event loop
+            messages = await loop.run_in_executor(None, lambda: list(consumer.poll(1000).values()))
+            for msg_list in messages:
+                for msg in msg_list:
+                    command = msg.value
+                    logging.info(f"Received command: {command}")
+                    
+                    # Execute flight command
+                    if msg.topic == 'drone.commands.flight':
+                        success = await execute_flight_command(command)
+                    elif msg.topic == 'drone.navigation.decisions':
+                        await execute_move_command(command.get("action"))
+                        success = True
+                    else:
+                        success = False
+                    
+                    # Send status update
+                    status = {
+                        "command_id": command.get("command_id"),
+                        "command_type": command.get("type", "unknown"),
+                        "status": "completed" if success else "failed",
+                        "timestamp": datetime.now(timezone.utc).isoformat()
+                    }
+                    producer.send('drone.status.flight', status)
+                    
         except Exception as e:
             logging.error(f"Consumer error: {e}")
             await asyncio.sleep(5)
@@ -225,11 +243,18 @@ async def command_consumer():
 @app.on_event("startup")
 async def startup_event():
     """Initialize drone connection and start command consumer"""
+    # Initialize Kafka clients in a thread so it doesn't block the event loop
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(None, init_kafka)
+    
     # Start command consumer in background
     asyncio.create_task(command_consumer())
     
-    # Connect to drone
-    await connect_drone()
+    # Connect to drone with timeout (no PX4 in dev mode)
+    try:
+        await asyncio.wait_for(connect_drone(), timeout=10)
+    except asyncio.TimeoutError:
+        logging.warning("Drone connection timed out — running in headless mode")
 
 @app.get("/status")
 async def get_drone_status():
