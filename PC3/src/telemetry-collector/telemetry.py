@@ -7,8 +7,22 @@ import os, sys, time, json, threading, socket, struct
 from datetime import datetime, timezone
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
-sys.path.insert(0, '/home/dickson/FYP/drone_autonomous/PC2/scripts')
-from mavlink_lite import DroneConnection
+# Locate mavlink_lite.py — try relative to project root, then env var, then direct import
+_script_dir = os.path.dirname(os.path.abspath(__file__))
+_mavlink_paths = [
+    os.path.join(_script_dir, '..', '..', '..', 'PC2', 'scripts'),       # local dev
+    os.path.join(_script_dir, '..', '..', 'PC2', 'scripts'),             # alt depth
+    os.getenv('PC2_SCRIPTS_PATH', ''),                                    # env override
+]
+for _p in _mavlink_paths:
+    if _p and os.path.isdir(_p) and _p not in sys.path:
+        sys.path.insert(0, _p)
+
+try:
+    from mavlink_lite import DroneConnection
+except ImportError:
+    DroneConnection = None
+    print("[telemetry] WARNING: mavlink_lite not found — MAVLink disabled")
 
 try:
     from influxdb_client import InfluxDBClient, Point, WritePrecision
@@ -73,6 +87,9 @@ def write_to_influx(measurement, fields, tags=None):
 def mavlink_loop():
     """Background thread: connect to MAVLink and update telemetry cache."""
     global telemetry_cache
+    if DroneConnection is None:
+        print("[telemetry] MAVLink disabled — running with static telemetry")
+        return
     while True:
         try:
             conn = DroneConnection(udp_target=(MAVLINK_HOST, MAVLINK_PORT))

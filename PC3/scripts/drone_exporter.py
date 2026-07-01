@@ -1,8 +1,21 @@
 import sys, time, socket, threading, json, math, random, os
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
-sys.path.insert(0, '/home/dickson/FYP/drone_autonomous/PC2/scripts')
-from mavlink_lite import DroneConnection, MAVLink
+# Locate mavlink_lite.py — try relative to project root, then env var
+_script_dir = os.path.dirname(os.path.abspath(__file__))
+_mavlink_paths = [
+    os.path.join(_script_dir, '..', '..', 'PC2', 'scripts'),
+    os.getenv('PC2_SCRIPTS_PATH', ''),
+]
+for _p in _mavlink_paths:
+    if _p and os.path.isdir(_p) and _p not in sys.path:
+        sys.path.insert(0, _p)
+
+try:
+    from mavlink_lite import DroneConnection, MAVLink
+except ImportError:
+    DroneConnection = None
+    print("[drone_exporter] WARNING: mavlink_lite not found — MAVLink disabled")
 
 telemetry = {
     "connected": 0, "armed": 0, "mode": 0,
@@ -174,6 +187,9 @@ def detect_obstacles(drone_x, drone_y, drone_z, max_range=200):
 def mavlink_loop():
     global telemetry
     mavlink_target = os.getenv('PC2_IP', '127.0.0.1')
+    if DroneConnection is None:
+        print("[drone_exporter] MAVLink disabled — running with static telemetry")
+        return
     while True:
         try:
             conn = DroneConnection(udp_target=(mavlink_target, 14550))

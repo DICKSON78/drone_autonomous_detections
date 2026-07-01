@@ -52,7 +52,7 @@ services:
       - fyp-network
     restart: unless-stopped
 
-  # Command Parser Service (Node.js)
+  # Command Parser Service (Python FastAPI)
   command-parser:
     build: ./src/command-parser
     container_name: command-parser

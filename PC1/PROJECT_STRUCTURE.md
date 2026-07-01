@@ -11,7 +11,7 @@ PC1/
 │   ├── command-parser/         # Command processing logic
 │   │   ├── main.py           # Main FastAPI application
 │   │   ├── models.py         # Data models and schemas
-│   │   ├── nlp_processor.py   # Natural language processing
+│   │   ├── nlu_parser.py      # Rule-based NLU parser
 │   │   └── tests/           # Unit tests for command parser
 │   │
 │   └── flight-control/        # Flight control logic
@@ -179,7 +179,7 @@ git commit -m "Add support for emergency landing commands"
 
 ### Adding New Command Type:
 1. Update `src/command-parser/models.py` with new command schema
-2. Implement parsing logic in `src/command-parser/nlp_processor.py`
+2. Implement parsing logic in `src/command-parser/nlu_parser.py`
 3. Add execution logic in `src/flight-control/command_executor.py`
 4. Write tests in `tests/test_commands.py`
 5. Update API documentation
