@@ -3,10 +3,9 @@
 Minimal MAVLink v2 protocol implementation for drone control.
 
 Key fixes vs original:
-  - SET_POSITION_TARGET_GLOBAL_INT (msg 86) with correct MAVLink 2 wire
-    format (fields ordered by size descending) so PX4 parses it properly.
-  - Yaw is embedded in msg 86 payload; no separate CONDITION_YAW needed.
-  - Altitude is always MAV_FRAME_GLOBAL_RELATIVE_ALT (relative to home, frame 3).
+  - goto_position uses COMMAND_LONG with NAV_WAYPOINT (msg 76, cmd 16)
+    so it works in GUIDED mode.  msg 86 requires OFFBOARD mode in PX4,
+    which we don't use after takeoff.
   - encode_heartbeat restored properly.
 """
 
@@ -181,9 +180,10 @@ class MAVLink:
             msg["mode"] = mode_map.get(main_mode, f"CUSTOM({main_mode})")
 
         elif msg_id == 24 and len(payload) >= 30:
-            f = struct.unpack('<QiiHHHHBB', payload[:30])
+            f = struct.unpack('<QiiiHHHHBB', payload[:30])
             msg.update(name="GPS_RAW_INT", lat=f[1]/1e7, lon=f[2]/1e7,
-                       alt=f[3]/1e3, fix_type=f[8], satellites=f[9])
+                       alt=f[3]/1e3, eph=f[4], epv=f[5], vel=f[6],
+                       cog=f[7], fix_type=f[8], satellites=f[9])
 
         elif msg_id == 33 and len(payload) >= 28:
             msg.update(name="GLOBAL_POSITION_INT",
@@ -197,7 +197,7 @@ class MAVLink:
             msg.update(name="VFR_HUD",
                        airspeed=struct.unpack('<f', payload[0:4])[0],
                        groundspeed=struct.unpack('<f', payload[4:8])[0],
-                       heading=struct.unpack('<H', payload[8:10])[0],
+                       heading=struct.unpack('<h', payload[8:10])[0],
                        throttle=struct.unpack('<H', payload[10:12])[0],
                        alt=struct.unpack('<f', payload[12:16])[0],
                        climb=struct.unpack('<f', payload[16:20])[0])
@@ -237,8 +237,9 @@ class MAVLink:
 
 # ── DroneConnection ───────────────────────────────────────────────────────────
 class DroneConnection:
-    def __init__(self, udp_target=("127.0.0.1", 14550)):
+    def __init__(self, udp_target=("127.0.0.1", 14550), bind_port=None):
         self.udp_target = udp_target
+        self.bind_port  = bind_port
         self.sock       = None
         self.mav        = MAVLink()
         self.running    = False
@@ -257,8 +258,10 @@ class DroneConnection:
     # ── connect / listen ──────────────────────────────────────────────────────
     def connect(self):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.sock.settimeout(1.0)
-        self.sock.bind(("0.0.0.0", 14555))
+        if self.bind_port is not None:
+            self.sock.bind(("0.0.0.0", self.bind_port))
         self.sock.connect(self.udp_target)
         self.running   = True
         self._listener = threading.Thread(target=self._listen, daemon=True)
@@ -269,7 +272,8 @@ class DroneConnection:
         hb_tick = 0
         while self.running:
             try:
-                self.sock.sendall(self.mav.encode_heartbeat())
+                with self._lock:
+                    self.sock.sendall(self.mav.encode_heartbeat())
                 hb_tick += 1
             except Exception:
                 pass
@@ -308,12 +312,18 @@ class DroneConnection:
                 # prefer alt_relative (AGL) over AMSL
                 rel = msg.get("alt_relative", 0)
                 t["alt"]     = rel if rel != 0 else msg.get("alt", t["alt"])
-                t["heading"] = msg.get("hdg", t["heading"])
+                # hdg is in centidegrees → radians
+                hdg = msg.get("hdg", None)
+                if hdg is not None:
+                    t["heading"] = math.radians(hdg)
 
             elif name == "VFR_HUD":
                 if msg.get("alt", 0) != 0:
                     t["alt"] = msg["alt"]
-                t["heading"] = msg.get("heading", t["heading"])
+                # heading is in degrees → radians
+                hdg = msg.get("heading", None)
+                if hdg is not None:
+                    t["heading"] = math.radians(hdg)
                 t["speed"]   = msg.get("groundspeed", 0)
 
             elif name == "ALTITUDE":
@@ -322,7 +332,7 @@ class DroneConnection:
                     t["alt"] = rel
 
             elif name == "ATTITUDE":
-                t["heading"] = msg.get("yaw", t["heading"])
+                t["heading"] = msg.get("yaw", t["heading"])  # already radians
                 t["roll"]    = msg.get("roll", 0)
                 t["pitch"]   = msg.get("pitch", 0)
 
@@ -350,7 +360,8 @@ class DroneConnection:
         if not self.sock:
             return False
         try:
-            self.sock.sendall(self.mav.encode_heartbeat())
+            with self._lock:
+                self.sock.sendall(self.mav.encode_heartbeat())
             return True
         except Exception:
             return False
@@ -362,7 +373,8 @@ class DroneConnection:
             return False
         pkt = self.mav.encode_command_long(cmd_id, p1, p2, p3, p4, p5, p6, p7)
         try:
-            self.sock.sendall(pkt)
+            with self._lock:
+                self.sock.sendall(pkt)
             return True
         except Exception:
             return False
@@ -387,44 +399,55 @@ class DroneConnection:
         return self._send_command(MAV_CMD["DO_CHANGE_SPEED"], 0, speed_ms, -1, 0)
 
     # ── yaw command ───────────────────────────────────────────────────────────
-    def set_yaw(self, yaw_deg: float, relative: bool = False):
+    def set_yaw(self, yaw_deg: float, relative: bool = False, speed: float = 45.0):
         """
         Rotate to absolute heading (relative=False) or rotate by angle (relative=True).
-        direction: 1 = clockwise (default for shortest path when relative=False).
+        speed: yaw rate in deg/s (default 45, was 20 for faster turns)
         """
         return self._send_command(
             MAV_CMD["CONDITION_YAW"],
             float(yaw_deg % 360),   # p1 = target angle deg
-            20.0,                   # p2 = yaw speed deg/s
-            1.0,                    # p3 = direction (1=CW, -1=CCW)
+            speed,                  # p2 = yaw speed deg/s (increased for faster turns)
+            -1.0,                    # p3 = direction (-1=auto, shortest path)
             1.0 if relative else 0.0  # p4 = 0=absolute, 1=relative
         )
 
-    # ── goto position  (THE MAIN FIX) ────────────────────────────────────────
+    def goto_with_yaw(self, lat: float, lon: float, alt: float):
+        """
+        Turn to face the target first, then go there — much faster response.
+        Computes bearing from current position to target and yaws before moving.
+        """
+        t = self.get_telemetry()
+        dlat = lat - t["lat"]
+        dlon = lon - t["lon"]
+        bearing = math.degrees(math.atan2(dlon * math.cos(math.radians(t["lat"])), dlat))
+        bearing = (bearing + 360) % 360
+        self.set_yaw(bearing)
+        time.sleep(0.1)
+        return self.goto_position(lat, lon, alt)
+
+    # ── goto position  (COMMAND_LONG → NAV_WAYPOINT) ─────────────────────────
     def goto_position(self, lat: float, lon: float, alt: float,
                       use_relative_alt: bool = True) -> bool:
         """
-        Fly to GPS position using SET_POSITION_TARGET_GLOBAL_INT (msg 86).
+        Fly to GPS position via COMMAND_LONG with NAV_WAYPOINT (cmd 16).
 
-        Uses MAV_FRAME_GLOBAL_RELATIVE_ALT so altitude is relative to home (AGL).
-        Sends the position target 5 times for reliability.
-        No DO_REPOSITION fallback — it causes PX4 mode transitions → altitude drops.
-        Yaw is embedded in the message itself so no CONDITION_YAW needed.
+        Works in GUIDED mode (set by NAV_TAKEOFF). PX4 ignores msg 86 unless
+        in OFFBOARD mode, so we use COMMAND_LONG which is accepted in GUIDED.
+        Sends 3x for reliability.
         """
-        if not self.sock:
-            return False
-
-        frame = (MAV_FRAME["GLOBAL_RELATIVE_ALT"]
-                 if use_relative_alt else MAV_FRAME["GLOBAL"])
-
-        pkt = self.mav.encode_set_position_target(lat, lon, alt, frame=frame)
-        for _ in range(5):
-            try:
-                self.sock.sendall(pkt)
-                time.sleep(0.02)
-            except Exception:
-                pass
-        return True
+        ok = True
+        for _ in range(3):
+            ok = self._send_command(
+                MAV_CMD["NAV_WAYPOINT"],
+                0,              # p1 = hold time (sec)
+                0,              # p2 = acceptance radius
+                0,              # p3 = 0 (pass through)
+                1.0 if use_relative_alt else 0.0,  # p4 = 0=abs, 1=rel alt
+                float(lat), float(lon), float(alt),
+            ) and ok
+            time.sleep(0.02)
+        return ok
 
     # ── strafe helpers ────────────────────────────────────────────────────────
     def strafe(self, direction: str, distance: float = 3):

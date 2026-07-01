@@ -367,7 +367,7 @@ class DroneCLI:
                     speed = n
                 elif "alt" in text_lower or "height" in text_lower or "climb" in text_lower or "descend" in text_lower:
                     alt = n
-                elif "meter" in text_lower or "metre" in text_lower:
+                elif "meter" in text_lower or "metre" in text_lower or " metres" in text_lower or " meters" in text_lower:
                     distance = n
                 else:
                     alt = n
@@ -382,18 +382,19 @@ class DroneCLI:
                 return (float(gps[0]), float(gps[1]), a)
             return None
 
-        if any(w in text_lower for w in ["emergency", "kill", "stop now"]):
+        words = set(text_lower.split())
+        if text_lower in ("emergency", "kill", "stop now", "emergency stop"):
             return ("emergency",)
-        if any(w in text_lower for w in ["takeoff", "take off", "take-off", "launch"]):
+        if 'takeoff' in words or text_lower.startswith('take off') or text_lower.startswith('take-off') or 'launch' in words:
             a = alt or distance or 15
             return ("takeoff", a)
-        if any(w in text_lower for w in ["land", "come down", "touch down"]):
+        if text_lower in ("land", "come down", "touch down"):
             return ("land",)
         if any(w in text_lower for w in ["return home", "return to base", "go home", "rtl", "come back"]):
             return ("rtl",)
         if text_lower in ("disarm", "shut down", "power off"):
             return ("disarm",)
-        if any(w in text_lower for w in ["arm"]):
+        if words == {"arm"} or text_lower == "arm":
             return ("arm",)
         if any(w in text_lower for w in ["speed", "faster", "slower"]):
             return ("speed", speed if speed > 0 else 10)

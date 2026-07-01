@@ -100,20 +100,20 @@ def parse_nlp(text):
                 alt = n  # default number likely altitude
 
     # === COMMANDS ===
-    if any(w in text_lower for w in ['takeoff', 'take off', 'take-off']):
+    if 'takeoff' in text_lower or text_lower.startswith('take off') or text_lower.startswith('take-off') or 'launch' in text_lower:
         a = alt if alt > 0 else 15
         return ('takeoff', a)
 
-    if text_lower in ['land', 'land now', 'come down', 'touch down']:
+    if text_lower in ('land', 'land now', 'come down', 'touch down'):
         return ('land',)
 
     if any(w in text_lower for w in ['return home', 'return to base', 'go home', 'rtl', 'come back']):
         return ('rtl',)
 
-    if any(w in text_lower for w in ['disarm', 'shut down', 'power off']):
+    if text_lower in ('disarm', 'shut down', 'power off'):
         return ('disarm',)
 
-    if any(w in text_lower for w in ['arm']):
+    if text_lower in ('arm', 'arm now') or text_lower == 'arm':
         return ('arm',)
 
     if any(w in text_lower for w in ['speed', 'faster', 'slower']):
@@ -126,7 +126,7 @@ def parse_nlp(text):
     if any(w in text_lower for w in ['hover', 'hold', 'stop', 'pause']):
         return ('hover',)
 
-    if any(w in text_lower for w in ['emergency', 'kill', 'stop now']):
+    if text_lower in ('emergency', 'kill', 'stop now', 'emergency stop'):
         return ('emergency',)
 
     if any(w in text_lower for w in ['climb', 'ascend', 'go up', 'increase alt']):
@@ -146,11 +146,12 @@ def parse_nlp(text):
         d = distance if distance > 0 else 20
         return ('backward', d)
 
-    if any(w in text_lower for w in ['left']):
+    words = set(text_lower.split())
+    if 'left' in words and 'right' not in words:
         d = distance if distance > 0 else 10
         return ('left', d)
 
-    if any(w in text_lower for w in ['right']):
+    if 'right' in words and 'left' not in words:
         d = distance if distance > 0 else 10
         return ('right', d)
 
@@ -209,31 +210,31 @@ def execute_action(action):
             t = drone.get_telemetry()
             if t["alt"] < 2:
                 drone.arm()
-                time.sleep(0.5)
+                time.sleep(0.3)
                 msg(f"Taking off to {a}m...")
                 drone.takeoff(a)
-                for _ in range(60):
-                    time.sleep(0.5)
+                for _ in range(30):
+                    time.sleep(0.3)
                     t = drone.get_telemetry()
                     if t["alt"] > 3:
                         break
-                for _ in range(40):
-                    time.sleep(0.5)
+                for _ in range(20):
+                    time.sleep(0.3)
                     t = drone.get_telemetry()
                     if abs(t["alt"] - a) < 2:
                         break
             elif abs(t["alt"] - a) > 2:
                 msg(f"Adjusting altitude to {a}m...")
                 drone.goto_position(t["lat"], t["lon"], a)
-                for _ in range(60):
-                    time.sleep(0.5)
+                for _ in range(30):
+                    time.sleep(0.3)
                     t = drone.get_telemetry()
                     if abs(t["alt"] - a) < 2:
                         break
-            drone.goto_position(la, lo, a)
+            drone.goto_with_yaw(la, lo, a)
             msg(f"Navigating to {la:.4f}, {lo:.4f}")
-            for step in range(120):
-                time.sleep(0.5)
+            for step in range(180):
+                time.sleep(0.3)
                 t = drone.get_telemetry()
                 dist = math.hypot(t["lat"] - la, t["lon"] - lo) * 111000
                 alt_err = abs(t["alt"] - a)
@@ -242,7 +243,7 @@ def execute_action(action):
                     break
                 if dist < 8:
                     msg(f"Approaching — {dist:.1f}m away")
-                if step % 6 == 0:
+                if step % 2 == 0:
                     drone.goto_position(la, lo, a)
         elif cmd == 'climb':
             t = drone.get_telemetry()
@@ -256,7 +257,6 @@ def execute_action(action):
         elif cmd == 'forward':
             t = drone.get_telemetry()
             h = t['heading']
-            import math
             lat = t['lat'] + (action[1] * math.cos(h)) / 111320
             lon = t['lon'] + (action[1] * math.sin(h)) / (111320 * math.cos(math.radians(t['lat'])))
             drone.goto_position(lat, lon, t['alt'])
@@ -274,7 +274,7 @@ def main():
     signal.signal(signal.SIGINT, lambda s, f: sys.exit(0))
 
     host = sys.argv[1] if len(sys.argv) > 1 else "127.0.0.1"
-    port = int(sys.argv[2]) if len(sys.argv) > 2 else 14540
+    port = int(sys.argv[2]) if len(sys.argv) > 2 else 14550
 
     print(f"{CLS}{BOLD}Connecting to drone at {host}:{port}...{RESET}")
     drone = DroneConnection(udp_target=(host, port))

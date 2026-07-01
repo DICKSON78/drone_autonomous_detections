@@ -5,6 +5,7 @@ import json
 from kafka import KafkaConsumer, KafkaProducer
 import os
 import logging
+import time
 from datetime import datetime, timezone
 from pydantic import BaseModel
 
@@ -29,6 +30,10 @@ producer = KafkaProducer(
 # Global drone instance
 drone = None
 
+# Home position matching the Webots simulation origin
+HOME_LAT = -6.1630
+HOME_LON = 35.7516
+
 class DroneStatus(BaseModel):
     connected: bool = False
     armed: bool = False
@@ -43,12 +48,10 @@ async def connect_drone():
     drone = System()
     
     try:
-        # Connect to PC2 where Gazebo/PX4 runs (Docker DNS or explicit IP)
         pc2_ip = os.getenv('PC2_MAVLINK_HOST', 'gazebo-px4')
         await drone.connect(system_address=f"udp://{pc2_ip}:14540")
         logging.info(f"Connecting to drone at {pc2_ip}:14540")
         
-        # Wait for drone to be ready
         async for state in drone.core.connection_state():
             if state.is_connected:
                 logging.info("Drone discovered")
@@ -59,84 +62,103 @@ async def connect_drone():
         logging.error(f"Failed to connect to drone: {e}")
         return False
 
-async def execute_flight_command(command):
-    """Execute flight command from parsed command"""
-    try:
-        # Arm the drone
-        await drone.action.arm()
-        logging.info("Drone armed")
-        
-        # Takeoff
-        await drone.action.takeoff()
-        logging.info("Drone taking off")
-        
-        # Wait for takeoff to complete
-        await asyncio.sleep(10)
-        
-        # Go to target location
-        target_gps = command["target_gps"]
-        await drone.action.goto_location(
-            target_gps["lat"], 
-            target_gps["lon"], 
-            command["altitude"], 
-            0
-        )
-        logging.info(f"Going to location: {target_gps}")
-        
-        # Monitor progress
-        while True:
-            async for position in drone.telemetry.position():
-                distance = ((position.latitude - target_gps["lat"])**2 + 
-                           (position.longitude - target_gps["lon"])**2)**0.5
-                
-                if distance < 0.0001:  # Very close to target
-                    logging.info("Reached target location")
-                    await drone.action.land()
+async def wait_for_position(timeout: float = 15.0) -> bool:
+    """Wait until telemetry position is available."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        try:
+            async for p in drone.telemetry.position():
+                if p.latitude != 0.0 and p.longitude != 0.0:
                     return True
-                
-                # Send telemetry update
-                telemetry = {
-                    "latitude": position.latitude,
-                    "longitude": position.longitude,
-                    "altitude": position.relative_altitude,
-                    "timestamp": datetime.now(timezone.utc).isoformat()
-                }
-                producer.send('drone.telemetry.gps', telemetry)
-
-                async for battery in drone.telemetry.battery():
-                    batt_data = {
-                        "voltage_v": battery.remaining_voltage_v,
-                        "percentage": battery.percentage,
-                        "timestamp": datetime.now(timezone.utc).isoformat()
-                    }
-                    producer.send('drone.telemetry.battery', batt_data)
-                    break
-
-                async for attitude in drone.telemetry.attitude():
-                    att_data = {
-                        "roll_deg": attitude.roll_deg,
-                        "pitch_deg": attitude.pitch_deg,
-                        "yaw_deg": attitude.yaw_deg,
-                        "timestamp": datetime.now(timezone.utc).isoformat()
-                    }
-                    producer.send('drone.telemetry.attitude', att_data)
-                    break
-
-                async for velocity in drone.telemetry.velocity_body():
-                    vel_data = {
-                        "north_m_s": velocity.north_m_s,
-                        "east_m_s": velocity.east_m_s,
-                        "down_m_s": velocity.down_m_s,
-                        "timestamp": datetime.now(timezone.utc).isoformat()
-                    }
-                    producer.send('drone.telemetry.velocity', vel_data)
-                    break
-                
-                await asyncio.sleep(1)
                 break
-    
+        except Exception:
+            pass
+        await asyncio.sleep(0.5)
+    return False
+
+async def execute_flight_command(command):
+    """Execute a flight command, dispatching by *type*."""
+    cmd_type = command.get("type", "")
+    altitude = command.get("altitude", 10.0)
+    logging.info("Executing command: type=%s altitude=%.1f", cmd_type, altitude)
+
+    try:
+        if cmd_type == "takeoff":
+            if not await wait_for_position():
+                logging.warning("No GPS fix before takeoff")
+            await drone.action.arm()
+            await asyncio.sleep(1)
+            await drone.action.takeoff()
+            logging.info("Takeoff initiated to %.1fm", altitude)
+
+        elif cmd_type == "land":
+            await drone.action.land()
+            logging.info("Landing")
+
+        elif cmd_type == "goto":
+            target_gps = command.get("target_gps", {"lat": HOME_LAT, "lon": HOME_LON})
+            if not await wait_for_position():
+                logging.warning("No GPS fix before goto")
+            await drone.action.arm()
+            await asyncio.sleep(1)
+            await drone.action.takeoff()
+            await asyncio.sleep(2)
+            # Climb to target altitude first
+            async for pos in drone.telemetry.position():
+                current_alt = pos.relative_altitude
+                break
+            if current_alt < altitude - 2:
+                await drone.action.goto_location(
+                    target_gps["lat"], target_gps["lon"], altitude, 0
+                )
+                await asyncio.sleep(3)
+            await drone.action.goto_location(
+                target_gps["lat"], target_gps["lon"], altitude, 0
+            )
+            logging.info("Navigating to %.6f, %.6f at %.1fm",
+                         target_gps["lat"], target_gps["lon"], altitude)
+            # Monitor progress with telemetry
+            for _ in range(300):
+                async for pos in drone.telemetry.position():
+                    dist = ((pos.latitude - target_gps["lat"]) ** 2 +
+                            (pos.longitude - target_gps["lon"]) ** 2) ** 0.5
+                    # publish telemetry
+                    producer.send("drone.telemetry.gps", {
+                        "latitude": pos.latitude, "longitude": pos.longitude,
+                        "altitude": pos.relative_altitude,
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                    })
+                    if dist < 0.0001:
+                        logging.info("Reached target")
+                        await drone.action.land()
+                        return True
+                    break
+                await asyncio.sleep(1)
+
+        elif cmd_type in ("return", "rtl"):
+            await drone.action.return_to_launch()
+            logging.info("Returning to launch")
+
+        elif cmd_type == "hover":
+            await drone.action.hold()
+            logging.info("Hovering")
+
+        elif cmd_type == "arm":
+            await drone.action.arm()
+            logging.info("Armed")
+
+        elif cmd_type == "disarm":
+            await drone.action.disarm()
+            logging.info("Disarmed")
+
+        else:
+            logging.warning("Unknown command type: %s", cmd_type)
+            return False
+
+        return True
+
     except Exception as e:
-        logging.error(f"Flight execution error: {e}")
+        logging.error("Flight execution error: %s", e)
         return False
 
 async def execute_move_command(action):

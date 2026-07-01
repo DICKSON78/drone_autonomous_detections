@@ -60,30 +60,46 @@ CLASS_MAPPING = {
 # Target classes for LGADS
 TARGET_CLASSES = {"person", "bird", "animal", "vehicle", "structure", "vegetation", "tree", "building"}
 
+# Custom drone dataset classes (6 classes from dataset.yaml)
+DRONE_CLASSES = ["tree", "building", "pole", "person", "vehicle", "aircraft"]
+
+
 class YOLOHandler:
     """Wrapper class for YOLO model operations"""
-    
+
     def __init__(self, model_name: str = "yolov8n.pt", device: str = "cpu"):
         """
         Initialize YOLO model
-        
+
         Args:
             model_name: Model name or path
             device: 'cpu' or 'cuda'
         """
         self.device = device
         self.model_name = model_name
-        
+        self.is_custom_model = False
+
         try:
             self.model = YOLO(model_name)
-            
+
+            # Detect if this is a custom trained model (not COCO 80-class)
+            if hasattr(self.model, 'names'):
+                names = self.model.names
+                if isinstance(names, dict) and len(names) > 0:
+                    if len(names) == 6 and set(names.values()) == set(DRONE_CLASSES):
+                        self.is_custom_model = True
+                        logger.info(f"Detected drone custom model: {len(names)} classes")
+                    elif len(names) != 80:
+                        self.is_custom_model = True
+                        logger.info(f"Detected custom model: {len(names)} classes: {list(names.values())}")
+
             # Move to GPU if available
             if device == "cuda" and torch.cuda.is_available():
                 self.model.to('cuda')
                 logger.info(f"Model loaded on GPU: {torch.cuda.get_device_name(0)}")
             else:
                 logger.info("Model loaded on CPU")
-                
+
         except Exception as e:
             logger.error(f"Failed to load YOLO model: {e}")
             raise
@@ -115,18 +131,32 @@ class YOLOHandler:
             if len(results) > 0:
                 boxes = results[0].boxes
                 if boxes is not None:
+                    # Get model class names
+                    model_names = {}
+                    if hasattr(results[0], 'names'):
+                        model_names = results[0].names
+
                     for box in boxes:
                         class_id = int(box.cls[0].cpu().numpy())
-                        coco_name = COCO_CLASSES[class_id] if class_id < len(COCO_CLASSES) else "unknown"
-                        semantic_class = CLASS_MAPPING.get(coco_name, coco_name)
-                        
-                        detection = {
-                            'bbox': box.xyxy[0].cpu().numpy().tolist(),
-                            'confidence': float(box.conf[0].cpu().numpy()),
-                            'class_id': class_id,
-                            'class_name': semantic_class,
-                            'coco_class': coco_name
-                        }
+
+                        if self.is_custom_model:
+                            class_name = model_names.get(class_id, f"class_{class_id}")
+                            detection = {
+                                'bbox': box.xyxy[0].cpu().numpy().tolist(),
+                                'confidence': float(box.conf[0].cpu().numpy()),
+                                'class_id': class_id,
+                                'class_name': class_name,
+                            }
+                        else:
+                            coco_name = COCO_CLASSES[class_id] if class_id < len(COCO_CLASSES) else "unknown"
+                            semantic_class = CLASS_MAPPING.get(coco_name, coco_name)
+                            detection = {
+                                'bbox': box.xyxy[0].cpu().numpy().tolist(),
+                                'confidence': float(box.conf[0].cpu().numpy()),
+                                'class_id': class_id,
+                                'class_name': semantic_class,
+                                'coco_class': coco_name
+                            }
                         detections.append(detection)
             
             return detections

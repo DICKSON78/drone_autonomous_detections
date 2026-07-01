@@ -14,40 +14,29 @@ if [ ! -f "$WORLD_FILE" ]; then
     exit 1
 fi
 
-# Ensure venv is set up
-VENV_DIR="$SCRIPT_DIR/venv"
-if [ ! -f "$VENV_DIR/lib/python3.12/site-packages/system.pth" ]; then
-    log "Creating venv at $VENV_DIR ..."
-    python3 -m venv "$VENV_DIR" 2>/dev/null
-    "$VENV_DIR/bin/python3" -m ensurepip --upgrade 2>/dev/null
-    echo "/usr/lib/python3/dist-packages" > "$VENV_DIR/lib/python3.12/site-packages/system.pth"
-    "$VENV_DIR/bin/python3" -m pip install pymavlink 2>/dev/null
-fi
+# Kill leftover processes
+pkill -f "sensor_bridge.py" 2>/dev/null || true
+pkill -f "object_detection_node.py" 2>/dev/null || true
+pkill -f "px4_bridge.py" 2>/dev/null || true
+pkill -f "mission_drone_controller.py" 2>/dev/null || true
+pkill -f "enhanced_drone_console" 2>/dev/null || true
+pkill -f "drone_console" 2>/dev/null || true
+pkill -f "nlp_console" 2>/dev/null || true
 
 pkill -f "px4_bridge.py" 2>/dev/null || true
 pgrep -x webots >/dev/null && pkill -x webots 2>/dev/null || true
 sleep 1
 
-SNAP="/snap/webots/current"
-WEBOTS_BIN="$SNAP/usr/share/webots/bin/webots-bin"
-if [ ! -x "$WEBOTS_BIN" ]; then
-    echo -e "${RED}[ERROR]${NC} Webots binary not found at $WEBOTS_BIN"
-    exit 1
-fi
-log "Webots binary: $WEBOTS_BIN"
+# Also free the UDP port in case the kernel still holds the association
+timeout 2 bash -c 'exec 3<>/dev/udp/127.0.0.1/14550' 2>/dev/null || true
 
-export PATH="$VENV_DIR/bin:$PATH"
-export WEBOTS_PYTHON=$VENV_DIR/bin/python3
-export LD_LIBRARY_PATH="$SNAP/usr/share/webots/lib/webots:/lib/x86_64-linux-gnu:/usr/lib/x86_64-linux-gnu:$SNAP/lib/x86_64-linux-gnu:$SNAP/usr/lib/x86_64-linux-gnu"
-export QT_QPA_PLATFORM=wayland
-export QT_QPA_PLATFORM_PLUGIN_PATH="$SNAP/usr/share/webots/lib/webots/plugins/platforms"
-export GIO_MODULE_DIR=/dev/null
-
+# Start Webots in background
 log "Starting Webots..."
 nohup "$WEBOTS_BIN" --mode=realtime "$WORLD_FILE" > /tmp/webots.log 2>&1 &
 WEBOTS_PID=$!
 log "Webots PID: $WEBOTS_PID"
 
+ main
 log "Waiting for MAVLink bridge on UDP :14550..."
 STARTED=0
 for i in $(seq 1 120); do
@@ -70,19 +59,26 @@ if [ "$STARTED" -eq 0 ]; then
     exit 1
 fi
 
-WORLD_NAME=$(basename "$WORLD_FILE")
-echo ""
-echo -e "${CYAN}╔══════════════════════════════════════════════════════════╗${NC}"
-echo -e "${CYAN}║ ${BOLD}UDOM CIVE CAMPUS — DRONE RUNNING${NC}${CYAN}                    ║${NC}"
-echo -e "${CYAN}╠══════════════════════════════════════════════════════════╣${NC}"
-echo -e "${CYAN}║${NC}  World       → $WORLD_NAME            ${CYAN}║${NC}"
-echo -e "${CYAN}║${NC}  GPS ref     → -6.21745, 35.81396 | Alt: 1120m          ${CYAN}║${NC}"
-echo -e "${CYAN}║${NC}  Detection   → YOLOv8n @ 640×480                       ${CYAN}║${NC}"
-echo -e "${CYAN}║${NC}  Control     → PPO continuous [vx,vy,vz] ±3 m/s         ${CYAN}║${NC}"
-echo -e "${CYAN}║${NC}  MAVLink     → UDP :14550 (connect QGC here)           ${CYAN}║${NC}"
-echo -e "${CYAN}║${NC}                                                          ${CYAN}║${NC}"
-echo -e "${CYAN}║${NC}  Close Webots window to stop                            ${CYAN}║${NC}"
-echo -e "${CYAN}╚══════════════════════════════════════════════════════════╝${NC}"
+# Optional extras
+if [ "$1" = "--full" ]; then
+    log "Starting Sensor Bridge..."
+    nohup python3 scripts/sensor_bridge.py 127.0.0.1 14550 --http-port 8090 > /tmp/sensor_bridge.log 2>&1 &
+    log "Starting Object Detection..."
+    nohup python3 scripts/object_detection_node.py --interval 3.0 > /tmp/object_detection.log 2>&1 &
+fi
 
-wait $WEBOTS_PID
-log "Webots stopped."
+# Launch drone console in this terminal as background process
+DRONE_CONSOLE_SCRIPT="$SCRIPT_DIR/scripts/enhanced_drone_console_v2.py"
+if [ -f "$DRONE_CONSOLE_SCRIPT" ]; then
+    log "Drone system ready. Starting console..."
+    python3 "$DRONE_CONSOLE_SCRIPT" 127.0.0.1 14550
+else
+    log "Console script not found at $DRONE_CONSOLE_SCRIPT"
+    wait $WEBOTS_PID
+fi
+
+# Cleanup when console exits
+log "Stopping Webots..."
+kill $WEBOTS_PID 2>/dev/null || true
+wait $WEBOTS_PID 2>/dev/null || true
+log "Stopped."
