@@ -123,4 +123,9 @@ app.use((req, res) => {
 // ─── Global Error Handler ─────────────────────────────────────────────────────
 app.use(errorHandler);
 
+const PORT = parseInt(process.env.PORT) || 8008;
+app.listen(PORT, '0.0.0.0', () => {
+  logger.info(`API Gateway listening on port ${PORT}`);
+});
+
 module.exports = app;

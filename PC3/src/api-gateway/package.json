@@ -8,10 +8,23 @@
     "dev": "nodemon app.js"
   },
   "dependencies": {
-    "express": "^4.18.2",
-    "kafkajs": "^2.2.4",
     "@influxdata/influxdb-client": "^1.33.2",
+    "axios": "^1.18.1",
+    "compression": "^1.8.1",
     "cors": "^2.8.5",
-    "node-fetch": "^3.3.2"
+    "dotenv": "^17.4.2",
+    "express": "^4.18.2",
+    "express-rate-limit": "^8.5.2",
+    "express-validator": "^7.3.2",
+    "helmet": "^7.1.0",
+    "js-yaml": "^5.2.0",
+    "kafkajs": "^2.2.4",
+    "morgan": "^1.11.0",
+    "node-fetch": "^3.3.2",
+    "pg": "^8.22.0",
+    "uuid": "^9.0.1",
+    "winston": "^3.19.0",
+    "winston-daily-rotate-file": "^5.0.0",
+    "ws": "^8.21.0"
   }
 }
