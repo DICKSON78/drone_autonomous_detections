@@ -13,31 +13,12 @@ from typing import Dict, List, Optional, Tuple
 from pathlib import Path
 from datetime import datetime
 
-# Import our modules (object_detection is in object-detection/ directory — add to path)
-import sys, os
-_src_dir = os.path.dirname(__file__)
-_objdet_dir = os.path.join(_src_dir, 'object-detection')
-if os.path.isdir(_objdet_dir) and _objdet_dir not in sys.path:
-    sys.path.insert(0, _objdet_dir)
-
-try:
-    from auto_label import DroneAutoLabeler
-    OBJDET_AVAILABLE = True
-except ImportError:
-    OBJDET_AVAILABLE = False
-    DroneAutoLabeler = None
-    logging.warning("auto_label module not found. Object detection disabled.")
-
+# Import our modules
+from object_detection.auto_label import DroneAutoLabeler
+from object_detection.main import process_image, DetectionResponse
+from rl_navigation.drone_env import DroneObstacleEnv
+from rl_navigation.train_rl import DroneRLTrainer
 from nlp_module import DroneNLP
-
-# RL navigation module (may not exist — graceful fallback)
-try:
-    from rl_navigation.drone_env import DroneObstacleEnv
-    from rl_navigation.train_rl import DroneRLTrainer
-    RL_NAV_AVAILABLE = True
-except ImportError:
-    RL_NAV_AVAILABLE = False
-    logging.warning("rl_navigation module not found. Using mock RL environment.")
 
 # Try to import YOLO and RL models
 try:
@@ -53,9 +34,6 @@ try:
 except ImportError:
     RL_AVAILABLE = False
     logging.warning("Stable Baselines3 not available. Using mock RL.")
-
-# Fallback actions mapping when rl_navigation module is missing
-_ACTIONS = {0: "go_left", 1: "go_right", 2: "climb", 3: "descend", 4: "hover", 5: "emergency"}
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -127,12 +105,8 @@ class DroneSystem:
             logger.warning("⚠️ RL not available, using mock decisions")
         
         # Initialize environment
-        if RL_NAV_AVAILABLE:
-            self.env = DroneObstacleEnv()
-            logger.info("✅ Environment initialized")
-        else:
-            self.env = None
-            logger.warning("⚠️ RL navigation module not available, using mock environment")
+        self.env = DroneObstacleEnv()
+        logger.info("✅ Environment initialized")
 
     def process_frame(self, frame: np.ndarray) -> Dict:
         """
@@ -170,7 +144,7 @@ class DroneSystem:
         return {
             "obstacles": obstacles,
             "action": action,
-            "action_name": _ACTIONS.get(action, "unknown"),
+            "action_name": DroneObstacleEnv.ACTIONS.get(action, "unknown"),
             "confidence": rl_confidence,
             "explanation": explanation,
             "reasoning": reasoning,
@@ -240,7 +214,7 @@ class DroneSystem:
 
     def _make_decision(self, obstacles: List[Dict]) -> Tuple[int, float, Dict]:
         """Make decision using RL or mock decision"""
-        if self.rl_model is None or self.env is None:
+        if self.rl_model is None:
             return self._mock_decision(obstacles)
         
         try:
@@ -263,7 +237,7 @@ class DroneSystem:
                 "obstacle_count": len(obstacles)
             }
             
-            logger.info(f"🧠 RL Decision: {_ACTIONS.get(action, 'unknown')} (confidence: {confidence:.2f})")
+            logger.info(f"🧠 RL Decision: {DroneObstacleEnv.ACTIONS.get(action, 'unknown')} (confidence: {confidence:.2f})")
             return action, confidence, reasoning
             
         except Exception as e:
@@ -335,7 +309,7 @@ class DroneSystem:
             cv2.putText(annotated, label, (x1, y1-10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
         
         # Draw action info
-            action_name = _ACTIONS.get(action, "unknown")
+        action_name = DroneObstacleEnv.ACTIONS.get(action, "unknown")
         cv2.putText(
             annotated, f"Action: {action_name}",
             (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2
