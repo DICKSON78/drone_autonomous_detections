@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
-# PC2 Webots Launcher — starts simulation with MAVLink bridge
-set -e
-
+# PC2 Webots Launcher — starts CIVE campus simulation with YOLO+PPO bridge
 GREEN='\033[0;32m'; YELLOW='\033[1;33m'; RED='\033[0;31m'
 CYAN='\033[0;36m'; BOLD='\033[1m'; NC='\033[0m'
 log()  { echo -e "${GREEN}[WEBOTS]${NC} $1"; }
@@ -25,6 +23,7 @@ pkill -f "enhanced_drone_console" 2>/dev/null || true
 pkill -f "drone_console" 2>/dev/null || true
 pkill -f "nlp_console" 2>/dev/null || true
 
+pkill -f "px4_bridge.py" 2>/dev/null || true
 pgrep -x webots >/dev/null && pkill -x webots 2>/dev/null || true
 sleep 1
 
@@ -33,14 +32,14 @@ timeout 2 bash -c 'exec 3<>/dev/udp/127.0.0.1/14550' 2>/dev/null || true
 
 # Start Webots in background
 log "Starting Webots..."
-nohup webots --mode=realtime "$WORLD_FILE" > /tmp/webots.log 2>&1 &
+nohup "$WEBOTS_BIN" --mode=realtime "$WORLD_FILE" > /tmp/webots.log 2>&1 &
 WEBOTS_PID=$!
 log "Webots PID: $WEBOTS_PID"
 
-# Wait for the MAVLink bridge
+ main
 log "Waiting for MAVLink bridge on UDP :14550..."
 STARTED=0
-for i in $(seq 1 60); do
+for i in $(seq 1 120); do
     sleep 2
     if ss -uln 2>/dev/null | grep -q ":14550 "; then
         echo -e "${GREEN}[WEBOTS]${NC} MAVLink bridge ready on :14550"
@@ -49,12 +48,14 @@ for i in $(seq 1 60); do
     fi
     if ! kill -0 $WEBOTS_PID 2>/dev/null; then
         echo -e "${RED}[ERROR]${NC} Webots died early. Check /tmp/webots.log"
+        tail -30 /tmp/webots.log 2>/dev/null
         exit 1
     fi
 done
 
 if [ "$STARTED" -eq 0 ]; then
-    echo -e "${RED}[ERROR]${NC} Bridge didn't start within 2 minutes. Check Webots."
+    echo -e "${RED}[ERROR]${NC} Bridge didn't start within 4 minutes. Check /tmp/webots.log"
+    tail -50 /tmp/webots.log 2>/dev/null
     exit 1
 fi
 

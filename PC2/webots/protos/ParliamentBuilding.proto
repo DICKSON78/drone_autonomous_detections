@@ -1,0 +1,142 @@
+#VRML_SIM R2025a utf8
+PROTO ParliamentBuilding [
+  field SFVec3f    translation  0 0 0
+  field SFRotation rotation     0 0 1 0
+  field SFString   name         ""
+]
+{
+  Solid {
+    translation IS translation
+    rotation IS rotation
+    name IS name
+    children [
+      # Main hall (large rectangular base)
+      Shape {
+        appearance PBRAppearance {
+          baseColor 0.85 0.78 0.62
+          roughness 0.8
+          metalness 0
+        }
+        geometry Box {
+          size 30 40 12
+        }
+      }
+      # Dome (parliament chamber)
+      Transform {
+        translation 0 10 12
+        children [
+          Shape {
+            appearance PBRAppearance {
+              baseColor 0.75 0.68 0.55
+              roughness 0.7
+              metalness 0
+            }
+            geometry Sphere {
+              radius 8
+              subdivision 4
+            }
+          }
+        ]
+      }
+      # Dome top
+      Transform {
+        translation 0 10 16
+        children [
+          Shape {
+            appearance PBRAppearance {
+              baseColor 0.6 0.55 0.45
+              roughness 0.6
+              metalness 0
+            }
+            geometry Cylinder {
+              radius 1.5
+              height 2
+            }
+          }
+        ]
+      }
+      # Front columns
+      Transform {
+        translation -10 -20 0
+        children [
+          Shape {
+            appearance PBRAppearance {
+              baseColor 0.8 0.72 0.55
+              roughness 0.8
+              metalness 0
+            }
+            geometry Box {
+              size 1 1 8
+            }
+          }
+        ]
+      }
+      Transform {
+        translation 0 -20 0
+        children [
+          Shape {
+            appearance PBRAppearance {
+              baseColor 0.8 0.72 0.55
+              roughness 0.8
+              metalness 0
+            }
+            geometry Box {
+              size 1 1 8
+            }
+          }
+        ]
+      }
+      Transform {
+        translation 10 -20 0
+        children [
+          Shape {
+            appearance PBRAppearance {
+              baseColor 0.8 0.72 0.55
+              roughness 0.8
+              metalness 0
+            }
+            geometry Box {
+              size 1 1 8
+            }
+          }
+        ]
+      }
+      # Steps
+      Transform {
+        translation 0 -22 0
+        children [
+          Shape {
+            appearance PBRAppearance {
+              baseColor 0.7 0.65 0.55
+              roughness 0.9
+              metalness 0
+            }
+            geometry Box {
+              size 20 3 1
+            }
+          }
+        ]
+      }
+      # Windows (rows)
+      Transform {
+        translation 0 -20.01 3
+        children [
+          Shape {
+            appearance PBRAppearance {
+              baseColor 0.55 0.65 0.78
+              roughness 0.3
+              metalness 0.2
+            }
+            geometry RectangleXZ {
+              xSize 20
+              zSize 5
+            }
+          }
+        ]
+      }
+    ]
+    boundingObject Box {
+      size 30 40 14
+    }
+  }
+}
