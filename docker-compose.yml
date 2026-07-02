@@ -1,0 +1,60 @@
+services:
+
+  # ─── PC3 Backend (FastAPI + Frontend) ───────────────────────────────
+  pc3-backend:
+    build:
+      context: .
+      dockerfile: docker/backend/Dockerfile
+    container_name: pc3-backend
+    network_mode: host
+    volumes:
+      - telemetry_data:/data
+    environment:
+      - TELEMETRY_DB_PATH=/data/telemetry.db
+      - BRIDGE_HOST=127.0.0.1
+      - BRIDGE_PORT=14550
+      - APP_PORT=8007
+    restart: unless-stopped
+
+  # ─── Grafana Dashboard ─────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+      - GF_SECURITY_ALLOW_EMBEDDING=true
+      - GF_AUTH_ANONYMOUS_ENABLED=false
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./PC3/grafana/provisioning:/etc/grafana/provisioning
+      - ./PC3/grafana/dashboards:/var/lib/grafana/dashboards
+      - ./PC3/grafana/grafana.ini:/etc/grafana/grafana.ini
+    restart: unless-stopped
+
+  # ─── Prometheus Metrics ────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - prometheus_data:/prometheus
+      - ./PC3/config/prometheus.yml:/etc/prometheus/prometheus.yml
+    restart: unless-stopped
+
+  # ─── Node Exporter ─────────────────────────────────────────────────
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: node-exporter
+    ports:
+      - "9100:9100"
+    restart: unless-stopped
+
+volumes:
+  telemetry_data:
+  grafana_data:
+  prometheus_data:

@@ -1,0 +1,13 @@
+{
+  "name": "drone-command-center",
+  "version": "2.0.0",
+  "description": "PC3 - Drone Command Center Desktop App",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "web": "echo 'Open http://localhost:8007 in browser'"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0"
+  }
+}

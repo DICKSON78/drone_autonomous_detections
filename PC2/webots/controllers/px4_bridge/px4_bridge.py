@@ -46,6 +46,21 @@ def _write_ready(name: str, ok: bool):
     except Exception:
         pass
 
+ZONE_LABELS = ["Zone A (City)", "Road →", "Road →", "Zone B (Road Course)",
+               "Zone B (Road Course)", "← Return", "Home"]
+
+def _zone_name(idx: int) -> str:
+    return ZONE_LABELS[idx] if 0 <= idx < len(ZONE_LABELS) else f"WP {idx+1}"
+
+def _current_zone_name(gps_x: float) -> str:
+    if gps_x < -5:
+        return "Zone A"
+    elif gps_x < 35:
+        return "Road"
+    elif gps_x < 70:
+        return "Zone B"
+    return "Return"
+
 try:
     from pymavlink.dialects.v20 import common as mavlink
 except ImportError:
@@ -55,7 +70,7 @@ REF_LAT = -6.21745
 REF_LON = 35.81396
 REF_ALT = 1120.0
 
-# Obstacles from mavic2pro world — buildings, pines, cones, boxes
+# ===== ZONE A — Existing buildings/trees (west side) =====
 CIVE_BUILDINGS = [
     (15, -10), (20, 15), (-20, 25),          # SimpleBuilding
     (-43.87, -19.84), (-44.26, -27.34),       # Windmills
@@ -68,11 +83,34 @@ CIVE_TREES = [
     (-14.34, 14.56), (-26.63, -7.17),
     (-9.37, 14.02), (15, 25),
 ]
-CIVE_OBS = np.array(CIVE_BUILDINGS + CIVE_TREES, dtype=np.float32)
 
-# Path waypoints (x, y) meters from origin — forms a loop through obstacle field
-WAYPOINTS = [(15, 0), (20, 10), (10, 20), (-10, 15), (0, 0)]
-WAYPOINT_RADIUS = 4.0
+# ===== ZONE B — Road obstacles (east side, along the connecting road) =====
+CIVE_ROAD_OBS_CONES = [
+    (38, -5), (42, -6), (46, -4), (50, -6), (55, -4),   # cones blocking road
+    (72, 5), (78, 12), (84, 18),                           # cones on curve
+]
+CIVE_ROAD_OBS_BOXES = [
+    (44, -7), (52, -3), (60, -5), (88, 22),               # boxes on road
+]
+CIVE_ROAD_OBS_OTHER = [
+    (65, -3.5),                                            # Tesla on road
+]
+CIVE_ROAD_OBS = CIVE_ROAD_OBS_CONES + CIVE_ROAD_OBS_BOXES + CIVE_ROAD_OBS_OTHER
+
+CIVE_OBS = np.array(CIVE_BUILDINGS + CIVE_TREES + CIVE_ROAD_OBS, dtype=np.float32)
+
+# Path waypoints (x, y) — forms a loop through both zones via the connecting road
+# Zone A (west) → Road → Zone B (east) → Return
+WAYPOINTS = [
+    (-15, 0),     # WP1: Head west into Zone A (building area)
+    (10, -5),     # WP2: Approach the connecting road
+    (30, -5),     # WP3: Follow road east toward Zone B
+    (55, -5),     # WP4: Zone B — road obstacle section begins
+    (75, 15),     # WP5: Zone B — navigate through obstacles on curve
+    (40, 20),     # WP6: Head back toward origin (cross-country)
+    (0, 0),       # WP7: Return home
+]
+WAYPOINT_RADIUS = 20.0
 
 MAV_TYPE_QUADROTOR = 2
 MAV_AUTOPILOT_GENERIC = 0
@@ -99,17 +137,11 @@ class MavicBridge(Supervisor):
     FLIGHT_MODE_GUIDED = 4
 
     # Motor/PID — thrust = K_VERTICAL_THRUST + vertical_input  →  motor velocity
-    K_VERTICAL_THRUST = 125.0    # hover at ~125 rad/s per prop → 16.3N = weight
-    K_VERTICAL_OFFSET = 0.0
-    K_VERTICAL_P = 12.0
-    K_VERTICAL_D = 3.0
-    TAKEOFF_BOOST = 25.0
-    TAKEOFF_BOOST_DURATION = 1.5
-    ALT_THROTTLE_START = 0.8    # start throttling approach when within this many m of target
-    ALT_THROTTLE_MIN_VZ = 0.3   # minimum vertical speed during approach
-    K_VEL_P = 2.0
+    K_VERTICAL_THRUST = 61.0
+
+    K_VEL_P = 1.0
     K_VEL_ALT_P = 5.0
-    MAX_TILT = 10.0
+    MAX_TILT = 6.0
     MAX_YAW_RATE = 0.5
     MOTOR_MAX = 200
     K_VEL_XY = 3.5          # N per m/s horizontal velocity error (world-frame force)
@@ -118,12 +150,12 @@ class MavicBridge(Supervisor):
     # Propeller thrust constant (from Mavic2Pro.proto)
     THRUST_CONST = 0.00026          # N·s²/rad² per prop
 
-    YOLO_INTERVAL = 2.0
+    YOLO_INTERVAL = 0.5
     PPO_INTERVAL = 0.2
     NLP_INTERVAL = 0.2
     TELEMETRY_INTERVAL = 0.05
     HEARTBEAT_INTERVAL = 0.5
-    TARGET_ALT_DEFAULT = 2.0
+    TARGET_ALT_DEFAULT = 5.0
 
     def __init__(self):
         Robot.__init__(self)
@@ -133,6 +165,9 @@ class MavicBridge(Supervisor):
         self._setup_state()
         self._setup_ai()
         self._last_ts = time.time()
+        # Position PID for waypoint horizontal control
+        self._pos_integral_x = 0.0
+        self._pos_integral_y = 0.0
 
     def _setup_devices(self):
         self.camera = self.getDevice("camera")
@@ -169,6 +204,11 @@ class MavicBridge(Supervisor):
         self.sock.bind(("0.0.0.0", 14550))
         self.mav = mavlink.MAVLink(None, srcSystem=1, srcComponent=1)
         self._gcs_addr = None
+        # QGC forward socket — sends MAVLink to QGroundControl on :14550
+        self._qgc_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        # Detection broadcast socket — sends YOLO results as JSON
+        self._det_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self._det_sock.connect(("127.0.0.1", 14551))
 
     def _setup_state(self):
         self.armed = False
@@ -182,12 +222,15 @@ class MavicBridge(Supervisor):
         self.target_vy = 0.0
         self.target_vz = 0.0
         self.target_yaw_rate = 0.0
-        self._takeoff_boost_until = 0.0
+
         self._start_time = time.time()
+        self._takeoff_start = 0.0
         self._waypoint_idx = 0
         self._wp_sent_feedback = False
 
         self.roll = self.pitch = self.yaw = 0.0
+        self.yaw_target = 0.0
+        self.yaw_integral = 0.0
         self.gps_x = self.gps_y = self.gps_z = 0.0
         self.gps_lat = REF_LAT
         self.gps_lon = REF_LON
@@ -196,6 +239,7 @@ class MavicBridge(Supervisor):
         self.gyro_x = self.gyro_y = self.gyro_z = 0.0
 
         self._prev_gps = None
+        self._alt_integral = 0.0
 
     def _setup_ai(self):
         self.yolo = None
@@ -245,16 +289,23 @@ class MavicBridge(Supervisor):
                 print(f"[PPO] Failed to load {pkl_path}: {e}; using rule-based fallback")
                 self.ppo_model = False
 
+    def _predict_ppo(self, obs: np.ndarray) -> np.ndarray:
+        h = np.tanh(obs @ self._ppo_W + self._ppo_b)
+        return h @ self._ppo_V
+
     def _recv_mavlink(self):
         try:
             data, addr = self.sock.recvfrom(4096)
-            if self._gcs_addr is None:
+            if self._gcs_addr is None or addr != self._gcs_addr:
                 self._gcs_addr = addr
                 print(f"[MAV] GCS connected from {addr}")
-        for byte in data:
-                msg = self.mav.parse_char(bytes([byte]))
-                if msg is not None:
-                    self._handle_msg(msg)
+            for byte in data:
+                try:
+                    msg = self.mav.parse_char(bytes([byte]))
+                    if msg is not None:
+                        self._handle_msg(msg)
+                except Exception:
+                    pass
         except socket.timeout:
             pass
         except BlockingIOError:
@@ -288,14 +339,15 @@ class MavicBridge(Supervisor):
                 self.landing_mode = False
 
         elif cmd == mavlink.MAV_CMD_NAV_TAKEOFF:
-            alt_cmd = min(p7, 2.0) if p7 > 0 else self.TARGET_ALT_DEFAULT
+            alt_cmd = p7 if p7 > 0 else self.TARGET_ALT_DEFAULT
             print(f"[CMD] TAKEOFF to {alt_cmd:.1f}m")
             self.armed = True
             self.in_air = True
             self.target_alt = alt_cmd
-            self._takeoff_boost_until = time.time() + self.TAKEOFF_BOOST_DURATION
+            self._alt_integral = 0.0
+            self._takeoff_start = time.time()
             self._set_waypoint(0)
-            self._send_statustext(f"TAKEOFF to {alt_cmd}m, heading to waypoint 1/5")
+            self._send_statustext(f"TAKEOFF to {alt_cmd}m, heading to waypoint 1/{len(WAYPOINTS)}")
 
         elif cmd == mavlink.MAV_CMD_NAV_LAND:
             print("[CMD] LAND")
@@ -335,11 +387,9 @@ class MavicBridge(Supervisor):
         self._send_command_ack(cmd, 0)
 
     def _send_command_ack(self, cmd, result=0):
-        if not self._gcs_addr:
-            return
         try:
             ack = self.mav.command_ack_encode(cmd, result, 0, 0, 1).pack(self.mav)
-            self.sock.sendto(ack, self._gcs_addr)
+            self._send_to_gcs(ack)
         except Exception:
             pass
 
@@ -398,8 +448,8 @@ class MavicBridge(Supervisor):
     def _body_velocities(self):
         sin_y = math.sin(self.yaw)
         cos_y = math.cos(self.yaw)
-        vx_body = self.vx * cos_y + self.vy * sin_y
-        vy_body = -self.vx * sin_y + self.vy * cos_y
+        vx_body = self.vy * cos_y + self.vx * sin_y
+        vy_body = self.vy * sin_y - self.vx * cos_y
         return vx_body, vy_body
 
     def _run_yolo(self):
@@ -435,31 +485,15 @@ class MavicBridge(Supervisor):
                 "bearing_v": bv,
             })
         self.detections = obstacles
+        self._send_detections()
 
     def _run_ppo(self):
         now = time.time()
         if now - self.last_ppo < self.PPO_INTERVAL:
             return
         self.last_ppo = now
-        self._ensure_ppo()
 
-        if self.ppo_model:
-            obs = self._build_ppo_obs().reshape(1, -1)
-            try:
-                hidden = np.tanh(obs @ self._ppo_W + self._ppo_b)
-                action = (hidden @ self._ppo_V).flatten()
-                self.ppo_action = [clamp(action[0], -3.0, 3.0),
-                                   clamp(action[1], -3.0, 3.0),
-                                   clamp(action[2], -3.0, 3.0)]
-                self.target_vx = self.ppo_action[0]
-                self.target_vy = self.ppo_action[1]
-                self.target_vz = self.ppo_action[2]
-                self.ppo_confidence = 0.85
-            except Exception as e:
-                print(f"[PPO] Inference error: {e}")
-                self._rule_based_action()
-        else:
-            self._rule_based_action()
+        self._rule_based_action()
 
     def _build_ppo_obs(self):
         W = 60.0
@@ -519,36 +553,60 @@ class MavicBridge(Supervisor):
             math.cos(drone_bearing),
         ], dtype=np.float32)
 
+    def _get_action_key(self) -> str:
+        vx, vy, vz = self.ppo_action
+        eps = 0.3
+        if abs(vx) < eps and abs(vy) < eps:
+            return "hover" if abs(vz) < 0.3 else "ascend" if vz > 0 else "descend"
+        if abs(vy) > abs(vx):
+            return "strafe_right" if vy > 0 else "strafe_left"
+        return "forward"
+
     def _rule_based_action(self):
+        vx, vy, vz = 0.0, 0.0, 0.0
+
+        # Obstacle avoidance — proportional response by distance + bearing
         nearest = None
         nearest_dist = 100.0
         for d in self.detections:
-            if d["distance"] < nearest_dist:
-                nearest_dist = d["distance"]
+            dist = d.get("distance", 100.0)
+            if dist < nearest_dist:
+                nearest_dist = dist
                 nearest = d
 
-        vx, vy, vz = 0.0, 0.0, 0.0
+        AVOID_THRESHOLD = 12.0
+        if nearest and nearest_dist < AVOID_THRESHOLD:
+            bh = nearest.get("bearing_h", 0.0)
+            # Intensity scales from 0 at threshold to 1 at 1.5m
+            intensity = clamp(1.0 - (nearest_dist - 1.5) / (AVOID_THRESHOLD - 1.5), 0.0, 1.0)
+            # Dodge laterally away from obstacle bearing, with forward bias
+            vy = clamp(-bh * 4.0 * intensity, -2.0, 2.0)
+            vx = clamp(1.5 * intensity, 0.5, 1.5)
+            vz = clamp(1.0 * intensity, 0.0, 1.0)
+            self.ppo_confidence = 0.5 + 0.4 * intensity
+            self.ppo_action = [vx, vy, vz]
+            self.target_vx, self.target_vy, self.target_vz = vx, vy, vz
+            return
 
-        if nearest and nearest_dist < 5.0:
-            bh = nearest["bearing_h"]
-            if bh > 0.1:
-                vy = -1.5
-            elif bh < -0.1:
-                vy = 1.5
-            vz = 1.0
-            vx = 0.5
-            self.ppo_confidence = 0.6
-        else:
-            vx = 1.0
-            self.ppo_confidence = 0.3
-
-        if self.in_air and self.gps_z < self.target_alt - 0.5:
-            vz = 1.5
+        # Waypoint following
+        if self.in_air and len(WAYPOINTS) > 0:
+            tx, ty = WAYPOINTS[self._waypoint_idx]
+            dx = tx - self.gps_x
+            dy = ty - self.gps_y
+            dist_wp = math.hypot(dx, dy)
+            if dist_wp > 0.5:
+                speed = clamp(dist_wp * 0.5, 0.5, 2.0)
+                # World-frame velocity toward waypoint → body frame
+                wx = dx / dist_wp * speed
+                wy = dy / dist_wp * speed
+                vx = wy * math.cos(self.yaw) + wx * math.sin(self.yaw)
+                vy = wy * math.sin(self.yaw) - wx * math.cos(self.yaw)
 
         self.ppo_action = [vx, vy, vz]
         self.target_vx = vx
         self.target_vy = vy
         self.target_vz = vz
+        self.ppo_confidence = 0.3
 
     def _run_velocity_control(self):
         vx_body, vy_body = self._body_velocities()
@@ -557,13 +615,19 @@ class MavicBridge(Supervisor):
         vy_err = self.target_vy - vy_body
         alt = self.gps_z
         alt_err = self.target_alt - alt
-        vz_err = self.target_vz - self.vz
 
         yaw_rate = self.gyro_z
-        yaw_err = -yaw_rate
+        yaw_pos_err = self.yaw_target - self.yaw
+        if yaw_pos_err > math.pi:
+            yaw_pos_err -= 2 * math.pi
+        elif yaw_pos_err < -math.pi:
+            yaw_pos_err += 2 * math.pi
 
-        pitch_cmd = clamp(self.K_VEL_P * vx_err, -self.MAX_TILT, self.MAX_TILT)
-        roll_cmd = clamp(-self.K_VEL_P * vy_err, -self.MAX_TILT, self.MAX_TILT)
+        # Cascaded yaw: outer P → target rate, inner P → torque.
+        target_yaw_rate = clamp(0.3 * yaw_pos_err, -0.5, 0.5)
+        yaw_cmd = clamp(8.0 * (target_yaw_rate - yaw_rate), -10.0, 10.0)
+        pitch_cmd = clamp(-self.K_VEL_P * vx_err - self.gyro_x * 0.3, -self.MAX_TILT, self.MAX_TILT)
+        roll_cmd = clamp(self.K_VEL_P * vy_err + self.gyro_y * 0.3, -self.MAX_TILT, self.MAX_TILT)
 
         if self.landing_mode:
             descend_rate = min(2.0, max(0.2, alt * 0.25))
@@ -576,19 +640,8 @@ class MavicBridge(Supervisor):
                 self.in_air = False
                 self.target_alt = 0.0
         else:
-            vertical_input = self.K_VERTICAL_P * alt_err
-            vertical_input -= self.K_VERTICAL_D * self.vz
-
-        # Approach throttling: reduce ascent speed when near target altitude
-        if self.in_air and alt_err < self.ALT_THROTTLE_START and alt_err > -0.1:
-            approach_frac = max(0.1, alt_err / self.ALT_THROTTLE_START)
-            max_vz = max(self.ALT_THROTTLE_MIN_VZ, approach_frac * 1.5)
-            if self.vz > max_vz:
-                vertical_input -= (self.vz - max_vz) * 5.0
-
-        if time.time() < self._takeoff_boost_until:
-            boost_elapsed = time.time() - (self._takeoff_boost_until - self.TAKEOFF_BOOST_DURATION)
-            vertical_input += self.TAKEOFF_BOOST * min(1.0, boost_elapsed / 0.5)
+            # PD altitude: P for position, D for damping. Wide range to overcome mixing spread.
+            vertical_input = clamp(8.0 * alt_err - 8.0 * self.vz, -30, 30)
 
         if not self.armed:
             for m in [self.fl_motor, self.fr_motor, self.rl_motor, self.rr_motor]:
@@ -604,54 +657,40 @@ class MavicBridge(Supervisor):
             self.rr_motor.setVelocity(idle)
             return
 
-        if abs(vx_err) > 3.0 or abs(vy_err) > 3.0:
-            pass
+        # Climb phase: force zero horizontal tilt so drone lifts straight.
+        taking_off = self.in_air and alt < 2.0 and alt < self.target_alt - 0.5
+        if taking_off:
+            yaw_cmd = 0.0
+            pitch_cmd = 0.0
+            roll_cmd = 0.0
+            self.target_vx = self.target_vy = 0.0
+            # Gradual thrust ramp over 2s to prevent asymmetric motor response.
+            t_since = time.time() - self._takeoff_start if self._takeoff_start > 0 else 2.0
+            ramp = min(1.0, t_since / 2.0)
+            vertical_input = vertical_input * ramp
 
-        # Compute motor velocities (visual)
+        # Motor mixing with yaw
         thrust_base = clamp(self.K_VERTICAL_THRUST + vertical_input, 0, self.MOTOR_MAX)
-        fl = thrust_base + pitch_cmd - roll_cmd - yaw_err * 0.1
-        fr = thrust_base + pitch_cmd + roll_cmd + yaw_err * 0.1
-        rl = thrust_base - pitch_cmd - roll_cmd + yaw_err * 0.1
-        rr = thrust_base - pitch_cmd + roll_cmd - yaw_err * 0.1
-
         mm = self.MOTOR_MAX
+        fl = thrust_base + pitch_cmd - roll_cmd + yaw_cmd
+        fr = thrust_base + pitch_cmd + roll_cmd - yaw_cmd
+        rl = thrust_base - pitch_cmd - roll_cmd - yaw_cmd
+        rr = thrust_base - pitch_cmd + roll_cmd + yaw_cmd
         self.fl_motor.setVelocity(clamp(fl, 0, mm))
         self.fr_motor.setVelocity(clamp(-fr, -mm, 0))
         self.rl_motor.setVelocity(clamp(-rl, -mm, 0))
         self.rr_motor.setVelocity(clamp(rr, 0, mm))
 
-        # Thrust: world-frame upward + horizontal from velocity error
+        # Vertical thrust assist: the Webots Propeller model produces little
+        # actual lift in this setup, so apply the computed thrust as a direct
+        # force (no horizontal/torque overlay, vertical-only in world frame).
         root = self.getSelf()
         if root:
             w_act = [self.fl_motor.getVelocity(), self.fr_motor.getVelocity(),
                      self.rl_motor.getVelocity(), self.rr_motor.getVelocity()]
             f_total = self.THRUST_CONST * sum(wi*wi for wi in map(abs, w_act))
-
-            # Cross-track drift correction: cancel velocity perpendicular to target direction
-            dlat = self.target_lat - self.gps_lat
-            dlon = self.target_lon - self.gps_lon
-            target_de = dlon * 111320.0 * math.cos(math.radians(self.gps_lat))
-            target_dn = dlat * 111320.0
-            target_dist = math.hypot(target_de, target_dn) + 1e-6
-            # unit vector toward target
-            ux = target_de / target_dist
-            uy = target_dn / target_dist
-            # velocity along track and cross track
-            v_along = self.vx * ux + self.vy * uy
-            v_cross = -self.vx * uy + self.vy * ux
-            # drift correction: push against cross-track velocity
-            drift_force = clamp(-4.0 * v_cross, -8, 8)
-            fx_drift = -drift_force * uy
-            fy_drift = drift_force * ux
-
-            fx = clamp(self.K_VEL_XY * (self.target_vx - self.vx), -15, 15) + fx_drift
-            fy = clamp(self.K_VEL_XY * (self.target_vy - self.vy), -15, 15) + fy_drift
-            root.addForce([fx, fy, f_total], False)
-            # Visual torque: tilt based on velocity error + yaw stabilization
-            tx = clamp(self.K_TILT * (self.target_vy - self.vy), -8, 8)  # roll from lateral
-            ty = clamp(-self.K_TILT * (self.target_vx - self.vx), -8, 8) # pitch from forward
-            tz = clamp(-3.0 * self.gyro_z, -5, 5)                         # yaw damping
-            root.addTorque([tx, ty, tz], True)
+            # World-frame vertical lift only — double-counts with Propeller tilt thrust.
+            root.addForce([0.0, 0.0, f_total], False)
 
     def _run_nlp(self):
         now = time.time()
@@ -661,7 +700,8 @@ class MavicBridge(Supervisor):
 
         expl = self.nlp.explain_action(
             self.ppo_action[0], self.ppo_action[1],
-            self.ppo_action[2], self.detections, self.gps_z
+            self.ppo_action[2], self.detections, self.gps_z,
+            action_key=self._get_action_key()
         )
         if expl != self.nlp_explanation:
             self.nlp_explanation = expl
@@ -684,11 +724,29 @@ class MavicBridge(Supervisor):
                     MAV_TYPE_QUADROTOR, MAV_AUTOPILOT_GENERIC,
                     base_mode, self.flight_mode, system_status
                 ).pack(self.mav)
-                if self._gcs_addr:
-                    self.sock.sendto(hb, self._gcs_addr)
+                self._send_to_gcs(hb)
             except Exception:
                 pass
             self.last_heartbeat = now
+
+    def _send_to_gcs(self, pkt: bytes):
+        descs = []
+        if self._gcs_addr:
+            try:
+                self.sock.sendto(pkt, self._gcs_addr)
+                descs.append("gcs")
+            except Exception:
+                pass
+        try:
+            self.sock.sendto(pkt, ("127.0.0.1", 14552))
+            descs.append("pc3")
+        except Exception:
+            pass
+        try:
+            self._qgc_sock.sendto(pkt, ("127.0.0.1", 14550))
+            descs.append("qgc")
+        except Exception:
+            pass
 
     def _send_telemetry(self):
         now = time.time()
@@ -698,37 +756,51 @@ class MavicBridge(Supervisor):
             alt_mm = int(self.gps_alt * 1000)
             rel_alt_mm = int(self.gps_z * 1000)
             hdg_deg = (math.degrees(self.yaw) % 360)
+            boot_ms = int((now - self._start_time) * 1000) & 0xFFFFFFFF
 
             try:
                 gps_raw = self.mav.gps_raw_int_encode(
                     0, 3, lat_int, lon_int, alt_mm,
                     0, 0, 0, 0, 10
                 ).pack(self.mav)
-                self.sock.sendto(gps_raw, self._gcs_addr)
+                self._send_to_gcs(gps_raw)
 
                 vx_cm = int(self.vx * 100)
                 vy_cm = int(self.vy * 100)
                 vz_cm = int(-self.vz * 100)
 
                 gpi = self.mav.global_position_int_encode(
-                    int(now * 1000), lat_int, lon_int, alt_mm,
+                    boot_ms, lat_int, lon_int, alt_mm,
                     rel_alt_mm, vx_cm, vy_cm, vz_cm, int(hdg_deg * 100)
                 ).pack(self.mav)
-                self.sock.sendto(gpi, self._gcs_addr)
+                self._send_to_gcs(gpi)
 
                 att = self.mav.attitude_encode(
-                    int(now * 1000), self.roll, self.pitch, self.yaw,
+                    boot_ms, self.roll, self.pitch, self.yaw,
                     self.gyro_x, self.gyro_y, self.gyro_z
                 ).pack(self.mav)
-                self.sock.sendto(att, self._gcs_addr)
+                self._send_to_gcs(att)
 
                 vfr = self.mav.vfr_hud_encode(
                     0, 0, hdg_deg, 50, self.gps_z, 0
                 ).pack(self.mav)
-                self.sock.sendto(vfr, self._gcs_addr)
+                self._send_to_gcs(vfr)
             except Exception:
                 pass
             self.last_telemetry = now
+
+    def _send_detections(self):
+        if not self.detections:
+            return
+        try:
+            payload = json.dumps({
+                "ts": time.time(),
+                "count": len(self.detections),
+                "items": self.detections[:10],
+            }).encode()
+            self._det_sock.send(payload)
+        except Exception:
+            pass
 
     def _set_waypoint(self, idx):
         if idx >= len(WAYPOINTS):
@@ -738,14 +810,16 @@ class MavicBridge(Supervisor):
         self.target_lon = REF_LON + tx / (111320.0 * math.cos(math.radians(REF_LAT)))
         self._waypoint_idx = idx
         self._wp_sent_feedback = False
+        self.yaw_target = math.atan2(tx - self.gps_x, ty - self.gps_y)
+        self.yaw_integral = 0.0
 
     def _send_statustext(self, text, severity=6):
-        if not self._gcs_addr:
+        if not text:
             return
         try:
             encoded = text.encode("utf-8", errors="replace")[:50]
             pkt = self.mav.statustext_encode(severity, encoded).pack(self.mav)
-            self.sock.sendto(pkt, self._gcs_addr)
+            self._send_to_gcs(pkt)
         except Exception:
             pass
 
@@ -768,37 +842,41 @@ class MavicBridge(Supervisor):
             self._update_sensors()
             self._recv_mavlink()
 
-            if self.armed or self._takeoff_boost_until > now:
+            if self.armed:
                 self._run_yolo()
                 self._run_ppo()
 
-                # Waypoint progression
+                # Waypoint progression with zone awareness
                 if self.in_air and len(WAYPOINTS) > 0:
                     tx, ty = WAYPOINTS[self._waypoint_idx]
-                    dx_wp = abs(self.gps_x - tx)
-                    dy_wp = abs(self.gps_y - ty)
-                    if dx_wp < WAYPOINT_RADIUS and dy_wp < WAYPOINT_RADIUS:
+                    dist_wp = math.hypot(self.gps_x - tx, self.gps_y - ty)
+                    if dist_wp < WAYPOINT_RADIUS:
                         if not self._wp_sent_feedback:
+                            zone_name = _zone_name(self._waypoint_idx)
                             self._send_statustext(
-                                f"Waypoint {self._waypoint_idx+1}/{len(WAYPOINTS)} reached "
-                                f"(±{dx_wp:.1f},{dy_wp:.1f}m)"
+                                f"Waypoint {self._waypoint_idx+1}/{len(WAYPOINTS)} "
+                                f"({zone_name}) reached"
                             )
                             self._wp_sent_feedback = True
                         # Advance to next waypoint
                         nxt = (self._waypoint_idx + 1) % len(WAYPOINTS)
                         if nxt != self._waypoint_idx:
+                            print(f"[WP] ADVANCE {self._waypoint_idx} → {nxt}")
                             self._set_waypoint(nxt)
+                            zone_name = _zone_name(nxt)
                             self._send_statustext(
-                                f"Navigating to waypoint {nxt+1}/{len(WAYPOINTS)}"
+                                f"→ Navigating to waypoint {nxt+1}/{len(WAYPOINTS)} "
+                                f"({zone_name})"
                             )
 
-                # Obstacle avoidance feedback (throttled)
+                # Obstacle avoidance feedback (throttled) — richer detail
                 if self.in_air:
                     for d in self.detections[:1]:
                         dist = d.get("distance", 100.0)
-                        if dist < 6.0 and now - getattr(self, "_last_obs_fb", 0) > 3.0:
+                        if dist < 8.0 and now - getattr(self, "_last_obs_fb", 0) > 2.0:
+                            zone = _current_zone_name(self.gps_x)
                             self._send_statustext(
-                                f"Avoiding {d['class_name']} at {dist:.1f}m"
+                                f"[{zone}] {d['class_name']} at {dist:.1f}m — avoiding"
                             )
                             self._last_obs_fb = now
 
@@ -830,14 +908,16 @@ class MavicBridge(Supervisor):
                 except:
                     pass
                 cp = self.cam_pitch.getTargetPosition() if self.cam_pitch else 0
+                yaw_deg = math.degrees(self.yaw)
                 print(f"[BRIDGE] armed={self.armed} air={self.in_air} "
                       f"alt={self.gps_z:.2f}/{self.target_alt:.1f} "
                       f"pos=[{self.gps_x:.1f} {self.gps_y:.1f}] "
                       f"vel=[{self.vx:.2f} {self.vy:.2f} {self.vz:.2f}] "
+                      f"yaw={yaw_deg:.0f} "
+                      f"wp={self._waypoint_idx+1}/{len(WAYPOINTS)} "
                       f"mot=[{mv[0]:.0f} {mv[1]:.0f} {mv[2]:.0f} {mv[3]:.0f}]"
                       f" cam_pitch={cp:.2f}"
                       f" ppo=[{pa[0]:.2f} {pa[1]:.2f} {pa[2]:.2f}]"
-                      f" view=[{view_pos}] rot=[{view_rot}]"
                       f"{det_str}")
                 last_status = now
 

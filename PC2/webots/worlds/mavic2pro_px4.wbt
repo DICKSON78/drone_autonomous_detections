@@ -25,7 +25,7 @@ DEF _ WorldInfo {
   basicTimeStep 8
   defaultDamping Damping {
     linear 0.5
-    angular 0.5
+    angular 0.01
   }
 }
 DEF MAIN_VIEW Viewpoint {
@@ -46,16 +46,16 @@ Floor {
   }
 }
 Road {
-  translation -43.8 9.2 0.01
-  rotation 0 0 1 -0.3927
-  width 3
+  translation -5 -5 0.01
+  rotation 0 0 1 0
+  width 4
   numberOfLanes 1
   rightBorder FALSE
   leftBorder FALSE
   wayPoints [
     0 0 0
-    100 0 0
-    200 200 0
+    80 0 0
+    100 25 0
   ]
   splineSubdivision 8
   appearance Pavement {
@@ -176,6 +176,94 @@ Forest {
   maxRadius 6
   minRadius 3
 }
+
+# ===== ZONE B — Road Obstacle Course =====
+# Traffic cones blocking the road — drone must detect & avoid
+TrafficCone {
+  translation 38 -5 0
+  name "zb_cone1"
+}
+TrafficCone {
+  translation 42 -6 0
+  name "zb_cone2"
+}
+TrafficCone {
+  translation 46 -4 0
+  name "zb_cone3"
+}
+TrafficCone {
+  translation 50 -6 0
+  name "zb_cone4"
+}
+TrafficCone {
+  translation 55 -4 0
+  name "zb_cone5"
+}
+
+# Cardboard boxes on/near the road
+CardboardBox {
+  translation 44 -7 0.3
+  rotation 0 0 1 0.5
+  name "zb_box1"
+}
+CardboardBox {
+  translation 52 -3 0.3
+  rotation 0 0 1 -0.8
+  name "zb_box2"
+}
+CardboardBox {
+  translation 60 -5 0.3
+  rotation 0 0 1 0.3
+  name "zb_box3"
+}
+
+# Tesla parked on the road in Zone B
+TeslaModel3Simple {
+  translation 65 -3.5 0.31
+  rotation 0 0 1 -1.5708
+  name "zb_tesla"
+}
+
+# More cones on the curve entering Zone B
+TrafficCone {
+  translation 72 5 0
+  name "zb_cone6"
+}
+TrafficCone {
+  translation 78 12 0
+  name "zb_cone7"
+}
+TrafficCone {
+  translation 84 18 0
+  name "zb_cone8"
+}
+
+# Box at end of road
+CardboardBox {
+  translation 88 22 0.3
+  rotation 0 0 1 1.2
+  name "zb_box4"
+}
+
+# Pines as boundary markers for Zone B
+Pine {
+  translation 35 -10 0
+  name "zb_pine1"
+}
+Pine {
+  translation 65 -10 0
+  name "zb_pine2"
+}
+Pine {
+  translation 80 30 0
+  name "zb_pine3"
+}
+Pine {
+  translation 30 10 0
+  name "zb_pine4"
+}
+
+# ===== END ZONE B =====
 Mavic2Pro {
   translation 0 0 0.5
   rotation -0.0018273642989068096 0.0006333165374266473 0.9999981298231926 -3.1142226276225933

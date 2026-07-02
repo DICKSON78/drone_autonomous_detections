@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Control and Monitoring Panel</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div id="splash">
+  <div class="splash-inner">
+    <div class="splash-icon">
+      <div class="splash-outer-ring"></div>
+      <div class="splash-inner-ring"></div>
+      <div class="splash-core"></div>
+      <div class="splash-sweep"></div>
+    </div>
+    <div class="splash-title">Control and Monitoring Panel</div>
+    <div class="splash-sub">PC3 Drone Command Center</div>
+    <div class="splash-bar-w"><div class="splash-bar-fill" id="splashBar"></div></div>
+    <div class="splash-status" id="splashStatus">Initializing systems...</div>
+  </div>
+</div>
+
+<div class="titlebar" id="titlebar">
+  <div class="titlebar-drag">
+    <span class="tb-icon">◈</span>
+    <span class="tb-title">Control and Monitoring Panel</span>
+    <span class="tb-badge">v1.0</span>
+  </div>
+  <div class="tb-controls">
+    <button class="tb-btn" onclick="window.electronAPI?.minimize()">─</button>
+    <button class="tb-btn" id="maxBtn" onclick="window.electronAPI?.maximize()">□</button>
+    <button class="tb-btn tb-close" onclick="window.electronAPI?.close()">✕</button>
+  </div>
+</div>
+
+<div class="shell">
+  <nav class="sidebar">
+    <div class="nav-item active" data-view="dashboard" onclick="switchView('dashboard')" title="Dashboard">
+      <span class="nav-icon">◈</span><span class="nav-label">Dashboard</span>
+    </div>
+    <div class="nav-item" data-view="radar" onclick="switchView('radar')" title="Radar">
+      <span class="nav-icon">⌖</span><span class="nav-label">Radar</span>
+    </div>
+    <div class="nav-item" data-view="agent" onclick="switchView('agent')" title="Voice Agent">
+      <span class="nav-icon">◆</span><span class="nav-label">Agent</span>
+    </div>
+    <div class="nav-item" data-view="services" onclick="switchView('services')" title="Services">
+      <span class="nav-icon">⚙</span><span class="nav-label">Services</span>
+    </div>
+    <div class="nav-item" data-view="map" onclick="switchView('map')" title="Map">
+      <span class="nav-icon">⊕</span><span class="nav-label">Map</span>
+    </div>
+    <div class="nav-item" data-view="history" onclick="switchView('history')" title="History">
+      <span class="nav-icon">⏱</span><span class="nav-label">History</span>
+    </div>
+  </nav>
+
+  <main class="content">
+
+    <!-- ═══ DASHBOARD ═══ -->
+    <section id="view-dashboard" class="view active">
+      <div class="vh"><h1>Dashboard</h1><span class="vh-badge">DATA STREAM</span></div>
+      <div class="dash-row">
+        <div class="card telem-card">
+          <div class="c-title">Telemetry</div>
+          <div class="telem-grid">
+            <div class="t-item"><span class="t-lbl">Link</span><span class="t-val" id="d-conn">—</span></div>
+            <div class="t-item"><span class="t-lbl">Armed</span><span class="t-val" id="d-arm">✗</span></div>
+            <div class="t-item"><span class="t-lbl">In Air</span><span class="t-val" id="d-air">✗</span></div>
+            <div class="t-item"><span class="t-lbl">Altitude</span><span class="t-val" id="d-alt">0.0 m</span></div>
+            <div class="t-item"><span class="t-lbl">Heading</span><span class="t-val" id="d-head">0°</span></div>
+            <div class="t-item"><span class="t-lbl">Speed</span><span class="t-val" id="d-speed">0.0 m/s</span></div>
+            <div class="t-item"><span class="t-lbl">Battery</span><span class="t-val" id="d-bat">100%</span></div>
+            <div class="t-item"><span class="t-lbl">GPS</span><span class="t-val" id="d-gps">—</span></div>
+            <div class="t-item"><span class="t-lbl">Waypoint</span><span class="t-val" id="d-wp">0</span></div>
+          </div>
+        </div>
+        <div class="card alt-card">
+          <div class="c-title">Altitude</div>
+          <div class="alt-w"><div class="alt-bar" id="altBar"><div class="alt-fill" id="altFill"></div></div><span class="alt-v" id="altV">0.0</span><span class="alt-u">m</span></div>
+        </div>
+        <div class="card comp-card">
+          <div class="c-title">Heading</div>
+          <div class="comp-w"><div class="compass" id="compass"><span class="c-n">N</span><span class="c-e">E</span><span class="c-s">S</span><span class="c-w">W</span><div class="c-needle" id="cNeedle">▲</div></div><span class="c-deg" id="cDeg">0°</span></div>
+        </div>
+      </div>
+      <div class="dash-row">
+        <div class="card qa-card">
+          <div class="c-title">Quick Actions</div>
+          <div class="qa-grid">
+            <button class="qbtn qb-pri" onclick="cmd('take off to 10 meters')"><span class="qb-icon">⬆</span> Take Off</button>
+            <button class="qbtn qb-dng" onclick="cmd('land')"><span class="qb-icon">⬇</span> Land</button>
+            <button class="qbtn qb-wrn" onclick="cmd('return to launch')"><span class="qb-icon">⌂</span> RTL</button>
+            <button class="qbtn" onclick="cmd('hover')"><span class="qb-icon">⏸</span> Hover</button>
+            <button class="qbtn qb-pri" onclick="cmd('arm')"><span class="qb-icon">⚡</span> Arm</button>
+            <button class="qbtn qb-dng" onclick="cmd('disarm')"><span class="qb-icon">⊘</span> Disarm</button>
+          </div>
+        </div>
+        <div class="card mini-chart-card">
+          <div class="c-title">Altitude (last 60s)</div>
+          <canvas id="miniChart" width="300" height="100"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ RADAR ═══ -->
+    <section id="view-radar" class="view">
+      <div class="vh"><h1>Radar</h1><span class="vh-badge">PPI SCAN</span></div>
+      <div class="radar-w"><canvas id="radarCanvas"></canvas></div>
+    </section>
+
+    <!-- ═══ AGENT ═══ -->
+    <section id="view-agent" class="view">
+      <div class="vh"><h1>AI Agent</h1><span class="vh-badge">JARVINS</span></div>
+      <div class="agent-tabs">
+        <button class="atab active" data-atab="text" onclick="switchAgentTab('text')"><span class="qb-icon">◆</span> Text</button>
+        <button class="atab" data-atab="jarvins" onclick="switchAgentTab('jarvins')"><span class="qb-icon">◈</span> Jarvins</button>
+      </div>
+      <div class="agent-panels">
+        <div class="apanel active" id="apanel-text">
+          <div class="agent-msgs" id="agentMsgs">
+            <div class="a-msg info">Say something or type a command.</div>
+          </div>
+          <div class="agent-bar">
+            <button class="a-mic" id="aMicBtn" onclick="toggleMic()"><span class="qb-icon">🎤</span></button>
+            <input class="a-inp" id="aInp" placeholder="e.g. take off to 20m, rudi nyumbani..." onkeydown="if(event.key==='Enter')sendMsg()">
+            <button class="a-snd" onclick="sendMsg()"><span class="qb-icon">➤</span></button>
+          </div>
+        </div>
+        <div class="apanel" id="apanel-jarvins">
+          <div class="agent-holobox" id="holobox">
+            <canvas id="holoCanvas"></canvas>
+            <div class="agent-status" id="agentStatus">STANDBY</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ SERVICES ═══ -->
+    <section id="view-services" class="view">
+      <div class="vh"><h1>Services</h1><span class="vh-badge">SYSTEM STATUS</span></div>
+      <div class="svc-grid" id="svcGrid"></div>
+    </section>
+
+    <!-- ═══ MAP ═══ -->
+    <section id="view-map" class="view">
+      <div class="vh"><h1>Map</h1><span class="vh-badge">GPS TRACK</span></div>
+      <div class="map-w"><div class="map-inner" id="mapInner"><canvas id="mapCanvas"></canvas><div class="map-info" id="mapInfo">Waiting for GPS...</div></div></div>
+    </section>
+
+    <!-- ═══ HISTORY ═══ -->
+    <section id="view-history" class="view">
+      <div class="vh"><h1>Flight History</h1><span class="vh-badge">TELEMETRY LOG</span></div>
+      <div class="hist-w">
+        <div class="card"><div class="c-title">Altitude</div><canvas id="histAlt" height="150"></canvas></div>
+        <div class="card"><div class="c-title">Speed</div><canvas id="histSpeed" height="150"></canvas></div>
+        <div class="card"><div class="c-title">Battery</div><canvas id="histBat" height="150"></canvas></div>
+        <div class="card"><div class="c-title">Events</div><div id="eventsLog" class="evt-log"></div></div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
