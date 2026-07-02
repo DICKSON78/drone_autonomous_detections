@@ -17,7 +17,7 @@ COPY requirements.txt .
 RUN pip install --default-timeout=1000 --no-cache-dir -r requirements.txt
 
 # Copy application code
-COPY feedback.py tts_engine.py audio_manager.py message_queue.py ./
+COPY feedback.py tts_engine.py audio_manager.py message_queue.py nlg_generator.py ./
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
